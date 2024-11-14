@@ -1,0 +1,1 @@
+wget https://rawtherapee.com/shared/builds/linux/RawTherapee_5.9.AppImage
