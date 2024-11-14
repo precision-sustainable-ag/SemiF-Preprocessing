@@ -1,0 +1,19 @@
+# Hydra defaults and settings. Ignore these (don't change)
+defaults:
+  - _self_
+  
+batch_id: ???
+tasks:
+  # - copy_from_lockers
+  - raw2dng
+
+copy_from_lockers:
+  raw_extension: .RAW # either .RAW or .ARW
+
+paths:
+  workdir: ${hydra:runtime.cwd}  # where the code is executed
+  primary_nfs: /mnt/research-projects/s/screberg/longterm_images2/semifield-upload
+  local_upload: ${paths.workdir}/temp_data/semifield-upload/
+  semif_developed: ${paths.workdir}/temp_data/semifield-developed-images/
+  
+job_now_date: &nowdir ${now:%Y-%m-%d}
