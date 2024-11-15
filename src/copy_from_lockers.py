@@ -29,13 +29,7 @@ def copy_from_lockers_in_parallel(src_dir, dest_dir, max_workers=12, raw_extensi
     log.info(f"Copying raw image files with extension {raw_extension}")
     # Collect all ARW file paths
     raw_files = list(Path(src_dir).glob(f"*{raw_extension}"))
-
-    checked_raw_files = []
-    for raw_file in raw_files:
-        if os.path.getsize(raw_file) > 0:
-            checked_raw_files.append(raw_file)
-        else:
-            log.warning(f"Skipping empty file: {raw_file}")
+    
     log.info(f"Copying {len(raw_files)} raw image files from {src_dir} to {dest_dir}")
     
     # Use ThreadPoolExecutor for parallel copying
