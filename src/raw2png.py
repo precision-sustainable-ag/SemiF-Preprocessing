@@ -40,16 +40,13 @@ def process_image(raw_file, im_height, im_width, bit_depth, output_dir):
 
     # Convert image data to the appropriate bit depth and integer format for color conversion
     if bit_depth == 8:
-        bgr_colour_image = (image_data * 255).astype(np.uint8)
+        image_data = (image_data * 255).astype(np.uint8)
     else:
-        bgr_colour_image = (image_data * 65535).astype(np.uint16)
-
-    # Perform color conversion (needs integer image)
-    bgr_colour_image = cv2.cvtColor(bgr_colour_image, cv2.COLOR_RGB2BGR)
+        image_data = (image_data * 65535).astype(np.uint16)
     
     # Save the image
     output_file = output_dir / f"{raw_file.stem}_{bit_depth}bit.png"
-    cv2.imwrite(str(output_file), bgr_colour_image, [cv2.IMWRITE_PNG_COMPRESSION, 1])
+    cv2.imwrite(str(output_file), image_data, [cv2.IMWRITE_PNG_COMPRESSION, 1])
     print(f"Saved image to {output_file} with {bit_depth}-bit depth")
 
 def parse_arguments():
