@@ -38,17 +38,11 @@ def process_image(raw_file, im_height, im_width, bit_depth, output_dir):
     org_reshaped = nparray.reshape((im_height, im_width))
     image_data = org_reshaped.astype(np.float32) / 65535.
 
-    # Apply color demosaicing
-    colour_image_gamma_adjusted = demosaicing_CFA_Bayer_bilinear(image_data, pattern="RGGB")
-    
-    # Clip data
-    colour_image_gamma_adjusted = np.clip(colour_image_gamma_adjusted, 0, 1)
-
     # Convert image data to the appropriate bit depth and integer format for color conversion
     if bit_depth == 8:
-        bgr_colour_image = (colour_image_gamma_adjusted * 255).astype(np.uint8)
+        bgr_colour_image = (image_data * 255).astype(np.uint8)
     else:
-        bgr_colour_image = (colour_image_gamma_adjusted * 65535).astype(np.uint16)
+        bgr_colour_image = (image_data * 65535).astype(np.uint16)
 
     # Perform color conversion (needs integer image)
     bgr_colour_image = cv2.cvtColor(bgr_colour_image, cv2.COLOR_RGB2BGR)
@@ -81,7 +75,7 @@ def main():
     print(f"Found {len(raw_files)} files in the directory")
     raw_files = select_raw_files(raw_files, args.selection_mode, args.sample_number)
     print(f"Selected {len(raw_files)} files for processing")
-    
+
     im_height = 9528
     im_width = 13376
 
