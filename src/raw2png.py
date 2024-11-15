@@ -36,17 +36,10 @@ def select_raw_files(raw_files, selection_mode, sample_number):
 def process_image(raw_file, im_height, im_width, bit_depth, output_dir):
     nparray = np.fromfile(raw_file, dtype=np.uint16).astype(np.uint16)
     org_reshaped = nparray.reshape((im_height, im_width))
-    image_data = org_reshaped.astype(np.float32) / 65535.
-
-    # Convert image data to the appropriate bit depth and integer format for color conversion
-    if bit_depth == 8:
-        image_data = (image_data * 255).astype(np.uint8)
-    else:
-        image_data = (image_data * 65535).astype(np.uint16)
-    
+  
     # Save the image
     output_file = output_dir / f"{raw_file.stem}_{bit_depth}bit.png"
-    cv2.imwrite(str(output_file), image_data, [cv2.IMWRITE_PNG_COMPRESSION, 1])
+    cv2.imwrite(str(output_file), org_reshaped, [cv2.IMWRITE_PNG_COMPRESSION, 1])
     print(f"Saved image to {output_file} with {bit_depth}-bit depth")
 
 def parse_arguments():
