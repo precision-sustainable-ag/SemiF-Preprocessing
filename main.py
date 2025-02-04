@@ -1,14 +1,20 @@
-import sys
-from pathlib import Path
-import getpass
 import logging
-
-# Add the src directory to the PYTHONPATH
-sys.path.append(str(Path(__file__).resolve().parent / "src"))
-
 import hydra
-from omegaconf import DictConfig, OmegaConf
-from hydra.utils import get_method
+from omegaconf import DictConfig
+from omegaconf import OmegaConf  # Do not confuse with dataclass.MISSING
+
+# Import the task functions
+from src.copy_from_lockers import main as copy_from_lockers
+
+
+log = logging.getLogger(__name__)
+
+# Define a registry of tasks
+TASK_REGISTRY = {
+    "copy_from_lockers": copy_from_lockers,
+    # Add more tasks here as needed
+}
+
 
 log = logging.getLogger(__name__)
 # Get the logger for the Azure SDK
@@ -19,9 +25,8 @@ def main(cfg: DictConfig) -> None:
     log.info(f"Starting task {','.join(cfg.tasks)}")
     
     for tsk in cfg.tasks:
-        try:
-            task = get_method(f"{tsk}.main")
-            task(cfg)
+        try:            
+            TASK_REGISTRY[tsk](cfg)
 
         except Exception as e:
             log.exception("Failed")

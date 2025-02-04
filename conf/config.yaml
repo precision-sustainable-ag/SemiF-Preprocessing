@@ -1,19 +1,37 @@
 # Hydra defaults and settings. Ignore these (don't change)
 defaults:
   - _self_
-  
+  - paths: default
+
+hydra:
+  run:
+    dir: ${hydra:runtime.cwd}/outputs/${job_now_date}/${job_now_time}
+  # output_subdir: outputs/${project_name}/${job_now_date}/${job_now_time}
+
+
 batch_id: ???
 tasks:
-  # - copy_from_lockers
-  - raw2dng
+  - copy_from_lockers
+  # - demosaic
+  # - raw2dng
+
 
 copy_from_lockers:
-  raw_extension: .RAW # either .RAW or .ARW
+  raw_extension: .ARW # either .RAW or .ARW
 
-paths:
-  workdir: ${hydra:runtime.cwd}  # where the code is executed
-  primary_nfs: /mnt/research-projects/s/screberg/longterm_images2/semifield-upload
-  local_upload: ${paths.workdir}/temp_data/semifield-upload/
-  semif_developed: ${paths.workdir}/temp_data/semifield-developed-images/
-  
+# Configuration for ImagePipeline
+max_workers: 4  # Number of threads for concurrent processing
+
+# BBOT version: affects raw image extension
+bbot_version: 3.1  # Set to 3.1 for .RAW or other for .ARW
+
+# Pipeline stages
+# develop_images: true  # Whether to run the image development stage
+# weed_detection: true  # Whether to run the weed detection stage
+# fix_access_rights: true  # Whether to update access rights on output files
+# backup_and_delete_local_raw_data: true  # Whether to move raw data to NFS and delete locally
+# backup_and_delete_local_output_data: true  # Whether to move output data to NFS and delete locally
+
 job_now_date: &nowdir ${now:%Y-%m-%d}
+job_now_time: &nowtime ${now:%H-%M-%S}
+
