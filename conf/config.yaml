@@ -1,19 +1,21 @@
 # Hydra defaults and settings. Ignore these (don't change)
 defaults:
   - _self_
+  - paths: default
+  - override hydra/job_logging: custom
   
-batch_id: ???
+batch_id: NC_2025-01-13
 tasks:
   # - copy_from_lockers
   - raw2dng
 
-copy_from_lockers:
-  raw_extension: .RAW # either .RAW or .ARW
+file_masks:
+  raw_files:
+    - .RAW
+    - .raw
 
-paths:
-  workdir: ${hydra:runtime.cwd}  # where the code is executed
-  primary_nfs: /mnt/research-projects/s/screberg/longterm_images2/semifield-upload
-  local_upload: ${paths.workdir}/temp_data/semifield-upload/
-  semif_developed: ${paths.workdir}/temp_data/semifield-developed-images/
+
+#copy_from_lockers:
+#  raw_extension: .RAW # either .RAW or .ARW
   
 job_now_date: &nowdir ${now:%Y-%m-%d}
