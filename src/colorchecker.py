@@ -1,10 +1,7 @@
 import cv2
 import logging
 import numpy as np
-import os
-
 from pathlib import Path
-
 from omegaconf import DictConfig
 
 log = logging.getLogger(__name__)
@@ -12,22 +9,28 @@ log = logging.getLogger(__name__)
 
 class ColorChecker:
     def __init__(self, cfg: DictConfig):
+        """
+        Class constructor
+        """
         self.cfg = cfg
         self.batch_id = self.cfg.batch_id
         self.raw_files_mask = self.cfg.file_masks.raw_files
         self.task_cfg = self.cfg.colorchecker
+        self.uploads_folder = None
 
     def list_raw_images(self):
+        """
+        Method to list all raw images available in the batch
+        """
         # todo: @jinamshah
         #   lts vs local vs both
-        uploads_folder = None
         # for path in self.cfg.paths.lts_locations:
         #     semif_uploads = os.path.join(path, "semif-uploads")
         #     batch_ids = [x.name for x in Path(semif_uploads).glob("*")]
         #     if self.batch_id in batch_ids:
         #         uploads_folder = Path(semif_uploads) / self.batch_id
         #         break
-        if not uploads_folder:
+        if not self.uploads_folder:
             uploads_folder = (Path(self.cfg.paths.data_dir) / 'semif-uploads' /
                               self.batch_id)
             # log.error(f"{self.batch_id} doesn't exist")
@@ -35,17 +38,25 @@ class ColorChecker:
         for file_mask in self.raw_files_mask:
             raw_files.extend(list(uploads_folder.glob(f"*{file_mask}")))
         return raw_files
-        # log.info(f"Found {len(raw_files)} raw images in {uploads_folder}")
 
     @staticmethod
-    def preprocess_raw_image(image_path: str, height: int, width: int) -> np.ndarray:
+    def preprocess_raw_image(image_path: str, height: int,
+                             width: int) -> np.ndarray:
+        """
+        Method to convert and reshape raw image
+        Args:
+            image_path (str): Path to the image
+            height (int): Height of the image
+            width (int): Width of the image
+        Returns:
+            raw_image (np.ndarray): Preprocessed image
+        """
         raw_image = np.fromfile(image_path, dtype=np.uint16).astype(np.uint16)
-        # raw_image = raw_image.reshape((height, width))
         raw_image = raw_image.reshape(height, width)
         return raw_image
 
     @staticmethod
-    def color_checker_exists(raw_image: np.ndarray) -> (bool,np.ndarray):
+    def color_checker_exists(raw_image: np.ndarray) -> (bool, np.ndarray):
         """
         Expects numpy array of raw image (resized using height, width).
         Looks for color correction module in the image,
@@ -57,11 +68,9 @@ class ColorChecker:
             bgr_image (np.ndarray): bgr image
         """
         try:
-        # self.task_cfg.gamma
             bgr_image = cv2.cvtColor(raw_image, cv2.COLOR_BayerBG2BGR)
             bgr_image = (bgr_image / 256).astype(np.uint8)
             ccm_detector = cv2.mcc.CCheckerDetector.create()
-            # color_checker_exists = ccm_detector.getListColorChecker()
             color_checker_exists = ccm_detector.process(bgr_image,
                                                         cv2.ccm.COLORCHECKER_Macbeth,
                                                         1)
@@ -71,12 +80,14 @@ class ColorChecker:
             log.error(e)
             return False, None
 
-    def process_ccm_image(self,
+    @staticmethod
+    def process_ccm_image(gamma: int,
                           ccm_bgr_img: np.ndarray) -> cv2.ccm.ColorCorrectionModel:
         """
         Generate a color correction model for
         an image where a ColorChecker chart has been detected.
         Args:
+            gamma (int): Gamma of the image
             ccm_bgr_img (np.ndarray): Input BGR image containing
             a ColorChecker chart.
         Returns:
@@ -88,7 +99,7 @@ class ColorChecker:
         ccm_detector = cv2.mcc.CCheckerDetector.create()
         ccm_detector.process(ccm_bgr_img, cv2.ccm.COLORCHECKER_Macbeth, 1)
 
-        # Get the list of detected ColorCheckers
+        # Get the list of detected ColorCheckers in the image
         color_checkers = ccm_detector.getListColorChecker()
 
         # Validate that exactly one ColorChecker is detected
@@ -111,7 +122,7 @@ class ColorChecker:
         ccm_model.setCCM_TYPE(cv2.ccm.CCM_3x3)
         ccm_model.setInitialMethod(cv2.ccm.INITIAL_METHOD_LEAST_SQUARE)
         ccm_model.setLinear(cv2.ccm.LINEARIZATION_GAMMA)
-        ccm_model.setLinearGamma(self.task_cfg.ccm_gamma)
+        ccm_model.setLinearGamma(gamma)
         ccm_model.setLinearDegree(3)
 
         # Run the model to compute the CCM
@@ -120,19 +131,25 @@ class ColorChecker:
 
         # Clean up resources
         del ccm_detector, ccm_bgr_img
-
         return ccm_model
 
-def adjust_gamma(image, gamma=1.0):
-    # build a lookup table mapping the pixel values [0, 65535] to
-    # their adjusted gamma values
-    inv_gamma = 1.0 / gamma
-    table = ((np.arange(0, 65536.0) / 65535.0) ** inv_gamma) * 65535.0
-    # Ensure table is 16-bit
-    table = table.astype(np.uint16)
+    def save_ccm(self, ccm_model: cv2.ccm.ColorCorrectionModel, img_name: str):
+        """
+        Save a color correction model to a file.
+        Args:
+            ccm_model (cv2.ccm.ColorCorrectionModel): The color correction model.
+            img_name (str): The image file name that has the color checker
+            module.
+        Returns:
+            filename (str): The filename to save the model to.
+        """
+        ccm = ccm_model.getCCM()
+        ccm.astype(np.float32)
 
-    # Now just index into this with the intensities to get the output
-    return table[image]
+        filename = self.uploads_folder / f"{img_name}.csv"
+        np.genfromtxt(filename, delimiter=',')
+        return filename
+
 
 def main(cfg: DictConfig) -> None:
     """
@@ -141,8 +158,6 @@ def main(cfg: DictConfig) -> None:
     2. Preprocess raw images (using np)
     3. Detect color checkers
     """
-    # todo: @jinamshah
-    #   multiprocessing?
     log.info(f"Detecting color checkers for {cfg.batch_id} and saving color "
              f"correction matrix/matrices")
     colorchecker = ColorChecker(cfg)
@@ -159,43 +174,19 @@ def main(cfg: DictConfig) -> None:
         # todo: @jinamshah
         #   condition changes if multiple colorcheckers need to be used
         if color_checker_exists:
-            log.info(f"{image.name} - found color checker")
-            ccm_images.append((image.name, ccm_bgr_img))
+            log.info(f"{image.stem} - found color checker")
+            ccm_images.append((image.stem, ccm_bgr_img))
             break
 
     # todo: @jinamshah
     #   changes expected here depending on if color checker is generated per
     #   species/per season/per batch
+    #   multiprocessing?
     for image_name, ccm_bgr_img in ccm_images:
         log.info(f"Processing color correction matrix for {image_name}")
-        current_ccm_model = colorchecker.process_ccm_image(ccm_bgr_img)
-        print(current_ccm_model.getCCM(), type(current_ccm_model.getCCM()))
-
-    color_matrix = current_ccm_model.getCCM()
-
-    for image in image_paths:
-        log.info(f"Processing - {image.name}")
-        raw_image = colorchecker.preprocess_raw_image(image, image_height, image_width)
-
-        rawImage_rgb = cv2.cvtColor(raw_image, cv2.COLOR_BayerBG2RGB)
-        rawImageRGBFloat = rawImage_rgb.astype(np.float64) / 65535.0
-        # img_float = current_ccm.infer(rawImageRGBFloat) * 65535.0
-        # img_float = np.dot(rawImageRGBFloat, color_matrix)*65535.0
-        img_float = np.dot(rawImageRGBFloat, color_matrix) * 20000.0
-        # img_float = np.dot(rawImageRGBFloat, color_matrix)*40000.0
-        print(np.max(np.max(img_float)))
-        img_float[img_float < 0] = 0
-        img_float[img_float > 65535] = 65535.0
-        colour_image_gamma_adjusted = img_float.astype(np.uint16)
-        # gamma being adjusted at 2
-        colour_image_gamma_adjusted = (
-            adjust_gamma(colour_image_gamma_adjusted, gamma=2.0))
-
-        cv2.imwrite(str(image)[:-3] + 'png',
-                    cv2.cvtColor(colour_image_gamma_adjusted,
-                                 cv2.COLOR_RGB2BGR),
-                    [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        current_ccm_model = colorchecker.process_ccm_image(
+            cfg.colorchecker.ccm_gamma, ccm_bgr_img)
+        filename = colorchecker.save_ccm(current_ccm_model, image_name)
+        log.info(f"Saved color correction matrix for {filename}")
         break
-
-    # for image in image_paths[0]:
-
+    return
