@@ -1,4 +1,4 @@
-name: semifprep
+name: semif_preprocessing
 channels:
   - conda-forge
   - defaults
@@ -10,6 +10,6 @@ dependencies:
   - opencv  # Use 'opencv' instead of 'opencv-python'
   - pandas
   - tqdm
-  - PiDNG
   - pip:
     - opencv-python-headless  # Optional: for headless systems without GUI
+    - piDNG
