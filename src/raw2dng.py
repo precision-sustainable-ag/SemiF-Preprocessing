@@ -22,7 +22,7 @@ class RawToDNGConverter:
         self.num_pixels = self.height * self.width
         self.bpp = self.task_cfg.bpp
 
-        self.color_gain_div = 10000
+        self.color_gain_div = 100
 
     def list_files(self):
         """
@@ -94,7 +94,7 @@ class RawToDNGConverter:
 
         # Color correction matrix
         t.set(Tag.AsShotNeutral, self.get_ashot_neutral())
-        # t.set(Tag.ColorMatrix1, self.set_color_correction(ccm_file))
+        t.set(Tag.ColorMatrix1, self.set_color_correction(ccm_file))
 
         return t
 
@@ -121,11 +121,15 @@ class RawToDNGConverter:
         """Set color correction matrix from the loaded CCM file."""
         color_gain_div = self.color_gain_div
         ccm = np.loadtxt(ccm_file, delimiter=',')
-        ccm1 = list()
-        for color in ccm.flatten().tolist():
-            ccm1.append((int(color * color_gain_div), color_gain_div))
-        log.info(f"Loaded CCM from {ccm_file}")
-        log.info(f"Color Correction Matrix: {ccm1}")
+
+        # Normalize each row to sum to 1
+        ccm1 = []
+        for row in ccm:
+            row_sum = sum(row)
+            normalized_row = [(int(value / row_sum * color_gain_div), color_gain_div) for value in row]
+            ccm1.extend(normalized_row)
+
+        log.info(f"Normalized Color Correction Matrix: {ccm1}")
         return ccm1
 
     @staticmethod
