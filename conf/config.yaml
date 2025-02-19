@@ -14,6 +14,14 @@ file_masks:
   raw_files:
     - .RAW
     - .raw
+  ccm_files:
+    - .txt
+
+raw2dng:
+  height: 9528
+  width: 13376
+  bpp: 16
+#  bpp: 12
 
 #raw2dng:
 #  height: 9528
