@@ -2,6 +2,7 @@
 defaults:
   - _self_
   - paths: default
+  - dng_tags: default
   - override hydra/job_logging: custom
   
 batch_id: NC_2025-02-03
