@@ -7,9 +7,9 @@ defaults:
   
 batch_id: NC_2025-02-03
 tasks:
-  - colorchecker
-  # - copy_from_lockers
-#  - raw2dng
+#  - colorchecker
+#   - copy_from_lockers
+  - raw2dng
 
 file_masks:
   raw_files:

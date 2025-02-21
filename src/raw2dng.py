@@ -1,3 +1,4 @@
+import multiprocessing
 import numpy as np
 from pathlib import Path
 import os
@@ -6,24 +7,30 @@ from datetime import datetime
 from omegaconf import DictConfig
 from pidng.core import RAW2DNG, DNGTags, Tag
 from pidng.defs import *
+from tqdm import tqdm
 
 log = logging.getLogger(__name__)
 
 
 class RawToDNGConverter:
-    def __init__(self, cfg: DictConfig) -> None:
+    def __init__(self, raw2dng_cfg, dng_tags_cfg, batch_id, file_masks, paths) -> None:
         """
         Class constructor
         Args:
             cfg (DictConfig): Configuration dictionary
         """
-        self.cfg = cfg
-        self.task_cfg = cfg.raw2dng
-        self.dng_tags = cfg.dng_tags
-        self.batch_id = cfg.batch_id
+        # self.cfg = cfg
+        # self.task_cfg = cfg.raw2dng
+        # self.dng_tags = cfg.dng_tags
+        # self.batch_id = cfg.batch_id
+        self.task_cfg = raw2dng_cfg
+        self.dng_tags = dng_tags_cfg
+        self.batch_id = batch_id
         self.uploads_folder = None
-        self.raw_files_mask = self.cfg.file_masks.raw_files
-        self.ccm_files_mask = self.cfg.file_masks.ccm_files
+        self.raw_files_mask = file_masks.raw_files
+        self.ccm_files_mask = file_masks.ccm_files
+        # self.raw_files_mask = self.cfg.file_masks.raw_files
+        # self.ccm_files_mask = self.cfg.file_masks.ccm_files
 
         self.height = self.task_cfg.height
         self.width = self.task_cfg.width
@@ -37,9 +44,12 @@ class RawToDNGConverter:
         #         self.uploads_folder = Path(semif_uploads) / self.batch_id
         #         break
         if not self.uploads_folder:
-            self.uploads_folder = (Path(self.cfg.paths.data_dir) /
+            self.uploads_folder = (Path(paths['data_dir']) /
                                    'semifield-upload' /
                                    self.batch_id)
+            # self.uploads_folder = (Path(self.cfg.paths.data_dir) /
+            #                        'semifield-upload' /
+            #                        self.batch_id)
             # log.error(f"{self.batch_id} doesn't exist")
 
     def list_files(self):
@@ -146,13 +156,29 @@ class RawToDNGConverter:
         return output_filename
 
 
+def process_image(raw2dng_cfg, dng_tags_cfg, batch_id, file_masks, paths,
+                  raw_file, ccm_file):
+    raw2dng_conv = RawToDNGConverter(raw2dng_cfg, dng_tags_cfg, batch_id, file_masks, paths)
+    raw_data = raw2dng_conv.load_raw_image(raw_file)
+    dns_tags = raw2dng_conv.configure_dng_tags(ccm_file)
+    output_filename = f"{raw_file.stem}.dng"
+    raw2dng_conv.convert_to_dng(raw_data, dns_tags, output_filename)
+
 def main(cfg: DictConfig) -> None:
     """
     Main function to initialize converter and process all raw images in the directory.
     Args:
         cfg (DictConfig): Configuration dictionary
     """
-    raw2dng_conv = RawToDNGConverter(cfg)
+
+    raw2dng_cfg = cfg.raw2dng
+    dng_tags_cfg = cfg.dng_tags
+    batch_id = cfg.batch_id
+    file_masks = cfg.file_masks
+    paths = dict(cfg.paths)
+    # raw2dng_conv = RawToDNGConverter(cfg)
+    raw2dng_conv = RawToDNGConverter(raw2dng_cfg, dng_tags_cfg, batch_id,
+                                     file_masks, paths)
     raw_files, ccm_files = raw2dng_conv.list_files()
     log.info(
         f"Found {len(raw_files)} raw images and {len(ccm_files)} ccm files")
@@ -161,12 +187,26 @@ def main(cfg: DictConfig) -> None:
     #   multiple ccm per batch or not / per season/ per species
     #   for now, applying the first ccm to all images
     start_time = datetime.now()
+    args = []
     for ccm_file in ccm_files:
         for raw_file in raw_files:
-            raw_data = raw2dng_conv.load_raw_image(raw_file)
-            dns_tags = raw2dng_conv.configure_dng_tags(ccm_file)
-            output_filename = f"{raw_file.stem}.dng"
-            raw2dng_conv.convert_to_dng(raw_data, dns_tags, output_filename)
-            log.info(f"Converted {raw_file} to {output_filename}")
+            args.append((raw2dng_cfg, dng_tags_cfg, batch_id,
+                         file_masks, paths, raw_file, ccm_file))
+            # raw_data = raw2dng_conv.load_raw_image(raw_file)
+            # dns_tags = raw2dng_conv.configure_dng_tags(ccm_file)
+            # output_filename = f"{raw_file.stem}.dng"
+            # raw2dng_conv.convert_to_dng(raw_data, dns_tags, output_filename)
+            # log.info(f"Converted {raw_file} to {output_filename}")
         break
+
+    multiprocessing.set_start_method("spawn")
+    max_workers = multiprocessing.cpu_count()
+    # with multiprocessing.Pool(max_workers) as pool:
+    #     pool.starmap(process_image, args)
+    with multiprocessing.Pool(max_workers) as pool:
+        total_tasks = len(args)
+        with tqdm(total=total_tasks, desc="DNGs created:") as pbar:
+            for _ in pool.starmap(process_image, args):
+                # Update the progress bar for each completed task
+                pbar.update(1)
     log.info(f"time: {datetime.now() - start_time}")
