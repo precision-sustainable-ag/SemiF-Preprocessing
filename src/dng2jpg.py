@@ -2,68 +2,109 @@ import subprocess
 import time
 from pathlib import Path
 from omegaconf import DictConfig
+import logging
 import hydra
-# import GPUtil
+
+from utils.utils import find_lts_dir
+
+log = logging.getLogger(__name__)
 
 
 class ImagePipeline:
-    def __init__(self, cfg):
-        # Load configuration from YAML file
+    def __init__(self, cfg: DictConfig) -> None:
 
         self.cfg = cfg
         self.batch_id = cfg.batch_id
         
-        self.im_input_dir = Path(self.cfg.paths.data_dir, "semifield-upload") / self.batch_id / "dngs"
-        self.im_output_dir = Path(self.cfg.paths.data_dir) / "semifield-upload" / self.batch_id / "images"
+        # Determine the LTS directory name using batch_id and configuration paths
+        self.lts_dir_name = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations, local=True).name
+        log.info(f"LTS directory name determined: {self.lts_dir_name}")
+        
+        # Define the input directory for DNG images and the output directory for developed images
+        self.im_input_dir = Path(self.cfg.paths.data_dir) / self.lts_dir_name / "semifield-developed-images" / self.batch_id / "dngs"
+        self.im_output_dir = Path(self.cfg.paths.data_dir) / self.lts_dir_name / "semifield-developed-images" / self.batch_id / "images"
         self.im_output_dir.mkdir(parents=True, exist_ok=True)
+        log.info(f"Input directory set to: {self.im_input_dir}")
+        log.info(f"Output directory set to: {self.im_output_dir}")
 
-        self.extension = ".dng"
-
+        # Flags from the configuration to control pipeline behavior
         self.develop_images_flag = self.cfg.dng2jpg.develop_images
         self.fix_access_rights_flag = self.cfg.dng2jpg.fix_access_rights
+        log.info(f"Develop images flag: {self.develop_images_flag}")
+        log.info(f"Fix access rights flag: {self.fix_access_rights_flag}")
 
-    def develop_images(self):
-        # Implementation of the develop_images method
-        num_of_raw_images = len(list(self.im_input_dir.glob(f"*{self.extension}")))
+    def develop_images(self) -> None:
+        """
+        Develop images by converting RAW DNG files to JPEG using RawTherapee.
+        It checks for the existence of RAW images in the input directory and, if found,
+        constructs and executes a command to process these images using RawTherapee.
+        """
+        log.info("Starting image development process.")
+        # Count the number of RAW images in the input directory
+        num_of_raw_images = len(list(self.im_input_dir.glob("*.dng")))
+        log.info(f"Number of RAW images found: {num_of_raw_images}")
         
         if num_of_raw_images == 0:
-            print(f"No RAW images found in the input directory ({self.im_input_dir})")
-            return            
-        
+            log.error(f"No RAW images found in the input directory ({self.im_input_dir})")
+            return
         else:
-            exe_command = f"./RawTherapee_5.8.AppImage --cli \
-                -Y \
-                -O {self.im_output_dir} \
-                -j99 \
-                -c {self.im_input_dir}"
-            
-            exe_command2 = 'bash -c "OMP_NUM_THREADS=90; ' + exe_command + '"'
+            # Construct the command to run RawTherapee in CLI mode
+            exe_command = (
+                f"./RawTherapee_5.8.AppImage --cli "
+                f"-Y "
+                f"-O {self.im_output_dir} "
+                f"-j99 "
+                f"-c {self.im_input_dir}"
+            )
+            # Wrap the command in a bash call to set the OMP_NUM_THREADS environment variable
+            exe_command2 = f'bash -c "OMP_NUM_THREADS=90; {exe_command}"'
             
             try:
-                # Run the rawtherapee command
+                # Run the RawTherapee command
                 subprocess.run(exe_command2, shell=True, check=True)
-                print("")
-            except Exception as e:
+
+            except subprocess.CalledProcessError as e:
+                log.error("RawTherapee command failed.")
+                log.error(e)
                 raise e
-            
-    def update_access_rights(self):
-        # Implementation of the update_access_rights method
-        subprocess.call(['chmod', '-R', '777', self.im_output_dir])
-        time.sleep(2)
-        
-    def run_pipeline(self):
-        # Execute the pipeline based on the configuration
+
+    def update_access_rights(self) -> None:
+        """
+        Update file access rights for the developed images.
+        """
+        log.info("Updating access rights for developed images.")
+        result = subprocess.call(['chmod', '-R', '777', str(self.im_output_dir)])
+        log.info(f"chmod call returned: {result}")
+        time.sleep(3)
+        log.info("Access rights updated successfully.")
+
+    def run_pipeline(self) -> None:
+        """
+        Execute the image processing pipeline based on configuration flags.
+        """
         if self.develop_images_flag:
+            log.info("Develop images flag is enabled. Starting image development.")
             self.develop_images()
+        else:
+            log.info("Develop images flag is disabled. Skipping image development.")
+
         if self.fix_access_rights_flag:
+            log.info("Fix access rights flag is enabled. Updating access rights.")
             self.update_access_rights()
+        else:
+            log.info("Fix access rights flag is disabled. Skipping access rights update.")
+
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
-def main(cfg: DictConfig):
-    # Initialize and run the pipeline
+def main(cfg: DictConfig) -> None:
+    """
+    Main function to initialize and run the image processing pipeline.
+    """
+    log.info("Starting image pipeline execution.")
     pipeline = ImagePipeline(cfg)
     pipeline.run_pipeline()
+    log.info("Image pipeline execution completed.")
+
 
 if __name__ == "__main__":
     main()
-    

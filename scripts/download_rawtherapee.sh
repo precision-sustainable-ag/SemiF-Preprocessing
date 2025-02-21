@@ -1,1 +1,3 @@
-wget https://rawtherapee.com/shared/builds/linux/RawTherapee_5.9.AppImage
+wget https://rawtherapee.com/shared/builds/linux/RawTherapee_5.8.AppImage
+
+chmod +x RawTherapee_5.8.AppImage

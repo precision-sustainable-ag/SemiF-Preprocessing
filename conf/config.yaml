@@ -4,10 +4,15 @@ defaults:
   - paths: default
   - override hydra/job_logging: custom
   
-batch_id: NC_2025-02-03
+batch_id: NC_2025-02-14
+
+test:
+  enabled: false
+  sample_size: 10
+
 tasks:
-  # - copy_from_lockers
-  # - colorchecker
+  - copy_from_lockers
+  - colorchecker
   - raw2dng
   - dng2jpg
 
@@ -35,7 +40,5 @@ dng2jpg:
   fix_access_rights: true
 
 
-#copy_from_lockers:
-#  raw_extension: .RAW # either .RAW or .ARW
-  
+
 job_now_date: &nowdir ${now:%Y-%m-%d}

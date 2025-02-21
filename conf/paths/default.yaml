@@ -1,6 +1,6 @@
 workdir: ${hydra:runtime.cwd}  # where the code is executed
 log_dir: ${paths.workdir}/logs/
-data_dir: ${paths.workdir}/data/longterm_images/
+data_dir: ${paths.workdir}/data
 
 lts_locations:
   - /mnt/research-projects/s/screberg/longterm_images
