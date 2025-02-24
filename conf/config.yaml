@@ -7,8 +7,8 @@ defaults:
   
 batch_id: NC_2025-02-03
 tasks:
-#  - colorchecker
-#   - copy_from_lockers
+#  - copy_from_lockers
+  - colorchecker
   - raw2dng
 
 file_masks:
@@ -40,3 +40,5 @@ colorchecker:
 #  raw_extension: .RAW # either .RAW or .ARW
   
 job_now_date: &nowdir ${now:%Y-%m-%d}
+
+max_workers: 12

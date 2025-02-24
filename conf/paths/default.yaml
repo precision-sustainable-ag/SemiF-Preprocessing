@@ -6,7 +6,3 @@ lts_locations:
   - /mnt/research-projects/s/screberg/longterm_images
   - /mnt/research-projects/s/screberg/GROW_DATA
   - /mnt/research-projects/s/screberg/longterm_images2
-
-#primary_nfs: /mnt/research-projects/s/screberg/longterm_images2/semifield-upload
-#local_upload: ${paths.workdir}/temp_data/semifield-upload/
-#semif_developed: ${paths.workdir}/temp_data/semifield-developed-images/
