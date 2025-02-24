@@ -1,151 +1,207 @@
-from pidng.core import RAW2DNG, DNGTags, Tag
-from pidng.defs import *
+import multiprocessing
 import numpy as np
-import struct
 from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor
-from functools import partial
 import os
 import logging
-import random
+from datetime import datetime
+from omegaconf import DictConfig
+from pidng.core import RAW2DNG, DNGTags, Tag
+from pidng.defs import *
+from tqdm import tqdm
 
 log = logging.getLogger(__name__)
 
+
 class RawToDNGConverter:
-    def __init__(self, raw_file_path: str, output_filename: str, height: int, width: int, bpp: int = 12):
-        self.raw_file_path = raw_file_path
-        self.output_filename = output_filename
-        self.height = height
-        self.width = width
-        self.bpp = bpp
-        self.num_pixels = width * height
-        self.raw_image = None
-        self.dng_tags = DNGTags()
+    def __init__(self, raw2dng_cfg, dng_tags_cfg, batch_id, file_masks, paths) -> None:
+        """
+        Class constructor
+        Args:
+            cfg (DictConfig): Configuration dictionary
+        """
+        # self.cfg = cfg
+        # self.task_cfg = cfg.raw2dng
+        # self.dng_tags = cfg.dng_tags
+        # self.batch_id = cfg.batch_id
+        self.task_cfg = raw2dng_cfg
+        self.dng_tags = dng_tags_cfg
+        self.batch_id = batch_id
+        self.uploads_folder = None
+        self.raw_files_mask = file_masks.raw_files
+        self.ccm_files_mask = file_masks.ccm_files
+        # self.raw_files_mask = self.cfg.file_masks.raw_files
+        # self.ccm_files_mask = self.cfg.file_masks.ccm_files
 
-        # Set default color matrix for demo purposes
-        # self.ccm1 = [
-        #     [19549, 10000], [-7877, 10000], [-2582, 10000],
-        #     [-5724, 10000], [10121, 10000], [1917, 10000],
-        #     [-1267, 10000], [-110, 10000], [6621, 10000]
-        # ]
+        self.height = self.task_cfg.height
+        self.width = self.task_cfg.width
+        self.num_pixels = self.height * self.width
+        self.bpp = self.task_cfg.bpp
 
-    def load_raw_image(self):
-        """Load raw data from file into a 16-bit numpy array."""
-        with open(self.raw_file_path, mode='rb') as rf:
-            raw_data = struct.unpack("H" * self.num_pixels, rf.read(2 * self.num_pixels))
+        # for path in paths['lts_locations']:
+        #     semif_uploads = os.path.join(path, "semifield-upload")
+        #     batch_ids = [x.name for x in Path(semif_uploads).glob("*")]
+        #     if self.batch_id in batch_ids:
+        #         self.uploads_folder = Path(semif_uploads) / self.batch_id
+        #         break
+        if not self.uploads_folder:
+            self.uploads_folder = (Path(paths['data_dir']) /
+                                   'semifield-upload' /
+                                   self.batch_id)
+            # self.uploads_folder = (Path(self.cfg.paths.data_dir) /
+            #                        'semifield-upload' /
+            #                        self.batch_id)
+            # log.error(f"{self.batch_id} doesn't exist")
 
-        raw_flat_image = np.zeros(self.num_pixels, dtype=np.uint16)
-        raw_flat_image[:] = raw_data[:]
-        self.raw_image = np.reshape(raw_flat_image, (self.height, self.width))
-        self.raw_image = self.raw_image >> (16 - self.bpp)
-        log.info(f"Loaded raw image from {self.raw_file_path}")
-        log.info(f"Raw image shape: {self.raw_image.shape}")
-        log.info(f"Raw image dtype: {self.raw_image.dtype}")
-        log.info(f"Raw image min: {np.min(self.raw_image)}")
-        log.info(f"Raw image max: {np.max(self.raw_image)}")
+    def list_files(self):
+        """
+        Method to list all raw images and ccms available in the batch
+        """
+        # todo: @jinamshah
+        #   lts vs local vs both
+        raw_files = []
+        for file_mask in self.raw_files_mask:
+            raw_files.extend(list(self.uploads_folder.glob(f"*{file_mask}")))
+        ccm_files = []
+        for file_mask in self.ccm_files_mask:
+            ccm_files.extend(list(self.uploads_folder.glob(f"*{file_mask}")))
+        if not ccm_files:
+            raise ValueError("No CCM files available")
 
-    def configure_dng_tags(self):
-        """Set DNG tags for the conversion."""
-        t = self.dng_tags
+        return raw_files, ccm_files
+
+    def load_raw_image(self, file_path):
+        """
+        Load raw data from file into a 16-bit numpy array.
+        Args:
+            file_path (str): Path to the raw image
+        """
+        raw_image = np.fromfile(file_path, dtype=np.uint16).astype(np.uint16)
+        raw_image = np.reshape(raw_image, (self.height, self.width))
+        log.info(f"Loaded raw image from {file_path}")
+        return raw_image
+
+    def configure_dng_tags(self, ccm_file: Path) -> DNGTags:
+        """
+        Set DNG tags for the conversion.
+        Args:
+            ccm_file (Path): CCM file path
+        """
+        t = DNGTags()
+        # dng metadata details
+        t.set(Tag.Make, self.dng_tags.camera_make)
+        t.set(Tag.Model, self.dng_tags.camera_model)
+        t.set(Tag.DNGVersion, DNGVersion.V1_4)
+        t.set(Tag.DNGBackwardVersion, DNGVersion.V1_2)
+        t.set(Tag.PreviewColorSpace, PreviewColorSpace.sRGB)
+        # Basic image details
         t.set(Tag.ImageWidth, self.width)
         t.set(Tag.ImageLength, self.height)
         t.set(Tag.TileWidth, self.width)
         t.set(Tag.TileLength, self.height)
         t.set(Tag.Orientation, Orientation.Horizontal)
-        t.set(Tag.PhotometricInterpretation, PhotometricInterpretation.Color_Filter_Array)
-        t.set(Tag.SamplesPerPixel, 1)
+        # t.set(Tag.SamplesPerPixel, 1)
+        t.set(Tag.SamplesPerPixel, self.dng_tags.samples_per_pixel)
         t.set(Tag.BitsPerSample, self.bpp)
-        t.set(Tag.CFARepeatPatternDim, [2, 2])
+        # Photometric interpretation
+        t.set(Tag.PhotometricInterpretation,
+              PhotometricInterpretation.Color_Filter_Array)
+        t.set(Tag.CFARepeatPatternDim, self.dng_tags.cfa_repeat_pattern_dim)
         t.set(Tag.CFAPattern, CFAPattern.RGGB)
-        t.set(Tag.BlackLevel, (4096 >> (16 - self.bpp)))
-        t.set(Tag.WhiteLevel, ((1 << self.bpp) - 1))
-        # t.set(Tag.ColorMatrix1, self.ccm1)
+        # Image calibration
+        t.set(Tag.BlackLevel, self.dng_tags.black_level)
+        t.set(Tag.WhiteLevel, self.dng_tags.white_level)
         t.set(Tag.CalibrationIlluminant1, CalibrationIlluminant.D65)
-        t.set(Tag.AsShotNeutral, [[1, 1], [1, 1], [1, 1]])
-        t.set(Tag.BaselineExposure, [[-150, 3000]])
-        t.set(Tag.Make, "Camera Brand")
-        t.set(Tag.Model, "Camera Model")
-        t.set(Tag.DNGVersion, DNGVersion.V1_4)
-        t.set(Tag.DNGBackwardVersion, DNGVersion.V1_2)
-        t.set(Tag.PreviewColorSpace, PreviewColorSpace.sRGB)
+        t.set(Tag.BaselineExposure, self.dng_tags.baseline_exposure)
+        # exposure configuration per color channel
+        as_shot_neutral = [
+            [int(self.dng_tags.gain_r * self.dng_tags.color_gain_div),
+             self.dng_tags.color_gain_div],
+            [int(self.dng_tags.gain_g * self.dng_tags.color_gain_div),
+             self.dng_tags.color_gain_div],
+            [int(self.dng_tags.gain_b * self.dng_tags.color_gain_div),
+             self.dng_tags.color_gain_div]
+        ]
+        t.set(Tag.AsShotNeutral, as_shot_neutral)
+        # apply normalized color correction matrix to image
+        ccm = np.loadtxt(ccm_file, delimiter=',')
+        ccm1 = []
+        for row in ccm:
+            row_sum = sum(row)
+            normalized_row = [
+                (int(value / row_sum * self.dng_tags.color_gain_div), self.dng_tags.color_gain_div) for
+                value in row]
+            ccm1.extend(normalized_row)
+        t.set(Tag.ColorMatrix1, ccm1)
+        return t
 
-    def convert_to_dng(self):
-        """Convert the loaded raw image to DNG format and save to output file."""
-        if self.raw_image is None:
+    def convert_to_dng(self, raw_image: np.array, dng_tags: DNGTags,
+                       output_filename: str) -> str:
+        """
+        Convert the loaded raw image to DNG format and save to output file.
+        Args:
+            raw_image (np.array): Raw image
+            dng_tags (DNGTags): DNG tags
+            output_filename (str): Output filename
+        Returns:
+            str: Output filename
+        """
+        if raw_image is None:
             raise ValueError("Raw image data not loaded.")
-
+        os.makedirs(os.path.join(self.uploads_folder, 'dngs'), exist_ok=True)
+        output_filename = os.path.join(self.uploads_folder, 'dngs',
+                                       output_filename)
         converter = RAW2DNG()
-        converter.options(self.dng_tags, path="", compress=False)
-        converter.convert(self.raw_image, filename=self.output_filename)
+        converter.options(dng_tags, path="", compress=False)
+        converter.convert(raw_image, filename=output_filename)
+        return output_filename
 
-def process_file(raw_file_path, output_dir, height, width, bpp):
-    """Process a single raw file and convert it to DNG."""
-    output_filename = f"{raw_file_path.stem}.dng"
-    output_path = output_dir / output_filename
+def proc_wrapper(args):
+    return process_image(*args)
 
-    # Initialize and use the converter for each file
-    converter = RawToDNGConverter(
-        raw_file_path=str(raw_file_path),
-        output_filename=str(output_path),
-        height=height,
-        width=width,
-        bpp=bpp
-    )
+def process_image(raw2dng_cfg, dng_tags_cfg, batch_id, file_masks, paths,
+                  raw_file, ccm_file):
+    raw2dng_conv = RawToDNGConverter(raw2dng_cfg, dng_tags_cfg, batch_id, file_masks, paths)
+    raw_data = raw2dng_conv.load_raw_image(raw_file)
+    dns_tags = raw2dng_conv.configure_dng_tags(ccm_file)
+    output_filename = f"{raw_file.stem}.dng"
+    raw2dng_conv.convert_to_dng(raw_data, dns_tags, output_filename)
 
-    converter.load_raw_image()
-    converter.configure_dng_tags()
-    converter.convert_to_dng()
-    print(f"Converted {raw_file_path} to {output_filename}")
+def main(cfg: DictConfig) -> None:
+    """
+    Main function to initialize converter and process all raw images in the directory.
+    Args:
+        cfg (DictConfig): Configuration dictionary
+    """
 
-def main(cfg):
-    """Main function to initialize converter and process all raw images in the directory."""
-
-    # todo: @jinamshah
-    #   if local data transfer is needed, add LTS location to local directory
-    #   structure
-
+    raw2dng_cfg = cfg.raw2dng
+    dng_tags_cfg = cfg.dng_tags
     batch_id = cfg.batch_id
-    local_uploads = os.path.join(cfg.paths.data_dir, "semif-uploads")
-    log.info(f"{[x.name for x in Path(local_uploads).glob('*')]}")
-    batch_ids = [x.name for x in Path(local_uploads).glob('*')]
-    if batch_id in batch_ids:
-        batch_upload_dir = os.path.join(local_uploads, batch_id)
-    else:
-        for path in cfg.paths.lts_locations:
-            uploads_dir = os.path.join(local_uploads, path)
-            if batch_id in [x.name for x in Path(uploads_dir).glob('*')]:
-                batch_upload_dir = os.path.join(path, batch_id)
-    # log.error(f"{batch_id} - uploads not found.")
-
-    raw_files = []
-    for file_mask in cfg.file_masks.raw_files:
-        raw_files.extend(list(Path(batch_upload_dir).glob(f"*{file_mask}")))
-    log.info(f"Found {len(raw_files)} raw images in {batch_upload_dir}")
+    file_masks = cfg.file_masks
+    paths = dict(cfg.paths)
+    # raw2dng_conv = RawToDNGConverter(cfg)
+    raw2dng_conv = RawToDNGConverter(raw2dng_cfg, dng_tags_cfg, batch_id,
+                                     file_masks, paths)
+    raw_files, ccm_files = raw2dng_conv.list_files()
+    log.info(
+        f"Found {len(raw_files)} raw images and {len(ccm_files)} ccm files")
 
     # todo: @jinamshah
-    #   parallel processing of all processes
-    #   1. convert all images to dng
+    #   multiple ccm per batch or not / per season/ per species
+    #   for now, applying the first ccm to all images
+    start_time = datetime.now()
 
-    # input_dir = Path(cfg.paths.local_upload, cfg.batch_id)
-    # output_dir = Path(cfg.paths.semif_developed, cfg.batch_id, "dng")
-    # output_dir.mkdir(parents=True, exist_ok=True)
-    #
-    # height, width, bpp = 9528, 13376, 16
-    #
-    # # List all .RAW files in the input directory
-    # raw_files = list(input_dir.glob("*.RAW"))
-    # # seed = random.randint(0,1000)
-    # seed = 914
-    # print(seed)
-    # random.seed(seed)
-    #
-    # raw_files = random.sample(raw_files, 50)
-    # log.info(f"Processing {len(raw_files)} raw files in parallel.")
-    #
-    # # Prepare the partial function with fixed arguments for process_file
-    # process_file_partial = partial(process_file, output_dir=output_dir, height=height, width=width, bpp=bpp)
-    #
-    # # Use ProcessPoolExecutor with map to process files concurrently
-    # with ProcessPoolExecutor(max_workers=12) as executor:
-    #     executor.map(process_file_partial, raw_files)
-    # print(seed)
+    list_of_args = []
+    for ccm_file in ccm_files:
+        for raw_file in raw_files:
+            list_of_args.append((raw2dng_cfg, dng_tags_cfg, batch_id,
+                         file_masks, paths, raw_file, ccm_file))
+        break
+
+    multiprocessing.set_start_method("spawn")
+    max_workers = multiprocessing.cpu_count()
+    with multiprocessing.Pool(max_workers) as pool:
+        total_tasks = len(list_of_args)
+        results = list(tqdm(pool.imap_unordered(proc_wrapper, list_of_args),
+                            total=total_tasks,desc="converted dngs"))
+        tuple(results)
+    log.info(f"time: {datetime.now() - start_time}")

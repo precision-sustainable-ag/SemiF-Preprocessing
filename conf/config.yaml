@@ -2,18 +2,27 @@
 defaults:
   - _self_
   - paths: default
+  - dng_tags: default
   - override hydra/job_logging: custom
   
 batch_id: NC_2025-02-03
 tasks:
-  - colorchecker
-  # - copy_from_lockers
-#  - raw2dng
+#  - colorchecker
+#   - copy_from_lockers
+  - raw2dng
 
 file_masks:
   raw_files:
     - .RAW
     - .raw
+  ccm_files:
+    - .txt
+
+raw2dng:
+  height: 9528
+  width: 13376
+  bpp: 16
+#  bpp: 12
 
 #raw2dng:
 #  height: 9528

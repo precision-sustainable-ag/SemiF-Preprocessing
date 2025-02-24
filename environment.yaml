@@ -10,3 +10,6 @@ dependencies:
   - opencv  # Use 'opencv' instead of 'opencv-python'
   - pandas
   - tqdm
+  - pip:
+    - opencv-python-headless  # Optional: for headless systems without GUI
+    - piDNG

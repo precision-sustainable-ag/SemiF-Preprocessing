@@ -1,0 +1,12 @@
+camera_make: "SVS"
+camera_model: "Camera model"
+samples_per_pixel: 1
+cfa_repeat_pattern_dim: [2,2]
+black_level: 0
+white_level: 65535
+baseline_exposure: [[0,1]]
+
+color_gain_div: 100
+gain_r: 1
+gain_b: 0.65
+gain_g: 1.2
