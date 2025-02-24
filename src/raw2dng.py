@@ -37,7 +37,7 @@ class RawToDNGConverter:
         self.num_pixels = self.height * self.width
         self.bpp = self.task_cfg.bpp
 
-        # for path in self.cfg.paths.lts_locations:
+        # for path in paths['lts_locations']:
         #     semif_uploads = os.path.join(path, "semifield-upload")
         #     batch_ids = [x.name for x in Path(semif_uploads).glob("*")]
         #     if self.batch_id in batch_ids:
@@ -155,6 +155,8 @@ class RawToDNGConverter:
         converter.convert(raw_image, filename=output_filename)
         return output_filename
 
+def proc_wrapper(args):
+    return process_image(*args)
 
 def process_image(raw2dng_cfg, dng_tags_cfg, batch_id, file_masks, paths,
                   raw_file, ccm_file):
@@ -187,26 +189,19 @@ def main(cfg: DictConfig) -> None:
     #   multiple ccm per batch or not / per season/ per species
     #   for now, applying the first ccm to all images
     start_time = datetime.now()
-    args = []
+
+    list_of_args = []
     for ccm_file in ccm_files:
         for raw_file in raw_files:
-            args.append((raw2dng_cfg, dng_tags_cfg, batch_id,
+            list_of_args.append((raw2dng_cfg, dng_tags_cfg, batch_id,
                          file_masks, paths, raw_file, ccm_file))
-            # raw_data = raw2dng_conv.load_raw_image(raw_file)
-            # dns_tags = raw2dng_conv.configure_dng_tags(ccm_file)
-            # output_filename = f"{raw_file.stem}.dng"
-            # raw2dng_conv.convert_to_dng(raw_data, dns_tags, output_filename)
-            # log.info(f"Converted {raw_file} to {output_filename}")
         break
 
     multiprocessing.set_start_method("spawn")
     max_workers = multiprocessing.cpu_count()
-    # with multiprocessing.Pool(max_workers) as pool:
-    #     pool.starmap(process_image, args)
     with multiprocessing.Pool(max_workers) as pool:
-        total_tasks = len(args)
-        with tqdm(total=total_tasks, desc="DNGs created:") as pbar:
-            for _ in pool.starmap(process_image, args):
-                # Update the progress bar for each completed task
-                pbar.update(1)
+        total_tasks = len(list_of_args)
+        results = list(tqdm(pool.imap_unordered(proc_wrapper, list_of_args),
+                            total=total_tasks,desc="converted dngs"))
+        tuple(results)
     log.info(f"time: {datetime.now() - start_time}")
