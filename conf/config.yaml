@@ -5,11 +5,12 @@ defaults:
   - dng_tags: default
   - override hydra/job_logging: custom
   
-batch_id: NC_2025-02-03
+batch_id: NC_2025-02-21
 tasks:
 #  - copy_from_lockers
-  - colorchecker
-  - raw2dng
+  # - colorchecker
+  # - raw2dng
+  - raw2png
 
 file_masks:
   raw_files:
@@ -34,6 +35,10 @@ colorchecker:
   width: 13376
   bpp: 16
   ccm_gamma: 1
+
+raw2png:
+  ccm_name: default
+
 
 
 #copy_from_lockers:

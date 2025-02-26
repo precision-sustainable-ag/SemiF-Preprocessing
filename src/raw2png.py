@@ -9,10 +9,15 @@ import shutil
 from concurrent.futures import as_completed, ProcessPoolExecutor
 from colour_demosaicing import demosaicing_CFA_Bayer_bilinear
 import random
-from utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir
 
 log = logging.getLogger(__name__)
 
+def print_image_stats(image: np.ndarray, label: str = "Image"):
+    if image.size == 0:
+        print(f"{label} is empty.")
+    else:
+        print(f"{label} - dtype: {image.dtype}, range: [{np.min(image)}, {np.max(image)}]")
 
 class FileManager:
     """Handles file-related operations like copying and filtering."""
@@ -40,6 +45,134 @@ class ImageProcessor:
     """Handles image processing tasks like demosaicing and color correction."""
 
     @staticmethod
+    def generate_s_curve_lut(size: int = 256, contrast: float = 5.0, pivot: float = 0.5) -> np.ndarray:
+        """
+        Generates a 1D S-curve LUT to enhance image contrast.
+        
+        The LUT is generated using a tanh function that maps input values in [0, 1] to output values in [0, 1].
+        A higher contrast value steepens the S-curve, boosting mid-tones.
+
+        Parameters:
+            size (int): Number of entries in the LUT (default: 256).
+            contrast (float): Controls the steepness of the curve. Increase to boost contrast.
+            pivot (float): The midpoint around which contrast is enhanced (default: 0.5).
+
+        Returns:
+            np.ndarray: The generated LUT as a 1D numpy array.
+        """
+        x = np.linspace(0, 1, size)
+        # Create an S-curve using tanh. The normalization ensures the output spans [0, 1].
+        lut = 0.5 * (np.tanh(contrast * (x - pivot)) / np.tanh(contrast * (pivot)) + 1)
+        return lut
+    
+    @staticmethod
+    def apply_lut(image: np.ndarray, lut: np.ndarray) -> np.ndarray:
+        """
+        Applies a lookup table (LUT) to an image.
+
+        This function maps the input image's pixel values using the provided LUT.
+        It assumes that the input image is normalized to the range [0, 1] and that 
+        the LUT is a 1D array representing the mapping of these normalized values.
+
+        Parameters:
+            image (np.ndarray): The input image with values in [0, 1].
+            lut (np.ndarray): A 1D numpy array representing the lookup table. 
+                            For example, a LUT with 256 entries for an 8-bit mapping.
+
+        Returns:
+            np.ndarray: The image after applying the LUT, still normalized to [0, 1].
+        """
+        # Determine the number of points in the LUT
+        lut_size = len(lut)
+        
+        # Create a domain for the LUT (values from 0 to 1)
+        lut_domain = np.linspace(0, 1, lut_size)
+        
+        # Use numpy's interpolation to map each pixel value in the image through the LUT
+        # np.interp operates element-wise on the image
+        adjusted_image = np.interp(image, lut_domain, lut)
+        
+        return adjusted_image
+    @staticmethod
+    def apply_gain_and_white_balance(raw_array: np.ndarray, gains: tuple, pattern: str = "BGGR") -> np.ndarray:
+        """
+        Applies white balance gains to a raw Bayer image.
+
+        This function multiplies each pixel by the corresponding gain for its color
+        channel based on the Bayer pattern. It should be applied before demosaicing.
+
+        Parameters:
+            raw_array (np.ndarray): A 2D numpy array representing the raw Bayer image (e.g., dtype=np.uint16).
+            gains (tuple): A tuple of three floats (gain_R, gain_G, gain_B). 
+                        Gains should be provided relative to the sensor's response.
+            pattern (str): The Bayer pattern of the raw data. Supported options are "BGGR", "RGGB", "GRBG", "GBRG".
+                        Default is "BGGR".
+
+        Returns:
+            np.ndarray: The white-balanced raw image as a numpy array of the same dtype as raw_array.
+        """
+        # Ensure the input is a 2D array
+        if raw_array.ndim != 2:
+            raise ValueError("raw_array must be a 2D Bayer image.")
+        
+        # Convert to float for processing
+        wb_array = raw_array.astype(np.float32)
+        
+        gain_r, gain_g, gain_b = gains
+        height, width = wb_array.shape
+
+        # Create boolean masks for each channel
+        mask_r = np.zeros_like(wb_array, dtype=bool)
+        mask_g = np.zeros_like(wb_array, dtype=bool)
+        mask_b = np.zeros_like(wb_array, dtype=bool)
+        
+        pattern = pattern.upper()
+        if pattern == "BGGR":
+            # BGGR pattern: 
+            # Row 0: [B, G, B, G, ...]
+            # Row 1: [G, R, G, R, ...]
+            mask_b[0::2, 0::2] = True  # Blue pixels: even rows, even cols
+            mask_g[0::2, 1::2] = True  # Green pixels: even rows, odd cols
+            mask_g[1::2, 0::2] = True  # Green pixels: odd rows, even cols
+            mask_r[1::2, 1::2] = True  # Red pixels: odd rows, odd cols
+        elif pattern == "RGGB":
+            # RGGB pattern:
+            # Row 0: [R, G, R, G, ...]
+            # Row 1: [G, B, G, B, ...]
+            mask_r[0::2, 0::2] = True  # Red pixels: even rows, even cols
+            mask_g[0::2, 1::2] = True  # Green pixels: even rows, odd cols
+            mask_g[1::2, 0::2] = True  # Green pixels: odd rows, even cols
+            mask_b[1::2, 1::2] = True  # Blue pixels: odd rows, odd cols
+        elif pattern == "GRBG":
+            # GRBG pattern:
+            # Row 0: [G, R, G, R, ...]
+            # Row 1: [B, G, B, G, ...]
+            mask_g[0::2, 0::2] = True  # Green pixels: even rows, even cols
+            mask_r[0::2, 1::2] = True  # Red pixels: even rows, odd cols
+            mask_b[1::2, 0::2] = True  # Blue pixels: odd rows, even cols
+            mask_g[1::2, 1::2] = True  # Green pixels: odd rows, odd cols
+        elif pattern == "GBRG":
+            # GBRG pattern:
+            # Row 0: [G, B, G, B, ...]
+            # Row 1: [R, G, R, G, ...]
+            mask_g[0::2, 0::2] = True  # Green pixels: even rows, even cols
+            mask_b[0::2, 1::2] = True  # Blue pixels: even rows, odd cols
+            mask_r[1::2, 0::2] = True  # Red pixels: odd rows, even cols
+            mask_g[1::2, 1::2] = True  # Green pixels: odd rows, odd cols
+        else:
+            raise ValueError(f"Unsupported Bayer pattern: {pattern}")
+
+        # Apply the gains to the corresponding pixels
+        wb_array[mask_r] *= gain_r
+        wb_array[mask_g] *= gain_g
+        wb_array[mask_b] *= gain_b
+
+        # Clip to valid range (assuming 16-bit data)
+        wb_array = np.clip(wb_array, 0, 65535)
+
+        return wb_array.astype(raw_array.dtype)
+
+    @staticmethod
     def adjust_gamma(image: np.ndarray, gamma: float = 1.0) -> np.ndarray:
         """
         Adjusts the gamma of a 16-bit image using a lookup table.
@@ -52,9 +185,13 @@ class ImageProcessor:
 
     @staticmethod    
     def apply_gamma_correction(image: np.ndarray, gamma: float) -> np.ndarray:
+        # Normalize and compress dynamic range before transformation
         # Ensure image is in [0, 1]
-        corrected = np.power(image, 1 / gamma)
-        return corrected
+        image_dtype = image.dtype
+        max_val = np.iinfo(image_dtype).max if image_dtype.kind == 'u' else 1.0
+        image = image.astype(np.float64) / max_val
+        gamma_corrected = np.power(image, 1 / gamma)
+        return gamma_corrected
     
     @staticmethod
     def apply_log_compression(image: np.ndarray) -> np.ndarray:
@@ -74,20 +211,19 @@ class ImageProcessor:
             log.error("Source image must be an RGB image.")
             return None
         
-        log.info(f"Applying transformation matrix to image of shape: {source_img.shape}")
         # Extract color channel coefficients from transformation matrix
         red, green, blue, *_ = np.split(transformation_matrix, 9, axis=1)
 
         # Normalize the source image to the range [0, 1]
         source_dtype = source_img.dtype
         max_val = np.iinfo(source_dtype).max if source_dtype.kind == 'u' else 1.0
-        source_flt = source_img.astype(np.float64) / max_val
+        # source_flt = source_img.astype(np.float64) / max_val
         # Normalize and compress dynamic range before transformation
         # source_compressed = ImageProcessor.apply_gamma_correction(source_flt, gamma=1.05)
         # source_compressed = ImageProcessor.apply_log_compression(source_flt)
         # tonemapReinhard = cv2.createTonemapReinhard(gamma=gamma)
         # source_compressed = tonemapReinhard.process(source_flt.astype(np.float32))
-        source_r, source_g, source_b = cv2.split(source_flt)
+        source_r, source_g, source_b = cv2.split(source_img)
         
         # Compute powers of source image
         source_b2, source_b3 = source_b**2, source_b**3
@@ -111,19 +247,22 @@ class ImageProcessor:
         
         return corrected_img
 
-    
     @staticmethod
-    def demosaic_image(raw_file: Path, cfg: DictConfig):
-        """Demosaics a RAW image file using bilinear interpolation."""
-        log.info(f"Demosaicing: {raw_file}")
+    def load_raw_image(raw_file: Path, cfg: DictConfig):
+        """Loads a RAW image file and applies white balance gains."""
+        log.info(f"Loading: {raw_file}")
         im_height, im_width = cfg.colorchecker.height, cfg.colorchecker.width
 
         nparray = np.fromfile(raw_file, dtype=np.uint16).reshape((im_height, im_width))
 
+        return nparray
+    
+    @staticmethod
+    def demosaic_image(nparray: Path):
+        """Demosaics a RAW image file using bilinear interpolation."""
         # demosaiced = demosaicing_CFA_Bayer_bilinear(image_data, pattern="RGGB")        
         demosaiced = cv2.cvtColor(nparray, cv2.COLOR_BayerBG2RGB_EA)
         demosaiced = demosaiced.astype(np.float64) / 65535.0
-        
         return demosaiced
 
     @staticmethod
@@ -154,14 +293,26 @@ class ImageProcessor:
         log.info(f"Removed raw image: {local_raw_path}")
 
     @staticmethod
-    def process_image(raw_file: Path, cfg: DictConfig, transformation_matrix, output_dir: Path):
+    def process_image(raw_file: Path, cfg: DictConfig, transformation_matrix, output_dir: Path, gains):
         log.info(f"Processing: {raw_file}")
 
+        # Load the RAW image
+        raw_array = ImageProcessor.load_raw_image(raw_file, cfg)
+        # Apply white balance
+        wb_array = ImageProcessor.apply_gain_and_white_balance(raw_array, gains=gains, pattern="BGGR")
+        print_image_stats(wb_array, "White balanced")
         # Demosaic
-        demosaiced_rgb = ImageProcessor.demosaic_image(raw_file, cfg)
+        demosaiced = ImageProcessor.demosaic_image(wb_array)
+        print_image_stats(demosaiced, "Demosaiced RGB")
+        
+        # Apply gamma correction
+        gamma_corrected = ImageProcessor.apply_gamma_correction(demosaiced, gamma=1.1)
+        print_image_stats(gamma_corrected, "Gamma corrected")
         
         # Apply color correction
-        corrected_img = ImageProcessor.apply_transformation_matrix(demosaiced_rgb, transformation_matrix) 
+        corrected_img = ImageProcessor.apply_transformation_matrix(gamma_corrected, transformation_matrix) 
+        print_image_stats(corrected_img, "Color corrected")
+        
         corrected_img = corrected_img * 65535.0
 
         corrected_img = np.clip(corrected_img, 0, 65535).astype(np.uint16)
@@ -174,7 +325,21 @@ class ImageProcessor:
 
         
         # Save the final image
-        ImageProcessor.save_image(corrected_image_bgr, output_dir / f"{raw_file.stem}.png")
+        r_gain, g_gain, b_gain = gains
+        raw_file_name = f"{raw_file.stem}_R{r_gain:.2f}_G{g_gain:.2f}_B{b_gain:.2f}.png"
+        ImageProcessor.save_image(corrected_image_bgr, output_dir / raw_file_name)
+        
+        raw_file_crop_name = f"{raw_file.stem}_R{r_gain:.2f}_G{g_gain:.2f}_B{b_gain:.2f}_crop_grey.png"
+        cropped_image = corrected_image_bgr[8322:8685, 8568:8880]
+        ImageProcessor.save_image(cropped_image, output_dir / raw_file_crop_name)
+
+        raw_file_crop_name = f"{raw_file.stem}_R{r_gain:.2f}_G{g_gain:.2f}_B{b_gain:.2f}_crop_lightgrey.png"
+        cropped_image = corrected_image_bgr[8315:8653, 7598:7940]
+        ImageProcessor.save_image(cropped_image, output_dir / raw_file_crop_name)
+
+        raw_file_crop_name = f"{raw_file.stem}_R{r_gain:.2f}_G{g_gain:.2f}_B{b_gain:.2f}_crop_white.png"
+        cropped_image = corrected_image_bgr[8310:8613, 7110:7440]
+        ImageProcessor.save_image(cropped_image, output_dir / raw_file_crop_name)
 
 class BatchProcessor:
     """Coordinates the overall batch processing workflow, including file management,
@@ -202,7 +367,7 @@ class BatchProcessor:
         output_dir = Path(self.cfg.paths.data_dir) / self.lts_dir_name / "semifield-developed-images" / self.batch_id / "pngs_iteration3"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.color_matrix_path = Path(self.cfg.paths.image_development, "color_matrix", self.cfg.quick_process.ccm_name + ".npz")
+        self.color_matrix_path = Path(self.cfg.paths.image_development, "color_matrix", self.cfg.raw2png.ccm_name + ".npz")
         if not src_dir.exists():
             raise FileNotFoundError(f"Source directory {src_dir} does not exist.")
         return src_dir, output_dir
@@ -239,14 +404,17 @@ class BatchProcessor:
         log.info(f"Processing {len(raw_files)} RAW files.")
 
         multiproc = True
+        
+        # Define your white balance gains
+        gain = (1.10, 1.0, 1.0)
 
         if not multiproc:
             for raw_file in raw_files:
-                ImageProcessor.process_image(raw_file, self.cfg, transformation_matrix, self.output_dir)
+                ImageProcessor.process_image(raw_file, self.cfg, transformation_matrix, self.output_dir, gain)
         else:
             with ProcessPoolExecutor(max_workers=8) as executor:
                 futures = [
-                    executor.submit(ImageProcessor.process_image, raw_file, self.cfg, transformation_matrix, self.output_dir)
+                    executor.submit(ImageProcessor.process_image, raw_file, self.cfg, transformation_matrix, self.output_dir, gain)
                     for raw_file in raw_files
                 ]
                 for future in as_completed(futures):
