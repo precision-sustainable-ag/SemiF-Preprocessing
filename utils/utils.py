@@ -3,24 +3,26 @@ from pathlib import Path
 from typing import List
 
 
-def locate_uploads(lts_locations: List[str], batch_id: str) -> Path:
+def locate_lts_location(lts_locations: List[str], batch_id: str, type: str) -> (
+        Path):
     """
     Util function to locate batch uploads
     Args:
         lts_locations (list): nfs storage locations
         batch_id (str): batch id
+        type (str): semifield-upload / semifield-developed-images
     Returns:
-        uploads_folder (Path): path to appropriate semif-uploads folder
+        batch_folder (Path): batch lts location for specified type
     """
 
-    uploads_folder = None
+    batch_folder = None
     for path in lts_locations:
-        semif_uploads = os.path.join(path, "semifield-upload")
+        semif_uploads = os.path.join(path, type)
         batch_ids = [x.name for x in Path(semif_uploads).glob("*")]
         if batch_id in batch_ids:
-            uploads_folder = Path(semif_uploads) / batch_id
+            batch_folder = Path(semif_uploads) / batch_id
             break
-    return uploads_folder
+    return batch_folder
 
 def create_developed_images(uploads_folder: Path) -> Path:
     """
