@@ -2,47 +2,18 @@
 defaults:
   - _self_
   - paths: default
-  - dng_tags: default
+  - ccm: NC_1740166530
   - override hydra/job_logging: custom
   
 batch_id: NC_2025-02-21
 tasks:
 #  - copy_from_lockers
-  # - colorchecker
-  # - raw2dng
   - raw2png
 
-file_masks:
-  raw_files:
-    - .RAW
-    - .raw
-  ccm_files:
-    - .txt
-
-raw2dng:
-  height: 9528
-  width: 13376
-  bpp: 16
-#  bpp: 12
-
-#raw2dng:
-#  height: 9528
-#  width: 13376
-#  bpp: 16
-
-colorchecker:
-  height: 9528
-  width: 13376
-  bpp: 16
-  ccm_gamma: 1
-
 raw2png:
-  ccm_name: default
-
-
-
-#copy_from_lockers:
-#  raw_extension: .RAW # either .RAW or .ARW
+  height: 9528
+  width: 13376
+  bpp: 16
   
 job_now_date: &nowdir ${now:%Y-%m-%d}
 

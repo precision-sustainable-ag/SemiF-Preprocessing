@@ -1,0 +1,168 @@
+- number: 1
+  name: dark skin
+  rgb_target: [115, 82, 68]
+  Lab_target: [37.986, 13.555, 14.059]
+  rgb_sample: [21.3, 23.8, 10.0]
+  LcH_sample: [7.6, 7.8, 114.9]
+  Lab_sample: [7.6, -3.28407934426643, 7.074943311473427]
+- number: 2
+  name: light skin
+  rgb_target: [194, 150, 130]
+  Lab_target: [64.711, 18.13, 17.81]
+  rgb_sample: [65.3, 78.8, 34.7]
+  LcH_sample: [31.5, 26.5, 115.8]
+  Lab_sample: [31.5, -11.533624133366676, 23.858447442158127]
+- number: 3
+  name: blue sky
+  rgb_target: [98, 122, 157]
+  Lab_target: [49.497, -4.88, -21.925]
+  rgb_sample: [25.9, 53.3, 39.9]
+  LcH_sample: [19.8, 14.8, 159.7]
+  Lab_sample: [19.8, -13.880756232256084, 5.1346476432841905]
+- number: 4
+  name: foliage
+  rgb_target: [87, 108, 67]
+  Lab_target: [43.139, -13.095, 21.905]
+  rgb_sample: [15.6, 28.1, 10.8]
+  LcH_sample: [8.7, 12.1, 136.2]
+  Lab_sample: [8.7, -8.733298759990182, 8.374932403831922]
+- number: 5
+  name: blue flower
+  rgb_target: [133, 128, 177]
+  Lab_target: [55.112, 8.844, -25.399]
+  rgb_sample: [25.4, 57.2, 44.1]
+  LcH_sample: [21.9, 12.8, 155.4]
+  Lab_sample: [21.9, -11.638222195802477, 5.328394140933136]
+- number: 6
+  name: bluish green
+  rgb_target: [103, 189, 170]
+  Lab_target: [70.719, -33.397, -0.199]
+  rgb_sample: [32.7, 86.4, 47.7]
+  LcH_sample: [32.4, 31.0, 146.8]
+  Lab_sample: [32.4, -25.93969371722781, 16.97445992826906]
+- number: 7
+  name: orange
+  rgb_target: [214, 126, 44]
+  Lab_target: [62.661, 36.067, 57.096]
+  rgb_sample: [59.6, 52.1, 11.8]
+  LcH_sample: [21.9, 25.4, 91.4]
+  Lab_sample: [21.9, -0.6205773250773894, 25.39241784044205]
+- number: 8
+  name: purplish blue
+  rgb_target: [80, 91, 166]
+  Lab_target: [40.02, 10.41, -45.964]
+  rgb_sample: [14.9, 31.3, 34.4]
+  LcH_sample: [10.6, 7.8, 214.4]
+  Lab_sample: [10.6, -6.435885286570703, -4.406742626714514]
+- number: 9
+  name: moderate red
+  rgb_target: [193, 90, 99]
+  Lab_target: [51.124, 48.239, 16.248]
+  rgb_sample: [52.6, 39.1, 17.6]
+  LcH_sample: [16.9, 17.1, 75.6]
+  Lab_sample: [16.9, 4.252597070519021, 16.562772055299593]
+- number: 10
+  name: purple
+  rgb_target: [94, 60, 108]
+  Lab_target: [30.325, 22.976, -21.587]
+  rgb_sample: [14.7, 15.8, 14.7]
+  LcH_sample: [4.5, 0.7, 142.5]
+  Lab_sample: [4.5, -0.5553473382038645, 0.42613300030610457]
+- number: 11
+  name: yellow green
+  rgb_target: [157, 188, 64]
+  Lab_target: [72.532, -23.709, 57.255]
+  rgb_sample: [38.8, 76.1, 19.1]
+  LcH_sample: [28.6, 36.1, 128.9]
+  Lab_sample: [28.6, -22.669466381141095, 28.094577661789362]
+- number: 12
+  name: orange yellow
+  rgb_target: [224, 163, 46]
+  Lab_target: [71.941, 19.363, 67.857]
+  rgb_sample: [64.6, 70.7, 14.2]
+  LcH_sample: [28.6, 32.1, 105.9]
+  Lab_sample: [28.6, -8.794090920027083, 30.871896036529684]
+- number: 13
+  name: blue
+  rgb_target: [56, 61, 150]
+  Lab_target: [28.778, 14.179, -50.297]
+  rgb_sample: [8.5, 19.0, 24.9]
+  LcH_sample: [5.3, 5.7, 244.8]
+  Lab_sample: [5.3, -2.4269419619209116, -5.157514199056313]
+- number: 14
+  name: green
+  rgb_target: [70, 148, 73]
+  Lab_target: [55.261, -38.342, 31.37]
+  rgb_sample: [15.7, 42.8, 15.0]
+  LcH_sample: [14.7, 21.7, 138.3]
+  Lab_sample: [14.7, -16.202048555592995, 14.435498695999625]
+- number: 15
+  name: red
+  rgb_target: [175, 54, 60]
+  Lab_target: [42.101, 53.378, 28.19]
+  rgb_sample: [40.2, 23.9, 8.6]
+  LcH_sample: [10.1, 13.7, 59.1]
+  Lab_sample: [10.1, 7.035515153196931, 11.75548920841393]
+- number: 16
+  name: yellow
+  rgb_target: [231, 199, 31]
+  Lab_target: [81.733, 4.039, 79.819]
+  rgb_sample: [73.2, 97.3, 19.4]
+  LcH_sample: [38.1, 42.3, 115.8]
+  Lab_sample: [38.1, -18.410275503449448, 38.08348403031278]
+- number: 17
+  name: magenta
+  rgb_target: [187, 86, 149]
+  Lab_target: [51.935, 49.986, -14.574]
+  rgb_sample: [44.5, 38.3, 28.0]
+  LcH_sample: [15.8, 8.2, 79.5]
+  Lab_sample: [15.8, 1.494331309035609, 8.062690242024427]
+- number: 18
+  name: cyan
+  rgb_target: [8, 133, 161]
+  Lab_target: [51.038, -28.631, -28.638]
+  rgb_sample: [14.3, 50.5, 40.3]
+  LcH_sample: [18.2, 16.0, 171.2]
+  Lab_sample: [18.2, -15.811654103144845, 2.4477733805446142]
+- number: 19
+  name: white (0.05*)
+  rgb_target: [243, 243, 242]
+  Lab_target: [96.539, -0.425, 1.186]
+  rgb_sample: [103.5, 174.8, 94.3]
+  LcH_sample: [65.3, 49.0, 136.4]
+  Lab_sample: [65.3, -35.48442121043591, 33.79135764304782]
+- number: 20
+  name: neutral 8 (0.23*)
+  rgb_target: [200, 200, 200]
+  Lab_target: [81.257, -0.638, -0.335]
+  rgb_sample: [70.0, 120.0, 66.2]
+  LcH_sample: [45.8, 35.7, 137.8]
+  Lab_sample: [45.8, -26.446724087436976, 23.980425038830752]
+- number: 21
+  name: neutral 6.5 (0.44*)
+  rgb_target: [160, 160, 160]
+  Lab_target: [66.766, -0.734, -0.504]
+  rgb_sample: [45.8, 78.7, 43.9]
+  LcH_sample: [30.2, 25.0, 138.4]
+  Lab_sample: [30.2, -18.6949522624633, 16.598155316306034]
+- number: 22
+  name: neutral 5 (0.70*)
+  rgb_target: [122, 122, 121]
+  Lab_target: [50.867, 0.153, -0.27]
+  rgb_sample: [25.3, 45.3, 24.4]
+  LcH_sample: [15.7, 15.1, 138.9]
+  Lab_sample: [15.7, -11.378807223754732, 9.926366211490844]
+- number: 23
+  name: neutral 3.5 (1.05*)
+  rgb_target: [85, 85, 85]
+  Lab_target: [35.656, -0.421, -1.231]
+  rgb_sample: [11.5, 19.1, 11.3]
+  LcH_sample: [5.1, 4.8, 142.4]
+  Lab_sample: [5.1, -3.8029902881049145, 2.928696786726085]
+- number: 24
+  name: black (1.50*)
+  rgb_target: [52, 52, 52]
+  Lab_target: [20.461, -0.079, -0.973]
+  rgb_sample: [4.5, 6.7, 4.4]
+  LcH_sample: [1.7, 1.1, 141.9]
+  Lab_sample: [1.7, -0.865628524157471, 0.6787394626548235]
