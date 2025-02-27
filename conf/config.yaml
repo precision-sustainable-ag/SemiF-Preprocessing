@@ -10,7 +10,7 @@ tasks:
 #  - copy_from_lockers
   - colorchecker
   - raw2dng
-  - dng2jpg
+  - png2jpg
   - raw2png
 
 file_masks:
@@ -31,7 +31,10 @@ raw2png:
   width: 13376
   bpp: 16
   remove_raws: false
-  
+
+png2jpg:
+  rt_pp3: "./assets/rt_profile.pp3"
+
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
 max_workers: 12
