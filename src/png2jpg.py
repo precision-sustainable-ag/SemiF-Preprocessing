@@ -1,8 +1,12 @@
 import logging
+import multiprocessing
+import os
 import subprocess
 from datetime import datetime
-from pathlib import Path
 from omegaconf import DictConfig
+from pathlib import Path
+from tqdm import tqdm
+
 from utils import utils
 
 log = logging.getLogger(__name__)
@@ -10,47 +14,93 @@ log = logging.getLogger(__name__)
 
 class PngToJpgConverter:
     def __init__(self, input_path: Path, output_path: Path,
-                 pp3_file: str) -> None:
+                 pp3_file: str, val_rt_script: str) -> None:
+        """
+        Class constructor for each image
+        """
         self.input_path = str(input_path)
         self.output_path = str(output_path)
         self.pp3_file = str(Path(pp3_file).resolve())
+        self.val_rt_script = str(Path(val_rt_script).resolve())
 
-    def convert(self):
-        rt_path = Path(
-            "./scripts/squashfs-root/usr/bin/rawtherapee-cli").resolve()
+    def validate_rawtherapee(self) -> str | None:
+        """
+        Verify rawtherapee installation, install if not present
+        Returns absolute path of rawtherapee-cli
+        """
+        try:
+            result = subprocess.run(
+                [self.val_rt_script],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip().split("'")[1]
+        except subprocess.CalledProcessError as e:
+            log.error(f"error validating rawtherapee: {e}")
+            return None
+
+    def convert(self, rt_cli: str) -> bool:
+        """
+        Convert png to jpg using rawtherapee and predefined profile
+        Returns true if converted successfully
+        """
+        if not rt_cli:
+            return False
         cmd = [
-            # "rawtherapee-cli",
-            str(rt_path),
+            rt_cli,
             "-O", self.output_path,
             "-p", self.pp3_file,
-            "-j99",
+            "-j99", "-Y",
             "-c", self.input_path
         ]
         try:
-            start_time = datetime.now()
-            results = subprocess.run(
+            max_threads = os.cpu_count()  # Total available cores
+            num_instances = 4  # Number of parallel conversions
+            threads_per_instance = max(1, max_threads // num_instances)
+
+            # Set environment per process
+            env = {
+                **os.environ,
+                "LANG": "en_US.UTF-8",
+                "OMP_NUM_THREADS": str(threads_per_instance),
+                "OMP_DYNAMIC": "TRUE",  # Allows OpenMP to optimize thread count
+                "OMP_NESTED": "FALSE"  # Disables nested parallelism
+            }
+            _ = subprocess.run(
                 cmd,
                 check=True,
                 capture_output=True,
                 text=True,
-                env={"LANG": "en_US.UTF-8", "OMP_NUM_THREADS": "1"}  # limits
-                # internal threading of process
+                env=env
             )
-            log.info(f"out: {results.stdout}")
-            log.info(f"err: {results.stderr}")
-            log.info(f"image conversion time: {datetime.now() - start_time}")
+            return True
         except subprocess.CalledProcessError as e:
-            log.error(e)
-        return
+            log.error(f"Error converting png to jpg: {e}")
+            return False
+
+def process_image(args: tuple) -> bool:
+    """
+    Multiprocessing wrapper to convert each image to jpg
+    Args:
+        args: tuple (png_file, output_path, rt_pp3)
+    Returns:
+        is_converted (bool): true if converted successfully
+    """
+    png_file, output_path, rt_pp3, val_rt_script = args
+    png2jpg_conv = PngToJpgConverter(png_file, output_path, rt_pp3, val_rt_script)
+    rt_cli = png2jpg_conv.validate_rawtherapee()
+    is_converted = png2jpg_conv.convert(rt_cli)
+    del png2jpg_conv
+    return is_converted
 
 
 def main(cfg: DictConfig) -> None:
     """
     Main function to convert pngs to jpgs. Accepts omegaconf dictConfig
     """
+
     log.info("Converting pngs to jpgs")
-    # rawtherapee profile for setting default exposure for images
-    rt_pp3 = cfg.png2jpg.rt_pp3
     # TODO @jinamshah:
     #  changes around developed images possible if storing pngs temporarily
 
@@ -63,18 +113,29 @@ def main(cfg: DictConfig) -> None:
                                    'semifield-developed-images' / cfg.batch_id)
     if not developed_images_folder:
         log.error(f"{cfg.batch_id} doesn't exist")
-
+    log.info(f"Located {cfg.batch_id} at "
+             f"{developed_images_folder.parent.parent}")
+    # locate pngs file and prepare them for multiprocessing args
     png_folder = developed_images_folder / 'pngs'
     png_files = []
     for file_mask in cfg.file_masks.png_files:
         png_files.extend(list(png_folder.glob(f"*{file_mask}")))
-
-    log.info(f"Located {len(png_files)} png files in "
-             f"{developed_images_folder.parent.parent}")
-
+    tasks = []
     for png_file in png_files:
         output_path = developed_images_folder / f'{png_file.stem}.jpg'
-        log.info(f"{png_file}, {output_path}")
-        png2jpg_conv = PngToJpgConverter(png_file, output_path, rt_pp3)
-        png2jpg_conv.convert()
-        break
+        tasks.append((png_file, output_path, cfg.png2jpg.rt_pp3,
+                      cfg.png2jpg.validate_rt))
+
+    log.info(f"Converting {len(png_files)} png files using multiprocessing")
+    start_time = datetime.now()
+    with multiprocessing.Pool() as pool:
+        results = []
+        with tqdm(total=len(tasks), desc="pngs converted") as pbar:
+            for result in pool.imap_unordered(process_image, tasks):
+                results.append(result)
+                pbar.update()
+    if sum(results) == len(tasks):
+        log.info(f"All png files converted successfully")
+    else:
+        log.warning(f"Failed to convert {len(results) - sum(results)} pngs")
+    log.info(f"conversion time: {datetime.now() - start_time}")

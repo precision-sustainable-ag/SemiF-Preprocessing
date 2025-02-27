@@ -6,7 +6,7 @@ data
 # Rawtherapee app image
 *.AppImage
 # Rawtherapee extracted image
-scripts/squashfs-root
+**/squashfs-root
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

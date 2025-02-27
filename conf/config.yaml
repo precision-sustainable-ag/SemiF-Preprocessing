@@ -33,7 +33,8 @@ raw2png:
   remove_raws: false
 
 png2jpg:
-  rt_pp3: "./assets/rt_profile.pp3"
+  rt_pp3: "./src/assets/rt_profile.pp3"
+  validate_rt: "./scripts/validate_rawtherapee.sh" # rt installation/validation script
 
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
