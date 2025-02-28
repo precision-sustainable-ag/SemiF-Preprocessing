@@ -105,24 +105,28 @@ def main(cfg: DictConfig) -> None:
     #  changes around developed images possible if storing pngs temporarily
 
     # locate batch's developed images folder in LTS
-    developed_images_folder = utils.locate_lts_location(
-        cfg.paths.lts_locations, cfg.batch_id, 'semifield-developed-images')
+    # TODO: this will fail with error if files not present in LTS
+    lts_dir_name = utils.find_lts_dir(cfg.batch_id,
+                                                 cfg.paths.lts_locations,
+                                                 local=False)
+    pngs_folder = (Path(lts_dir_name) / "semifield-developed-images" /
+                   cfg.batch_id / "pngs")
 
-    if not developed_images_folder:
-        developed_images_folder = (Path(cfg.paths.data_dir) /
-                                   'semifield-developed-images' / cfg.batch_id)
-    if not developed_images_folder:
-        log.error(f"{cfg.batch_id} doesn't exist")
-    log.info(f"Located {cfg.batch_id} at "
-             f"{developed_images_folder.parent.parent}")
-    # locate pngs file and prepare them for multiprocessing args
-    png_folder = developed_images_folder / 'pngs'
+    # if not present in LTS locations, pngs must've been created locally
+    if not pngs_folder.exists():
+        lts_dir_name = utils.find_lts_dir(cfg.batch_id,
+                                          cfg.paths.lts_locations,
+                                          local=True)
+        pngs_folder = (cfg.paths.data_dir / lts_dir_name /
+                       "semifield-developed-images" / cfg.batch_id / "pngs")
+    if not pngs_folder.exists():
+        log.error(f"{cfg.batch_id} doesn't have any png files")
     png_files = []
     for file_mask in cfg.file_masks.png_files:
-        png_files.extend(list(png_folder.glob(f"*{file_mask}")))
+        png_files.extend(list(pngs_folder.glob(f"*{file_mask}")))
     tasks = []
     for png_file in png_files:
-        output_path = developed_images_folder / f'{png_file.stem}.jpg'
+        output_path = pngs_folder.parent / f'{png_file.stem}.jpg'
         tasks.append((png_file, output_path, cfg.png2jpg.rt_pp3,
                       cfg.png2jpg.validate_rt))
 
