@@ -29,7 +29,7 @@ def copy_from_lockers_in_parallel(src_dir, dest_dir, max_workers=12, raw_extensi
     
     log.info(f"Copying raw image files with extension {raw_extension}")
     # Collect all ARW file paths
-    raw_files = list(Path(src_dir).glob(f"*{raw_extension}"))
+    raw_files = sorted(list(Path(src_dir).glob(f"*{raw_extension}")))
 
     # Optionally filter files by specific names.
     # raw_files = [f for f in raw_files if f.stem in ["NC_1740166530", "NC_1740167524", "NC_1740162656"]] 
@@ -47,7 +47,7 @@ def copy_from_lockers_in_parallel(src_dir, dest_dir, max_workers=12, raw_extensi
 
 def main(cfg: DictConfig) -> None:
 
-    
+    log.info(f"Copying RAW files from NFS to local storage")
     batch_id = cfg.batch_id
 
     lts_locations = cfg.paths.lts_locations

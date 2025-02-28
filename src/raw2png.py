@@ -21,24 +21,53 @@ class BatchProcessor:
         """
         self.cfg = cfg
         self.batch_id = cfg.batch_id
+        self.lts_dir = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations, local=False)
         self.src_dir, self.output_dir = self.setup_paths()
 
 
+    def find_raw_dir(self):
+        """Find the raw directory containing .RAW files, preferring the one with more files."""
+        def count_raw_files(directory: Path) -> int:
+            """Return the count of .RAW files if the directory exists, otherwise 0."""
+            return len(list(directory.glob("*.RAW"))) if directory.exists() else 0
+
+        local_raw_dir = Path(self.cfg.paths.data_dir, self.lts_dir.name, "semifield-upload", self.batch_id)
+        remote_raw_dir = Path(self.lts_dir, "semifield-upload", self.batch_id)
+
+        local_count = count_raw_files(local_raw_dir)
+        remote_count = count_raw_files(remote_raw_dir)
+
+        if local_count > 0 or remote_count > 0:
+            if local_count >= remote_count:
+                log.info(f"Using local RAW directory: {local_raw_dir} ({local_count} files)")
+                return local_raw_dir
+            else:
+                log.info(f"Using remote RAW directory: {remote_raw_dir} ({remote_count} files)")
+                return remote_raw_dir
+
+        log.warning(f"No RAW directory found for batch {self.batch_id}")
+        return None  # Explicitly return None when no directory contains RAW files
+
+    
     def setup_paths(self):
         """Sets up and validates required directories for processing.
         
         Returns:
             tuple: Paths to source, raw, output, and downscaled directories.
         """
-        self.lts_dir_name = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations, local=True).name
+        src_dir = self.find_raw_dir()
         
-        src_dir = Path(self.cfg.paths.data_dir, self.lts_dir_name, "semifield-upload", self.batch_id)
-        output_dir = Path(self.cfg.paths.data_dir) / self.lts_dir_name / "semifield-developed-images" / self.batch_id / "pngs"
+        if src_dir is None:
+            log.error(f"No RAW directory found for batch {self.batch_id}.")
+            raise FileNotFoundError("No RAW directory found for batch.")
+        
+        output_dir = Path(self.cfg.paths.data_dir) / self.lts_dir.name / "semifield-developed-images" / self.batch_id / "pngs"
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Load the color matrix for color correction
         ccm_name = hydra.core.hydra_config.HydraConfig.get().runtime.choices.ccm
         self.color_matrix_path = Path(self.cfg.paths.image_development, "color_matrix", ccm_name + ".npz")
+        
         if not self.color_matrix_path.exists():
             log.warning(f"Color matrix {self.color_matrix_path} not found. Using default color matrix.")
             self.color_matrix_path = Path(self.cfg.paths.image_development, "color_matrix", "default.npz")
@@ -62,12 +91,13 @@ class BatchProcessor:
 
     def get_raw_files(self):
         """Get all RAW files from the source directory."""
-        all_raw_files = list(self.src_dir.glob("*.RAW"))
+        all_raw_files = list(self.src_dir.glob("*.RAW")) + list(self.src_dir.glob("*.raw"))
         # Determine the largest file size to filter out incomplete or corrupted files
-        max_file_size = max(f.stat().st_size for f in all_raw_files)
-        raw_files = sorted([f for f in all_raw_files if f.stat().st_size == max_file_size])
-        log.info(f"Processing {len(raw_files)} RAW files.")
-        return raw_files
+        # max_file_size = max(f.stat().st_size for f in all_raw_files)
+        # raw_files = sorted([f for f in all_raw_files if f.stat().st_size == max_file_size])
+        # raw_files = sorted(all_raw_files)
+        log.info(f"Processing {len(all_raw_files)} RAW files.")
+        return all_raw_files
     
     def process_files(self, transformation_matrix):
         """Processes RAW image files by applying demosaicing and color correction.
@@ -75,8 +105,10 @@ class BatchProcessor:
         Args:
             transformation_matrix (np.ndarray): Transformation matrix for color correction.
         """
-        raw_files = self.get_raw_files()
+        raw_files = sorted(self.get_raw_files())
 
+        # Optionally filter files by specific names.
+        # raw_files = [f for f in raw_files if f.stem in ["NC_1740166530"]] 
         if not raw_files:
             log.info("No raw files found.")
             return
@@ -93,6 +125,7 @@ class BatchProcessor:
                     log.error(f"Error processing file: {e}")
                 except KeyboardInterrupt:
                     log.info("Batch processing interrupted.")
+                    executor.shutdown(wait=False, cancel_futures=True)
         
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):

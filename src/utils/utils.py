@@ -33,12 +33,12 @@ def find_lts_dir(batch_id, nfs_locations, local=False):
             # Check if any RAW files are present
             if raws_files:
                 files_found = True
-                largest_file = max(raws_files, key=os.path.getsize)
+                # largest_file = max(raws_files, key=os.path.getsize)
                 # Check if all RAW files have been completely uploaded
-                if all(os.path.getsize(file) == os.path.getsize(largest_file) for file in raws_files):
-                    upload_complete = True
-                    log.info(f"Batch {batch_id} found in {batch_location} with {len(raws_files)} RAW files")
-                    return nfs_location
+                # if all(os.path.getsize(file) == os.path.getsize(largest_file) for file in raws_files):
+                # upload_complete = True
+                log.info(f"Batch {batch_id} found in {batch_location} with {len(raws_files)} RAW files")
+                return nfs_location
     if not dir_found:
         log.error(f"Batch {batch_id} not found in NFS locations: {nfs_locations}")
     elif not files_found:

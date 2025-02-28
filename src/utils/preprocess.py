@@ -256,7 +256,6 @@ class Preprocessor:
         Returns:
             np.ndarray: The loaded RAW image as a 2D numpy array.
         """
-        log.debug(f"Loading: {raw_file}")
         im_height, im_width = cfg.raw2png.height, cfg.raw2png.width
         nparray = np.fromfile(raw_file, dtype=np.uint16).reshape((im_height, im_width))
         return nparray
@@ -356,11 +355,11 @@ class Preprocessor:
         log_image_stats(demosaiced, "Demosaiced RGB")
         
         # 4. Apply gamma correction.
-        # gamma_corrected = Preprocessor.apply_gamma_correction(demosaiced, gamma=1.1)
-        # log_image_stats(gamma_corrected, "Gamma corrected")
+        gamma_corrected = Preprocessor.apply_gamma_correction(demosaiced, gamma=1.1)
+        log_image_stats(gamma_corrected, "Gamma corrected")
         
         # 5. Apply color correction.
-        corrected_img = Preprocessor.apply_transformation_matrix(demosaiced, transformation_matrix)
+        corrected_img = Preprocessor.apply_transformation_matrix(gamma_corrected, transformation_matrix)
         log_image_stats(corrected_img, "Color corrected")
 
         # Scale back to 16-bit range and convert from RGB to BGR.
