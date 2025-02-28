@@ -5,17 +5,35 @@ defaults:
   - ccm: NC_1740166530
   - override hydra/job_logging: custom
   
-batch_id: NC_2025-02-21
+batch_id: NC_2025-02-03
 tasks:
 #  - copy_from_lockers
   - raw2png
+  - png2jpg
+
+file_masks:
+  raw_files:
+    - .RAW
+    - .raw
+  ccm_files:
+    - .txt
+  dng_files:
+    - .DNG
+    - .dng
+  png_files:
+    - .png
+    - .PNG
 
 raw2png:
   height: 9528
   width: 13376
   bpp: 16
   remove_raws: false
-  
+
+png2jpg:
+  rt_pp3: "./src/assets/rt_profile.pp3"
+  validate_rt: "./scripts/validate_rawtherapee.sh" # rt installation/validation script
+
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
 max_workers: 12

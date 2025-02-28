@@ -4,7 +4,8 @@ outputs
 
 # Rawtherapee app image
 *.AppImage
-squashfs-root
+# Rawtherapee extracted image
+**/squashfs-root
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -169,3 +170,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 **.DS_Store
+

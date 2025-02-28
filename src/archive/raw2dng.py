@@ -41,8 +41,9 @@ class RawToDNGConverter:
         self.num_pixels = self.height * self.width
         self.bpp = self.task_cfg.bpp
 
-        self.uploads_folder = utils.locate_uploads(paths['lts_locations'],
-                                                   self.batch_id)
+        self.uploads_folder = utils.locate_lts_location(paths['lts_locations'],
+                                                   self.batch_id,
+                                                        "semifield-upload")
         if not self.uploads_folder:
             self.uploads_folder = (Path(paths['data_dir']) /
                                    'semifield-upload' /

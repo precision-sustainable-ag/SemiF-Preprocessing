@@ -11,7 +11,8 @@ def find_lts_dir(batch_id, nfs_locations, local=False):
         batch_id (str): The identifier of the batch to search for.
         nfs_locations (list): A list of NFS locations (directories) to search within.
     Returns:
-        str: The NFS location where the batch was found with complete RAW files, or None if the batch is not found or the files are incomplete.
+        Path: The NFS location where the batch was found with complete RAW
+        files, or None if the batch is not found or the files are incomplete.
     Logs:
         - Info: Logs the NFS location and the number of RAW files found if the batch is found and the files are complete.
         - Error: Logs an error message if the batch is not found, if no RAW files are found, or if the RAW files are not completely uploaded.

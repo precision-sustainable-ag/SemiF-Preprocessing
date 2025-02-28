@@ -28,8 +28,8 @@ class ColorChecker:
         """
         # todo: @jinamshah
         #   lts vs local vs both
-        self.uploads_folder = utils.locate_uploads(
-            self.cfg.paths.lts_locations, self.batch_id)
+        self.uploads_folder = utils.locate_lts_location(
+            self.cfg.paths.lts_locations, self.batch_id, "semifield-upload")
 
         if not self.uploads_folder:
             self.uploads_folder = (Path(self.cfg.paths.data_dir) /
