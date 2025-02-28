@@ -1,7 +1,6 @@
 # Local directories
 temp_data
 outputs
-data
 
 # Rawtherapee app image
 *.AppImage

@@ -1,0 +1,10 @@
+*
+!.gitignore
+!semifield-utils
+!semifield-utils/image_development/
+!semifield-utils/image_development/color_matrix
+!semifield-utils/image_development/color_matrix/default.npz
+!semifield-utils/image_development/color_matrix/NC_1740166530.npz
+
+!semifield-utils/image_development/dev_profiles
+!semifield-utils/image_development/dev_profiles/default.pp3
