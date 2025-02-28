@@ -346,21 +346,21 @@ class Preprocessor:
 
         # 1. Load the RAW image.
         raw_array = Preprocessor.load_raw_image(raw_file, cfg)
-
+        log_image_stats(raw_array, "RAW")
         # 2. Apply white balance.
-        wb_array = Preprocessor.apply_gain_and_white_balance(raw_array, gains=gains, pattern="BGGR")
-        log_image_stats(wb_array, "White balanced")
+        # wb_array = Preprocessor.apply_gain_and_white_balance(raw_array, gains=gains, pattern="BGGR")
+        # log_image_stats(wb_array, "White balanced")
 
         # 3. Demosaic the image.
-        demosaiced = Preprocessor.demosaic_image(wb_array)
+        demosaiced = Preprocessor.demosaic_image(raw_array)
         log_image_stats(demosaiced, "Demosaiced RGB")
-
+        
         # 4. Apply gamma correction.
-        gamma_corrected = Preprocessor.apply_gamma_correction(demosaiced, gamma=1.1)
-        log_image_stats(gamma_corrected, "Gamma corrected")
-
+        # gamma_corrected = Preprocessor.apply_gamma_correction(demosaiced, gamma=1.1)
+        # log_image_stats(gamma_corrected, "Gamma corrected")
+        
         # 5. Apply color correction.
-        corrected_img = Preprocessor.apply_transformation_matrix(gamma_corrected, transformation_matrix)
+        corrected_img = Preprocessor.apply_transformation_matrix(demosaiced, transformation_matrix)
         log_image_stats(corrected_img, "Color corrected")
 
         # Scale back to 16-bit range and convert from RGB to BGR.
@@ -371,4 +371,6 @@ class Preprocessor:
         # 6. Save the final image.
         raw_file_name = f"{raw_file.stem}.png"
         Preprocessor.save_image(corrected_image_bgr, output_dir / raw_file_name)
-        Preprocessor.remove_local_raw(raw_file)
+        
+        if cfg.raw2png.remove_raws:
+            Preprocessor.remove_local_raw(raw_file)

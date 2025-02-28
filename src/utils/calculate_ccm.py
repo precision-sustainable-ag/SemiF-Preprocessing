@@ -8,6 +8,7 @@ log = logging.getLogger(__name__)
 
 def get_transformation_components(target_matrix: np.ndarray, source_matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
+    https://github.com/danforthcenter/plantcv/blob/main/plantcv/plantcv/transform/color_correction.py
     Calculate components required for generating a transformation matrix.
 
     Depending on the shape of the input matrices, the first column is assumed to be an identifier.

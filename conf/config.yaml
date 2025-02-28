@@ -14,6 +14,7 @@ raw2png:
   height: 9528
   width: 13376
   bpp: 16
+  remove_raws: false
   
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
