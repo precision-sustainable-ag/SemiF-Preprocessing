@@ -28,8 +28,9 @@ def find_lts_dir(batch_id, nfs_locations, local=False):
             batch_location = nfs_location / "semifield-upload" / batch_id
         # Check if the batch directory exists
         if batch_location.exists():
-            dir_found = True    
-            raws_files = list(batch_location.glob("*.RAW"))
+            dir_found = True
+            raws_files = list(batch_location.glob("*.RAW")) + list(
+                batch_location.glob("*.raw"))
             # Check if any RAW files are present
             if raws_files:
                 files_found = True

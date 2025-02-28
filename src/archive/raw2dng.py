@@ -3,14 +3,13 @@ import numpy as np
 from pathlib import Path
 import os
 import logging
-from datetime import datetime
 from omegaconf import DictConfig
 from pidng.core import RAW2DNG, DNGTags, Tag
 from pidng.defs import *
 from tqdm import tqdm
 from typing import Dict
 
-from utils import utils
+from src.archive.utils import utils
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ class RawToDNGConverter:
         self.bpp = self.task_cfg.bpp
 
         self.uploads_folder = utils.locate_lts_location(paths['lts_locations'],
-                                                   self.batch_id,
+                                                        self.batch_id,
                                                         "semifield-upload")
         if not self.uploads_folder:
             self.uploads_folder = (Path(paths['data_dir']) /

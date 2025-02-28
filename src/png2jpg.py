@@ -1,13 +1,14 @@
 import logging
 import multiprocessing
 import os
+import shutil
 import subprocess
 from datetime import datetime
 from omegaconf import DictConfig
 from pathlib import Path
 from tqdm import tqdm
 
-from utils import utils
+from src.utils.utils import find_lts_dir
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ class PngToJpgConverter:
             log.error(f"Error converting png to jpg: {e}")
             return False
 
+
 def process_image(args: tuple) -> bool:
     """
     Multiprocessing wrapper to convert each image to jpg
@@ -88,7 +90,8 @@ def process_image(args: tuple) -> bool:
         is_converted (bool): true if converted successfully
     """
     png_file, output_path, rt_pp3, val_rt_script = args
-    png2jpg_conv = PngToJpgConverter(png_file, output_path, rt_pp3, val_rt_script)
+    png2jpg_conv = PngToJpgConverter(png_file, output_path, rt_pp3,
+                                     val_rt_script)
     rt_cli = png2jpg_conv.validate_rawtherapee()
     is_converted = png2jpg_conv.convert(rt_cli)
     del png2jpg_conv
@@ -101,37 +104,27 @@ def main(cfg: DictConfig) -> None:
     """
 
     log.info("Converting pngs to jpgs")
-    # TODO @jinamshah:
-    #  changes around developed images possible if storing pngs temporarily
-
-    # locate batch's developed images folder in LTS
-    # TODO: this will fail with error if files not present in LTS
-    lts_dir_name = utils.find_lts_dir(cfg.batch_id,
-                                                 cfg.paths.lts_locations,
-                                                 local=False)
-    pngs_folder = (Path(lts_dir_name) / "semifield-developed-images" /
-                   cfg.batch_id / "pngs")
-
-    # if not present in LTS locations, pngs must've been created locally
-    if not pngs_folder.exists():
-        lts_dir_name = utils.find_lts_dir(cfg.batch_id,
-                                          cfg.paths.lts_locations,
-                                          local=True)
-        pngs_folder = (cfg.paths.data_dir / lts_dir_name /
-                       "semifield-developed-images" / cfg.batch_id / "pngs")
+    # check local storage for converted png files
+    lts_dir = find_lts_dir(cfg.batch_id,
+                                cfg.paths.lts_locations,
+                                local=True)
+    pngs_folder = (cfg.paths.data_dir / lts_dir.name /
+                   "semifield-developed-images" / cfg.batch_id / "pngs")
     if not pngs_folder.exists():
         log.error(f"{cfg.batch_id} doesn't have any png files")
     png_files = []
     for file_mask in cfg.file_masks.png_files:
         png_files.extend(list(pngs_folder.glob(f"*{file_mask}")))
-    tasks = []
-    for png_file in png_files:
-        output_path = pngs_folder.parent / f'{png_file.stem}.jpg'
-        tasks.append((png_file, output_path, cfg.png2jpg.rt_pp3,
-                      cfg.png2jpg.validate_rt))
 
-    log.info(f"Converting {len(png_files)} png files using multiprocessing")
-    start_time = datetime.now()
+    # identify output location and create args for multiprocessing
+    output_dir = Path(lts_dir) / "semifield-developed-images" / cfg.batch_id
+    os.makedirs(output_dir, exist_ok=True)
+
+    log.info(f"Converting {len(png_files)} png files to jpgs")
+    tasks = [
+        (png_file, output_dir/f'{png_file.stem}.jpg', cfg.png2jpg.rt_pp3,
+         cfg.png2jpg.validate_rt) for png_file in png_files
+    ]
     with multiprocessing.Pool() as pool:
         results = []
         with tqdm(total=len(tasks), desc="pngs converted") as pbar:
@@ -142,4 +135,12 @@ def main(cfg: DictConfig) -> None:
         log.info(f"All png files converted successfully")
     else:
         log.warning(f"Failed to convert {len(results) - sum(results)} pngs")
-    log.info(f"conversion time: {datetime.now() - start_time}")
+
+    if cfg.png2jpg.remove_pngs:
+        if "research-project" in str(png_files[0]) or "screberg" in str(
+                png_files[0]):
+            log.warning(
+                "Refusing to remove file from LTS research-project directory.")
+        else:
+            shutil.rmtree(pngs_folder)
+            log.info(f"Deleted local pngs: {pngs_folder}")

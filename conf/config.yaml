@@ -15,8 +15,6 @@ file_masks:
   raw_files:
     - .RAW
     - .raw
-  ccm_files:
-    - .txt
   dng_files:
     - .DNG
     - .dng
@@ -31,8 +29,9 @@ raw2png:
   remove_raws: false
 
 png2jpg:
-  rt_pp3: "./src/assets/rt_profile.pp3"
-  validate_rt: "./scripts/validate_rawtherapee.sh" # rt installation/validation script
+  rt_pp3: ${paths.image_development}/rt_profile.pp3
+  validate_rt: ${paths.workdir}/scripts/validate_rawtherapee.sh # rt installation/validation script
+  remove_pngs: False
 
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
