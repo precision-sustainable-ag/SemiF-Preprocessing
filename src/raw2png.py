@@ -5,7 +5,7 @@ import hydra
 from omegaconf import DictConfig
 from concurrent.futures import as_completed, ProcessPoolExecutor
 from src.utils.preprocess import Preprocessor
-from src.utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir, find_raw_dir
 
 log = logging.getLogger(__name__)
 
@@ -22,32 +22,8 @@ class BatchProcessor:
         self.cfg = cfg
         self.batch_id = cfg.batch_id
         self.lts_dir = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations, local=False)
+        self.local_data_dir = Path(self.cfg.paths.data_dir)
         self.src_dir, self.output_dir = self.setup_paths()
-
-
-    def find_raw_dir(self):
-        """Find the raw directory containing .RAW files, preferring the one with more files."""
-        def count_raw_files(directory: Path) -> int:
-            """Return the count of .RAW files if the directory exists, otherwise 0."""
-            return len(list(directory.glob("*.RAW"))) if directory.exists() else 0
-
-        local_raw_dir = Path(self.cfg.paths.data_dir, self.lts_dir.name, "semifield-upload", self.batch_id)
-        remote_raw_dir = Path(self.lts_dir, "semifield-upload", self.batch_id)
-
-        local_count = count_raw_files(local_raw_dir)
-        remote_count = count_raw_files(remote_raw_dir)
-
-        if local_count > 0 or remote_count > 0:
-            if local_count >= remote_count:
-                log.info(f"Using local RAW directory: {local_raw_dir} ({local_count} files)")
-                return local_raw_dir
-            else:
-                log.info(f"Using remote RAW directory: {remote_raw_dir} ({remote_count} files)")
-                return remote_raw_dir
-
-        log.warning(f"No RAW directory found for batch {self.batch_id}")
-        return None  # Explicitly return None when no directory contains RAW files
-
     
     def setup_paths(self):
         """Sets up and validates required directories for processing.
@@ -55,7 +31,7 @@ class BatchProcessor:
         Returns:
             tuple: Paths to source, raw, output, and downscaled directories.
         """
-        src_dir = self.find_raw_dir()
+        src_dir = find_raw_dir(self.local_data_dir, self.batch_id, self.lts_dir)
         
         if src_dir is None:
             log.error(f"No RAW directory found for batch {self.batch_id}.")

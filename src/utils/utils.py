@@ -3,6 +3,33 @@ import logging
 import numpy as np
 log = logging.getLogger(__name__)
 
+def find_raw_dir(local_data_dir: Path, batch_id: str, lts_dir: Path) -> Path:
+        """Find the raw directory containing .RAW files, preferring the one with more files."""
+        def count_raw_files(directory: Path) -> int:
+            """Return the count of .RAW files if the directory exists, otherwise 0."""
+            return len(list(directory.glob("*.RAW"))) if directory.exists() else 0
+
+        local_raw_dir = Path(local_data_dir, lts_dir.name, "semifield-upload", batch_id)
+        remote_raw_dir = Path(lts_dir, "semifield-upload", batch_id)
+
+        if not remote_raw_dir.exists():
+            log.error(f"Remote RAW directory not found: {remote_raw_dir}. Exiting.")
+            raise FileNotFoundError(f"Remote RAW directory not found: {remote_raw_dir}")
+
+        local_count = count_raw_files(local_raw_dir)
+        remote_count = count_raw_files(remote_raw_dir)
+
+        if local_count > 0 or remote_count > 0:
+            if local_count >= remote_count:
+                log.info(f"Using local RAW directory: {local_raw_dir} ({local_count} files)")
+                return local_raw_dir
+            else:
+                log.info(f"Using remote RAW directory: {remote_raw_dir} ({remote_count} files)")
+                return remote_raw_dir
+
+        log.warning(f"No RAW directory found for batch {batch_id}")
+        return None 
+
 # Find the batch NFS location from a list of possible parent directories
 def find_lts_dir(batch_id, nfs_locations, local=False, developed=False):
     """

@@ -184,6 +184,7 @@ class Preprocessor:
              source_r3 * red[6] + source_g3 * red[7] + source_b3 * red[8])
 
         corrected_img = cv2.merge([r, g, b])
+        log_image_stats(corrected_img, "Color corrected")
         return corrected_img
 
     # ---------------------------
@@ -207,6 +208,7 @@ class Preprocessor:
         max_val = np.iinfo(image_dtype).max if image_dtype.kind == 'u' else 1.0
         image = image.astype(np.float64) / max_val
         gamma_corrected = np.power(image, 1 / gamma)
+        log_image_stats(gamma_corrected, "Gamma corrected")
         return gamma_corrected
 
     @staticmethod
@@ -268,6 +270,7 @@ class Preprocessor:
         """
         im_height, im_width = cfg.raw2png.height, cfg.raw2png.width
         nparray = np.fromfile(raw_file, dtype=np.uint16).reshape((im_height, im_width))
+        log_image_stats(nparray, "RAW")
         return nparray
 
     @staticmethod
@@ -283,6 +286,7 @@ class Preprocessor:
         """
         demosaiced = cv2.cvtColor(raw_array, cv2.COLOR_BayerBG2RGB_EA)
         demosaiced = demosaiced.astype(np.float64) / 65535.0
+        log_image_stats(demosaiced, "Demosaiced")
         return demosaiced
 
     @staticmethod

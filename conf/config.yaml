@@ -32,6 +32,9 @@ png2jpg:
   rt_pp3_name: NC_2025-02-21
   remove_pngs: False
 
+raw2jpg:
+  remove_pngs: false
+
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
 max_workers: 12
