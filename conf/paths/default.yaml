@@ -2,6 +2,7 @@ workdir: ${hydra:runtime.cwd}  # where the code is executed
 log_dir: ${paths.workdir}/logs/
 data_dir: ${paths.workdir}/data/
 image_development: ${paths.data_dir}/semifield-utils/image_development/
+scripts: ${paths.workdir}/scripts
 
 lts_locations:
   - /mnt/research-projects/s/screberg/longterm_images

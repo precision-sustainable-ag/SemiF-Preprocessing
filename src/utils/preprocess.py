@@ -3,12 +3,11 @@ import cv2
 import logging
 from pathlib import Path
 from omegaconf import DictConfig
+from src.utils.utils import log_image_stats
 
 log = logging.getLogger(__name__)
 
 
-def log_image_stats(image: np.ndarray, label: str = "Image", debug: bool = False):
-    log.debug(f"{label} - dtype: {image.dtype}, range: [{np.min(image)}, {np.max(image)}], shape: {image.shape}")
 
 class Preprocessor:
     """
@@ -22,6 +21,17 @@ class Preprocessor:
     # ---------------------------
     # Lookup Table (LUT) Methods
     # ---------------------------
+    @staticmethod
+    def load_transformation_matrix(color_matrix_path: Path) -> np.ndarray:
+        """Loads the color transformation matrix from file.
+        
+        Returns:
+            np.ndarray: The loaded transformation matrix.
+        """
+        # Load the color matrix for color correction
+        with np.load(color_matrix_path) as data:
+            return data["matrix"]
+        
     @staticmethod
     def generate_s_curve_lut(size: int = 256, contrast: float = 5.0, pivot: float = 0.5) -> np.ndarray:
         """

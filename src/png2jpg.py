@@ -1,10 +1,10 @@
 import logging
-import multiprocessing
 import os
 import shutil
 import subprocess
-from datetime import datetime
 from omegaconf import DictConfig
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import random
 from pathlib import Path
 from tqdm import tqdm
 
@@ -56,8 +56,8 @@ class PngToJpgConverter:
             "-c", self.input_path
         ]
         try:
-            max_threads = os.cpu_count()  # Total available cores
-            num_instances = 4  # Number of parallel conversions
+            max_threads = 50 #os.cpu_count()  # Total available cores
+            num_instances = 10  # Number of parallel conversions
             threads_per_instance = max(1, max_threads // num_instances)
 
             # Set environment per process
@@ -90,10 +90,15 @@ def process_image(args: tuple) -> bool:
         is_converted (bool): true if converted successfully
     """
     png_file, output_path, rt_pp3, val_rt_script = args
+    log.info(f"Converting {png_file.name} to jpg")
     png2jpg_conv = PngToJpgConverter(png_file, output_path, rt_pp3,
                                      val_rt_script)
     rt_cli = png2jpg_conv.validate_rawtherapee()
     is_converted = png2jpg_conv.convert(rt_cli)
+    if is_converted:
+        log.info(f"Successfully converted {png_file} to jpg")
+    else:
+        log.warning(f"Failed to convert {png_file} to jpg")
     del png2jpg_conv
     return is_converted
 
@@ -102,37 +107,41 @@ def main(cfg: DictConfig) -> None:
     """
     Main function to convert pngs to jpgs. Accepts omegaconf dictConfig
     """
-
     log.info("Converting pngs to jpgs")
+    
     # check local storage for converted png files
     lts_dir = find_lts_dir(cfg.batch_id,
                                 cfg.paths.lts_locations,
-                                local=True)
-    pngs_folder = (cfg.paths.data_dir / lts_dir.name /
-                   "semifield-developed-images" / cfg.batch_id / "pngs")
+                                local=True, developed=True)
+    
+    # get and check if pngs folder exists
+    pngs_folder = Path(cfg.paths.data_dir) / lts_dir.name / "semifield-developed-images" / cfg.batch_id / "pngs"
     if not pngs_folder.exists():
         log.error(f"{cfg.batch_id} doesn't have any png files")
+    
+    # get all png files
     png_files = []
     for file_mask in cfg.file_masks.png_files:
         png_files.extend(list(pngs_folder.glob(f"*{file_mask}")))
+    log.info(f"Converting {len(png_files)} png files to jpgs")
 
     # identify output location and create args for multiprocessing
-    output_dir = Path(lts_dir) / "semifield-developed-images" / cfg.batch_id
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir = Path(lts_dir) / "semifield-developed-images" / cfg.batch_id / "images"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    log.info(f"Converting {len(png_files)} png files to jpgs")
-    tasks = [
-        (png_file, output_dir/f'{png_file.stem}.jpg', cfg.png2jpg.rt_pp3,
-         cfg.png2jpg.validate_rt) for png_file in png_files
-    ]
-    with multiprocessing.Pool() as pool:
-        results = []
-        with tqdm(total=len(tasks), desc="pngs converted") as pbar:
-            for result in pool.imap_unordered(process_image, tasks):
-                results.append(result)
-                pbar.update()
+    # create tasks for multiprocessing
+    pp3_path = Path(cfg.paths.image_development) / "dev_profiles" / f"{cfg.png2jpg.rt_pp3_name}.pp3"
+    validate_rt_cli_script = Path(cfg.paths.scripts) / "validate_rawtherapee.sh"
+    tasks = [(png_file, output_dir / f'{png_file.stem}.jpg', pp3_path, validate_rt_cli_script) for png_file in png_files]
+    # convert pngs to jpgs
+    results = []
+    with ProcessPoolExecutor(max_workers=12) as executor:
+        future_to_task = {executor.submit(process_image, task): task for task in tasks}
+        for future in as_completed(future_to_task):
+            results.append(future.result())
+
     if sum(results) == len(tasks):
-        log.info(f"All png files converted successfully")
+        log.info("All png files converted successfully")
     else:
         log.warning(f"Failed to convert {len(results) - sum(results)} pngs")
 

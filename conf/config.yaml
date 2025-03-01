@@ -5,7 +5,7 @@ defaults:
   - ccm: NC_1740166530
   - override hydra/job_logging: custom
   
-batch_id: NC_2025-02-03
+batch_id: NC_2025-02-21
 tasks:
 #  - copy_from_lockers
   - raw2png
@@ -29,8 +29,7 @@ raw2png:
   remove_raws: false
 
 png2jpg:
-  rt_pp3: ${paths.image_development}/rt_profile.pp3
-  validate_rt: ${paths.workdir}/scripts/validate_rawtherapee.sh # rt installation/validation script
+  rt_pp3_name: NC_2025-02-21
   remove_pngs: False
 
 job_now_date: &nowdir ${now:%Y-%m-%d}
