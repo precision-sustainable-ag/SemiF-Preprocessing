@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-import getpass
 import logging
 
 # Add the src directory to the PYTHONPATH
@@ -11,10 +10,12 @@ from omegaconf import DictConfig, OmegaConf
 from hydra.utils import get_method
 
 log = logging.getLogger(__name__)
-# Get the logger for the Azure SDK
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
+    """
+    Main entry point for running SemiF-Preprocesing pipeline.
+    """
     cfg = OmegaConf.create(cfg)
     log.info(f"Starting task {','.join(cfg.tasks)}")
     

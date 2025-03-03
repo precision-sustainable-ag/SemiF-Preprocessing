@@ -4,6 +4,8 @@ import numpy as np
 from pathlib import Path
 from omegaconf import DictConfig
 
+from src.archive.utils import utils
+
 log = logging.getLogger(__name__)
 
 
@@ -24,17 +26,16 @@ class ColorChecker:
         """
         # todo: @jinamshah
         #   lts vs local vs both
-        # for path in self.cfg.paths.lts_locations:
-        #     semif_uploads = os.path.join(path, "semifield-upload")
-        #     batch_ids = [x.name for x in Path(semif_uploads).glob("*")]
-        #     if self.batch_id in batch_ids:
-        #         self.uploads_folder = Path(semif_uploads) / self.batch_id
-        #         break
+        self.uploads_folder = utils.locate_lts_location(
+            self.cfg.paths.lts_locations, self.batch_id, "semifield-upload")
+
         if not self.uploads_folder:
             self.uploads_folder = (Path(self.cfg.paths.data_dir) /
                               'semifield-upload' /
                               self.batch_id)
-            # log.error(f"{self.batch_id} doesn't exist")
+        if not self.uploads_folder:
+            log.error(f"{self.batch_id} doesn't exist")
+
         raw_files = []
         for file_mask in self.raw_files_mask:
             raw_files.extend(list(self.uploads_folder.glob(f"*{file_mask}")))
@@ -147,7 +148,10 @@ class ColorChecker:
         ccm = ccm_model.getCCM()
         ccm.astype(np.float32)
 
-        filename = self.uploads_folder / f"{img_name}.txt"
+        # assumes that developed-images folder for the batch is not present
+        developed_images_folder = utils.create_developed_images(self.uploads_folder)
+
+        filename = developed_images_folder / f"{img_name}.txt"
         np.savetxt(filename, ccm, delimiter=',')
         return filename
 
