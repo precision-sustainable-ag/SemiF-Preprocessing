@@ -3,7 +3,7 @@ import logging
 import numpy as np
 log = logging.getLogger(__name__)
 
-def find_raw_dir(local_data_dir: Path, batch_id: str, lts_dir: Path) -> Path:
+def find_raw_dir(local_data_dir: Path, batch_id: str, lts_dir: Path) -> Path | None:
         """Find the raw directory containing .RAW files, preferring the one with more files."""
         def count_raw_files(directory: Path) -> int:
             """Return the count of .RAW files if the directory exists, otherwise 0."""
@@ -31,12 +31,15 @@ def find_raw_dir(local_data_dir: Path, batch_id: str, lts_dir: Path) -> Path:
         return None 
 
 # Find the batch NFS location from a list of possible parent directories
-def find_lts_dir(batch_id, nfs_locations, local=False, developed=False):
+def find_lts_dir(batch_id: str, nfs_locations: list[str], local:bool=False,
+                 developed:bool=False) -> Path | None:
     """
     Searches for the specified batch directory within the given NFS locations and checks for the presence and completeness of RAW files.
     Args:
         batch_id (str): The identifier of the batch to search for.
         nfs_locations (list): A list of NFS locations (directories) to search within.
+        local (bool): true - searches for batch data in local directory.
+        developed (bool): true - searches for pngs in semifield-developed-images, false - searches for raws in semifield-upload.
     Returns:
         Path: The NFS location where the batch was found with complete RAW
         files, or None if the batch is not found or the files are incomplete.
@@ -44,9 +47,8 @@ def find_lts_dir(batch_id, nfs_locations, local=False, developed=False):
         - Info: Logs the NFS location and the number of RAW files found if the batch is found and the files are complete.
         - Error: Logs an error message if the batch is not found, if no RAW files are found, or if the RAW files are not completely uploaded.
     """
-    dir_found = False
-    files_found = False
-    upload_complete = False
+    dir_found, files_found, upload_complete = False, False, False
+    batch_location = None
     for nfs_location in nfs_locations:
         nfs_location = Path(nfs_location)
         if local:
@@ -70,11 +72,7 @@ def find_lts_dir(batch_id, nfs_locations, local=False, developed=False):
                     batch_location.glob("*.raw"))
             # Check if any RAW files are present
             if files:
-                files_found = True
-                # largest_file = max(raws_files, key=os.path.getsize)
-                # Check if all RAW files have been completely uploaded
-                # if all(os.path.getsize(file) == os.path.getsize(largest_file) for file in raws_files):
-                # upload_complete = True
+                # todo: md5 checksum for data verification?
                 log.info(f"Batch {batch_id} found in {batch_location} with {len(files)} {'RAW' if not developed else 'PNG'} files")
                 return nfs_location
     if not dir_found:

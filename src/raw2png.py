@@ -68,10 +68,7 @@ class BatchProcessor:
     def get_raw_files(self):
         """Get all RAW files from the source directory."""
         all_raw_files = list(self.src_dir.glob("*.RAW")) + list(self.src_dir.glob("*.raw"))
-        # Determine the largest file size to filter out incomplete or corrupted files
-        # max_file_size = max(f.stat().st_size for f in all_raw_files)
-        # raw_files = sorted([f for f in all_raw_files if f.stat().st_size == max_file_size])
-        # raw_files = sorted(all_raw_files)
+        # todo: md5 checksum for data verification?
         log.info(f"Processing {len(all_raw_files)} RAW files.")
         return all_raw_files
     
@@ -105,7 +102,10 @@ class BatchProcessor:
         
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
-    """Main entry point for batch image processing."""
+    """
+    Entry point to convert raw images to png
+    This function is only used if png2jpg is run as a separate task.
+    """
     log.info(f"Batch preprocessing started for batch {cfg.batch_id}.")
     batch_processor = BatchProcessor(cfg)
     transformation_matrix = batch_processor.load_transformation_matrix()

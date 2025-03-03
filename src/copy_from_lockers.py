@@ -16,8 +16,16 @@ def copy_raw_file(src, dest):
     else:
         log.info(f"Skipped {src}, already present at destination with matching size")
        
-def copy_from_lockers_in_parallel(src_dir, dest_dir, max_workers=12, raw_extension=".ARW"):
-    """Copy all ARW files in parallel from NFS to local storage."""
+def copy_from_lockers_in_parallel(src_dir: Path, dest_dir: Path, max_workers:int=12, raw_extension: str=".ARW") -> None:
+    """
+    Copy all ARW files in parallel from NFS to local storage.
+
+    Args:
+        src_dir (Path): Path to the batch folder in LTS location.
+        dest_dir (Path): local folder to copy data to.
+        max_workers (int, optional): Number of parallel workers to use. Defaults to 12.
+        raw_extension (str, optional): File extension to use. Defaults to ".ARW".
+    """
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir, exist_ok=True)
 
@@ -29,7 +37,7 @@ def copy_from_lockers_in_parallel(src_dir, dest_dir, max_workers=12, raw_extensi
     
     log.info(f"Copying raw image files with extension {raw_extension}")
     # Collect all ARW file paths
-    raw_files = sorted(list(Path(src_dir).glob(f"*{raw_extension}")))
+    raw_files = sorted(list(src_dir.glob(f"*{raw_extension}")))
 
     # Optionally filter files by specific names.
     # raw_files = [f for f in raw_files if f.stem in ["NC_1740166530", "NC_1740167524", "NC_1740162656"]] 
@@ -44,9 +52,14 @@ def copy_from_lockers_in_parallel(src_dir, dest_dir, max_workers=12, raw_extensi
                 future.result()  # Capture any exceptions
             except Exception as e:
                 log.error(f"Error copying file: {e}")
+    return
 
 def main(cfg: DictConfig) -> None:
-
+    """
+    Entrypoint for copying RAW files from NFS to local storage:
+    <lts_location>/semifield-upload/<batch_id> to
+    ./data/<lts_location>/semifield-upload/<batch_id>
+    """
     log.info(f"Copying RAW files from NFS to local storage")
     batch_id = cfg.batch_id
 
@@ -59,7 +72,7 @@ def main(cfg: DictConfig) -> None:
     
     src_dir = nfs_path / "semifield-upload" / batch_id
 
-    assert Path(src_dir).exists(), f"Source directory {src_dir} does not exist. Check the batch name."
+    assert src_dir.exists(), f"Source directory {src_dir} does not exist. Check the batch name."
 
     log.info(f"Copying from {src_dir} to {dst_dir}")
 

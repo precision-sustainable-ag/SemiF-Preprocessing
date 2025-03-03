@@ -140,7 +140,9 @@ class Preprocessor:
         return wb_array.astype(raw_array.dtype)
 
     @staticmethod
-    def apply_transformation_matrix(source_img: np.ndarray, transformation_matrix: np.ndarray) -> np.ndarray:
+    def apply_transformation_matrix(source_img: np.ndarray,
+                                    transformation_matrix: np.ndarray) -> (
+            np.ndarray | None):
         """
         Applies a color transformation matrix to correct the color space of an RGB image.
 
@@ -308,7 +310,7 @@ class Preprocessor:
         return resized_image
 
     @staticmethod
-    def save_image(image: np.ndarray, output_path: Path):
+    def save_image(image: np.ndarray, output_path: Path) -> None:
         """
         Saves an image to disk in PNG format.
 
@@ -318,9 +320,10 @@ class Preprocessor:
         """
         cv2.imwrite(str(output_path), image, [cv2.IMWRITE_PNG_COMPRESSION, 0])
         log.info(f"Saved: {output_path}")
+        return
 
     @staticmethod
-    def remove_local_raw(local_raw_path: Path):
+    def remove_local_raw(local_raw_path: Path) -> None:
         """
         Removes a RAW image file from disk with a safety check against specific directories.
 
@@ -332,21 +335,21 @@ class Preprocessor:
             return
         local_raw_path.unlink()
         log.info(f"Removed raw image: {local_raw_path}")
+        return
 
     # ---------------------------
     # Full Image Processing Pipeline
     # ---------------------------
     @staticmethod
-    def process_image(raw_file: Path, cfg: DictConfig, transformation_matrix: np.ndarray, output_dir: Path):
+    def process_image(raw_file: Path, cfg: DictConfig, transformation_matrix:np.ndarray, output_dir: Path) -> None:
         """
         Executes the full image processing pipeline, which includes:
         
             1. Loading the RAW image.
-            2. Applying white balance gains.
-            3. Demosaicing.
-            4. Applying gamma correction.
-            5. Applying color correction.
-            6. Converting and saving the final image.
+            2. Demosaicing.
+            3. Applying gamma correction.
+            4. Applying color correction.
+            5. Converting and saving the final image.
 
         Parameters:
             raw_file (Path): Path to the RAW image file.
@@ -360,9 +363,6 @@ class Preprocessor:
         # 1. Load the RAW image.
         raw_array = Preprocessor.load_raw_image(raw_file, cfg)
         log_image_stats(raw_array, "RAW")
-        # 2. Apply white balance.
-        # wb_array = Preprocessor.apply_gain_and_white_balance(raw_array, gains=gains, pattern="BGGR")
-        # log_image_stats(wb_array, "White balanced")
 
         # 3. Demosaic the image.
         demosaiced = Preprocessor.demosaic_image(raw_array)
@@ -387,3 +387,4 @@ class Preprocessor:
         
         if cfg.raw2png.remove_raws:
             Preprocessor.remove_local_raw(raw_file)
+        return

@@ -7,7 +7,7 @@ dependencies:
   - pip
   - hydra-core
   - omegaconf
-  - opencv  # Use 'opencv' instead of 'opencv-python'
+  - opencv
   - pandas
   - tqdm
   - pip:

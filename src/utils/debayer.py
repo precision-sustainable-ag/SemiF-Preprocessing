@@ -5,19 +5,20 @@ from pathlib import Path
 import hydra
 from omegaconf import DictConfig
 
-from colour_demosaicing import demosaicing_CFA_Bayer_Menon2007
 from utils import find_lts_dir
 
 log = logging.getLogger(__name__)
 
 
-def log_image_stats(image: np.ndarray, label: str = "Image"):
+def log_image_stats(image: np.ndarray, label: str = "Image") -> None:
     if image.size == 0:
         log.info(f"{label} is empty.")
     else:
         log.info(
             f"{label} - dtype: {image.dtype}, range: [{np.min(image)}, {np.max(image)}], shape: {image.shape}"
         )
+    return
+
 
 class Demosaicer:
 
@@ -36,7 +37,8 @@ class Demosaicer:
         """
         log.info(f"Loading: {raw_file}")
         im_height, im_width = self.cfg.raw2png.height, self.cfg.raw2png.width
-        nparray = np.fromfile(raw_file, dtype=np.uint16).reshape((im_height, im_width))
+        nparray = np.fromfile(raw_file, dtype=np.uint16).reshape(
+            (im_height, im_width))
         return nparray
 
     def demosaic_image(self, nparray: np.ndarray) -> np.ndarray:
@@ -51,7 +53,6 @@ class Demosaicer:
         """
         # Alternative using OpenCV (commented out):
         demosaiced = cv2.cvtColor(nparray, cv2.COLOR_BayerBG2RGB_EA)
-        # demosaiced = demosaicing_CFA_Bayer_Menon2007(nparray, pattern="RGGB")
         demosaiced = demosaiced.astype(np.float64) / 65535.0
         return demosaiced
 
@@ -88,6 +89,7 @@ class Demosaicer:
         raw_file_name = f"{raw_file.stem}.png"
         self.save_image(corrected_image_bgr, output_dir / raw_file_name)
 
+
 class BatchDemoasaicer:
 
     def __init__(self, cfg: DictConfig):
@@ -109,20 +111,24 @@ class BatchDemoasaicer:
         Returns:
             tuple: A tuple containing the source and output directories.
         """
-        self.lts_dir_name = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations, local=True).name
+        self.lts_dir_name = find_lts_dir(self.batch_id,
+                                         self.cfg.paths.lts_locations,
+                                         local=True).name
 
-        src_dir = Path(self.cfg.paths.data_dir, self.lts_dir_name, "semifield-upload", self.batch_id)
+        src_dir = Path(self.cfg.paths.data_dir, self.lts_dir_name,
+                       "semifield-upload", self.batch_id)
         output_dir = (
-            Path(self.cfg.paths.data_dir)
-            / self.lts_dir_name
-            / "semifield-developed-images"
-            / self.batch_id
-            / "debayered"
+                Path(self.cfg.paths.data_dir)
+                / self.lts_dir_name
+                / "semifield-developed-images"
+                / self.batch_id
+                / "debayered"
         )
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if not src_dir.exists():
-            raise FileNotFoundError(f"Source directory {src_dir} does not exist.")
+            raise FileNotFoundError(
+                f"Source directory {src_dir} does not exist.")
         return src_dir, output_dir
 
     def process_files(self):
@@ -135,7 +141,8 @@ class BatchDemoasaicer:
 
         # Determine the largest file size to filter out incomplete or corrupted files.
         max_file_size = max(f.stat().st_size for f in all_raw_files)
-        raw_files = sorted([f for f in all_raw_files if f.stat().st_size == max_file_size])
+        raw_files = sorted(
+            [f for f in all_raw_files if f.stat().st_size == max_file_size])
 
         # Optionally filter files by specific names.
         # raw_files = [f for f in raw_files if f.stem in ["NC_1740166530"]]

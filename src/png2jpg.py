@@ -1,12 +1,9 @@
 import logging
 import os
-import shutil
 import subprocess
 from omegaconf import DictConfig
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import random
 from pathlib import Path
-from tqdm import tqdm
 
 from src.utils.utils import find_lts_dir
 
@@ -14,15 +11,18 @@ log = logging.getLogger(__name__)
 
 
 class PngToJpgConverter:
+    """
+    Converts a png file to a jpg file (99% quality) using rawtherapee-cli
+    """
     def __init__(self, input_path: Path, output_path: Path,
-                 pp3_file: str, val_rt_script: str) -> None:
+                 pp3_file: Path, val_rt_script: Path) -> None:
         """
         Class constructor for each image
         """
         self.input_path = str(input_path)
         self.output_path = str(output_path)
-        self.pp3_file = str(Path(pp3_file).resolve())
-        self.val_rt_script = str(Path(val_rt_script).resolve())
+        self.pp3_file = str(pp3_file.resolve())
+        self.val_rt_script = str(val_rt_script.resolve())
 
     def validate_rawtherapee(self) -> str | None:
         """
@@ -44,8 +44,11 @@ class PngToJpgConverter:
     def convert(self, rt_cli: str) -> bool:
         """
         Convert png to jpg using rawtherapee and predefined profile
+        Args:
+            rt_cli: path to rawtherapee-cli (verified installation)
         Returns true if converted successfully
         """
+
         if not rt_cli:
             return False
         cmd = [
@@ -56,9 +59,10 @@ class PngToJpgConverter:
             "-c", self.input_path
         ]
         try:
-            max_threads = 50 #os.cpu_count()  # Total available cores
-            num_instances = 10  # Number of parallel conversions
-            threads_per_instance = max(1, max_threads // num_instances)
+            max_threads = 50  # Total number of threads to use
+            num_instances = 12  # Expected number of parallel threads
+            threads_per_instance = max(1, max_threads // num_instances) #
+            # prevents oversubscription of resources
 
             # Set environment per process
             env = {
@@ -99,13 +103,14 @@ def process_image(args: tuple) -> bool:
         log.info(f"Successfully converted {png_file} to jpg")
     else:
         log.warning(f"Failed to convert {png_file} to jpg")
-    del png2jpg_conv
+    del png2jpg_conv    # explicit garbage collection
     return is_converted
 
 
 def main(cfg: DictConfig) -> None:
     """
-    Main function to convert pngs to jpgs. Accepts omegaconf dictConfig
+    Entry point for converting png to jpg.
+    This function is only used if png2jpg is run as a separate task.
     """
     log.info("Converting pngs to jpgs")
     
@@ -135,7 +140,7 @@ def main(cfg: DictConfig) -> None:
     tasks = [(png_file, output_dir / f'{png_file.stem}.jpg', pp3_path, validate_rt_cli_script) for png_file in png_files]
     # convert pngs to jpgs
     results = []
-    with ProcessPoolExecutor(max_workers=12) as executor:
+    with ProcessPoolExecutor(max_workers=cfg.max_workers) as executor:
         future_to_task = {executor.submit(process_image, task): task for task in tasks}
         for future in as_completed(future_to_task):
             results.append(future.result())
@@ -144,12 +149,3 @@ def main(cfg: DictConfig) -> None:
         log.info("All png files converted successfully")
     else:
         log.warning(f"Failed to convert {len(results) - sum(results)} pngs")
-
-    if cfg.png2jpg.remove_pngs:
-        if "research-project" in str(png_files[0]) or "screberg" in str(
-                png_files[0]):
-            log.warning(
-                "Refusing to remove file from LTS research-project directory.")
-        else:
-            shutil.rmtree(pngs_folder)
-            log.info(f"Deleted local pngs: {pngs_folder}")

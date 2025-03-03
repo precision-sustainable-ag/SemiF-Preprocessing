@@ -27,6 +27,8 @@ class Raw2Jpg:
         self.batch_id = cfg.batch_id
         self.remove_pngs = cfg.raw2jpg.remove_pngs
         self.local_data_dir = Path(self.cfg.paths.data_dir)
+        self.max_workers = cfg.max_workers
+        self.file_masks = cfg.file_masks
         
         # Locate long-term storage directory
         self.lts_dir = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations, local=False)
@@ -96,8 +98,9 @@ class Raw2Jpg:
         Returns:
             list[Path]: List of RAW image file paths.
         """
-        raw_files = list(self.src_dir.glob("*.RAW")) + list(self.src_dir.glob("*.raw"))
-        # raw_files = random.sample(raw_files, min(len(raw_files), 20))  # Select a subset for testing
+        raw_files = []
+        for file_mask in self.file_masks.raw_files:
+            raw_files.extend(list(self.src_dir.glob(f"*{file_mask}")))
         log.info(f"Found {len(raw_files)} RAW files for processing.")
         return raw_files
     
@@ -124,12 +127,15 @@ class Raw2Jpg:
         Returns:
             bool: True if the conversion was successful, False otherwise.
         """
+
         # Apply preprocessing steps
         raw_array = Preprocessor.load_raw_image(raw_file, self.cfg)
         demosaiced = Preprocessor.demosaic_image(raw_array)
-        gamma_corrected = Preprocessor.apply_gamma_correction(demosaiced, gamma=1.1)
+        gamma_corrected = Preprocessor.apply_gamma_correction(demosaiced,
+                                                              gamma=1.1)  # gamma correction
         corrected_img = Preprocessor.apply_transformation_matrix(gamma_corrected, self.transformation_matrix)
-        corrected_img = np.clip(corrected_img * 65535.0, 0, 65535).astype(np.uint16)
+        corrected_img = np.clip(corrected_img * 65535.0, 0, 65535).astype(
+            np.uint16) # clipping pixel values to 16-bit integer range
         corrected_image_bgr = cv2.cvtColor(corrected_img, cv2.COLOR_RGB2BGR)
         # Save the corrected image as a PNG file
         png_file = self.temp_png_output_dir / f"{raw_file.stem}.png"
@@ -159,7 +165,7 @@ class Raw2Jpg:
             log.warning("No RAW files found for processing.")
             return
         
-        with ProcessPoolExecutor(max_workers=12) as executor:
+        with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {executor.submit(self.convert_raw_to_jpg, raw_file): raw_file for raw_file in raw_files}
             for future in as_completed(futures):
                 try:

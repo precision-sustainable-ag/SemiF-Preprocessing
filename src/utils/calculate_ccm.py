@@ -28,7 +28,6 @@ def get_transformation_components(target_matrix: np.ndarray, source_matrix: np.n
     # Compute the pseudo-inverse (least-squares solution) of the design matrix.
     matrix_m = np.linalg.solve(matrix_a.T @ matrix_a, matrix_a.T)
     # Build the target matrix with powers.
-    # matrix_b = np.hstack([t_r, t_g, t_b, t_r**2, t_g**2, t_b**2, t_r**3, t_g**3, t_b**3])
     matrix_b = np.hstack([t_r, t_r**2, t_r**3, t_g, t_g**2, t_g**3, t_b, t_b**2, t_b**3])
     return matrix_a, matrix_m, matrix_b
 

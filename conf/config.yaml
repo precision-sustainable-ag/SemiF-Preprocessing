@@ -7,9 +7,11 @@ defaults:
   
 batch_id: NC_2025-02-21
 tasks:
-#  - copy_from_lockers
-  - raw2png
-  - png2jpg
+  - copy_from_lockers
+  - raw2jpg
+# raw2jpg does raw2png + png2jpg
+#  - raw2png
+#  - png2jpg
 
 file_masks:
   raw_files:
@@ -26,14 +28,13 @@ raw2png:
   height: 9528
   width: 13376
   bpp: 16
-  remove_raws: false
+  remove_raws: true
 
 png2jpg:
   rt_pp3_name: NC_2025-02-21
-  remove_pngs: False
 
 raw2jpg:
-  remove_pngs: false
+  remove_pngs: true
 
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
