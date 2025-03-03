@@ -33,6 +33,8 @@ png2jpg:
   rt_pp3_name: NC_2025-02-21
 
 raw2jpg:
+  jpg_samples: 50
+  jpg_quality: 25
   remove_pngs: true
 
 job_now_date: &nowdir ${now:%Y-%m-%d}
