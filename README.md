@@ -48,13 +48,13 @@ using `scripts/validate_rawtherapee.sh`.
 │   └── validate_rawtherapee.sh     # script to validate rawtherapee installation
 └── src
     ├── archive                     # archived code for future reference
-    ├── copy_from_lockers.py        # copy raw files from NFS to local storage
     ├── raw2jpg.py                  # convert downloaded raw image to jpeg (raw2png + png2jpg processing)
     ├── png2jpg.py                  # convert png files to jpeg
     ├── raw2png.py                  # convert raw images to png
     └── utils
+        ├── copy_from_lockers.py    # copy raw files from NFS to local storage
         ├── calculate_ccm.py        # utils to calculate and save ccm based on yaml config 
-        ├── debayer.py
+        ├── debayer.py              # demosaic image to manually record colorchecker values
         ├── preprocess.py           # collection static methods for image preprocessing
         └── utils.py                # common util functions
 ```
