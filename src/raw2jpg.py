@@ -69,7 +69,7 @@ class Raw2Jpg:
         jpg_output_dir.mkdir(parents=True, exist_ok=True)
         local_sample_dir = (Path(
             self.cfg.paths.data_dir) / self.lts_dir.name / "semifield-developed-images" / self.batch_id / "sample_jpgs")
-        temp_png_dir.mkdir(parents=True, exist_ok=True)
+        local_sample_dir.mkdir(parents=True, exist_ok=True)
         return src_raw_dir, temp_png_dir, jpg_output_dir, local_sample_dir
 
     def setup_profiling_paths(self) -> tuple[Path, Path]:
@@ -188,6 +188,7 @@ class Raw2Jpg:
             if to_inspect:
                 sample_path = self.local_sample_dir / f"{png_file.stem}.jpg"
                 self.save_local_sample(str(output_jpg_path), str(sample_path))
+                log.info(f"Saved low quality sample for inspection: {sample_path}")
         else:
             log.warning(f"Failed to convert {png_file.name} to JPG")
 
