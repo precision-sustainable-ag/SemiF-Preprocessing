@@ -1,38 +1,50 @@
 from pathlib import Path
+from PIL import Image
 import logging
+import piexif
+import math
 import numpy as np
+
 log = logging.getLogger(__name__)
 
-def find_raw_dir(local_data_dir: Path, batch_id: str, lts_dir: Path) -> Path | None:
-        """Find the raw directory containing .RAW files, preferring the one with more files."""
-        def count_raw_files(directory: Path) -> int:
-            """Return the count of .RAW files if the directory exists, otherwise 0."""
-            return len(list(directory.glob("*.RAW"))) if directory.exists() else 0
 
-        local_raw_dir = Path(local_data_dir, lts_dir.name, "semifield-upload", batch_id)
-        remote_raw_dir = Path(lts_dir, "semifield-upload", batch_id)
+def find_raw_dir(local_data_dir: Path, batch_id: str,
+                 lts_dir: Path) -> Path | None:
+    """Find the raw directory containing .RAW files, preferring the one with more files."""
 
-        if not remote_raw_dir.exists():
-            log.error(f"Remote RAW directory not found: {remote_raw_dir}. Exiting.")
-            raise FileNotFoundError(f"Remote RAW directory not found: {remote_raw_dir}")
+    def count_raw_files(directory: Path) -> int:
+        """Return the count of .RAW files if the directory exists, otherwise 0."""
+        return len(list(directory.glob("*.RAW"))) if directory.exists() else 0
 
-        local_count = count_raw_files(local_raw_dir)
-        remote_count = count_raw_files(remote_raw_dir)
+    local_raw_dir = Path(local_data_dir, lts_dir.name, "semifield-upload",
+                         batch_id)
+    remote_raw_dir = Path(lts_dir, "semifield-upload", batch_id)
 
-        if local_count > 0 or remote_count > 0:
-            if local_count >= remote_count:
-                log.info(f"Using local RAW directory: {local_raw_dir} ({local_count} files)")
-                return local_raw_dir
-            else:
-                log.info(f"Using remote RAW directory: {remote_raw_dir} ({remote_count} files)")
-                return remote_raw_dir
+    if not remote_raw_dir.exists():
+        log.error(f"Remote RAW directory not found: {remote_raw_dir}. Exiting.")
+        raise FileNotFoundError(
+            f"Remote RAW directory not found: {remote_raw_dir}")
 
-        log.warning(f"No RAW directory found for batch {batch_id}")
-        return None 
+    local_count = count_raw_files(local_raw_dir)
+    remote_count = count_raw_files(remote_raw_dir)
+
+    if local_count > 0 or remote_count > 0:
+        if local_count >= remote_count:
+            log.info(
+                f"Using local RAW directory: {local_raw_dir} ({local_count} files)")
+            return local_raw_dir
+        else:
+            log.info(
+                f"Using remote RAW directory: {remote_raw_dir} ({remote_count} files)")
+            return remote_raw_dir
+
+    log.warning(f"No RAW directory found for batch {batch_id}")
+    return None
+
 
 # Find the batch NFS location from a list of possible parent directories
-def find_lts_dir(batch_id: str, nfs_locations: list[str], local:bool=False,
-                 developed:bool=False) -> Path | None:
+def find_lts_dir(batch_id: str, nfs_locations: list[str], local: bool = False,
+                 developed: bool = False) -> Path | None:
     """
     Searches for the specified batch directory within the given NFS locations and checks for the presence and completeness of RAW files.
     Args:
@@ -53,9 +65,11 @@ def find_lts_dir(batch_id: str, nfs_locations: list[str], local:bool=False,
         nfs_location = Path(nfs_location)
         if local:
             if developed:
-                batch_location = Path("data") / nfs_location.name / "semifield-developed-images" / batch_id
+                batch_location = Path(
+                    "data") / nfs_location.name / "semifield-developed-images" / batch_id
             else:
-                batch_location = Path("data") / nfs_location.name / "semifield-upload" / batch_id
+                batch_location = Path(
+                    "data") / nfs_location.name / "semifield-upload" / batch_id
         else:
             if developed:
                 batch_location = nfs_location / "semifield-developed-images" / batch_id
@@ -73,15 +87,73 @@ def find_lts_dir(batch_id: str, nfs_locations: list[str], local:bool=False,
             # Check if any RAW files are present
             if files:
                 # todo: md5 checksum for data verification?
-                log.info(f"Batch {batch_id} found in {batch_location} with {len(files)} {'RAW' if not developed else 'PNG'} files")
+                log.info(
+                    f"Batch {batch_id} found in {batch_location} with {len(files)} {'RAW' if not developed else 'PNG'} files")
                 return nfs_location
     if not dir_found:
-        log.error(f"Batch {batch_id} not found in NFS locations: {nfs_locations}")
+        log.error(
+            f"Batch {batch_id} not found in NFS locations: {nfs_locations}")
     elif not files_found:
-        log.error(f"Batch {batch_id} found in {batch_location} but no RAW files found")
+        log.error(
+            f"Batch {batch_id} found in {batch_location} but no RAW files found")
     elif not upload_complete:
-        log.error(f"Batch {batch_id} found in {batch_location} but RAW files are not completely uploaded")
+        log.error(
+            f"Batch {batch_id} found in {batch_location} but RAW files are not completely uploaded")
     return None
 
+
 def log_image_stats(image: np.ndarray, label: str = "Image"):
-    log.debug(f"{label} - dtype: {image.dtype}, range: [{np.min(image)}, {np.max(image)}], shape: {image.shape}")
+    log.debug(
+        f"{label} - dtype: {image.dtype}, range: [{np.min(image)}, {np.max(image)}], shape: {image.shape}")
+
+
+def estimate_focal_length_35mm(focal_length: int, sensor_height: float,
+                               sensor_width: float) -> float:
+    """
+    Calculate the 35mm focal length based on sensor dimensions.
+    """
+    # Diagonal size of a 35mm full-frame sensor
+    diag_35mm = math.sqrt(
+        36 ** 2 + 24 ** 2)  # Full-frame diagonal in mm (43.27 mm)
+
+    # Diagonal size of the given sensor
+    diag_sensor = math.sqrt(sensor_width ** 2 + sensor_height ** 2)
+
+    # Estimate Focal Length in 35mm Film format
+    focal_length_35mm = focal_length * (diag_35mm / diag_sensor)
+    return focal_length_35mm
+
+
+def add_exif_data(image_path: Path, updated_exif: dict) -> None:
+    """
+    Function to add exif information to jpeg image
+    """
+    if ".jpg" not in image_path.name.lower():
+        log.error(f"{image_path.name} is not a valid jpg")
+        return
+
+    if 'FocalLengthIn35mmFilm' not in updated_exif.keys():
+        updated_exif['FocalLengthIn35mmFilm'] = estimate_focal_length_35mm(
+            updated_exif['FocalLength'], updated_exif['SensorHeight'],
+            updated_exif['SensorWidth'])
+    try:
+        exif_dict = piexif.load(str(image_path))
+    except Exception:
+        log.error(f"Could not load {image_path.name}")
+        return
+
+    # update focal length information
+    exif_dict["Exif"][piexif.ExifIFD.FocalLength] = (
+    int(updated_exif['FocalLength'] * 100), 100)  # Rational number
+    exif_dict["Exif"][piexif.ExifIFD.FocalLengthIn35mmFilm] = int(
+        updated_exif['FocalLengthIn35mmFilm'])
+
+    # Update Image Dimensions
+    exif_dict["0th"][piexif.ImageIFD.ImageLength] = int(
+        updated_exif['ImageHeight'])
+    exif_dict["0th"][piexif.ImageIFD.ImageWidth] = int(
+        updated_exif['ImageWidth'])
+    # use PIL to save the image with updated exif information
+    image = Image.open(image_path)
+    image.save(image_path, "jpeg", exif=piexif.dump(exif_dict))
+    log.info(f"Updated exif information for {image_path.name}")
