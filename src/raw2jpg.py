@@ -49,7 +49,7 @@ class Raw2Jpg:
 
         # Sample paramaters
         self.sample_count = cfg.raw2jpg.jpg_samples
-        self.sample_quality = cfg.raw2jpg.jpg_quality
+        self.sample_resize_factor = cfg.raw2jpg.resize_factor
 
     def setup_image_paths(self) -> tuple[Path, Path, Path, Path]:
         """
@@ -144,9 +144,8 @@ class Raw2Jpg:
         img = cv2.imread(original_path)
 
         # Save with minimal quality for small file size
-        cv2.imwrite(output_path, img,
-                    [cv2.IMWRITE_JPEG_QUALITY, self.sample_quality,
-                     cv2.IMWRITE_JPEG_OPTIMIZE, 1])
+        img = cv2.resize(img, (0, 0), fx=self.sample_resize_factor, fy=self.sample_resize_factor)
+        cv2.imwrite(output_path, img)
         return
 
     def convert_raw_to_jpg(self, args: tuple[Path, bool]) -> bool:

@@ -34,7 +34,7 @@ png2jpg:
 
 raw2jpg:
   jpg_samples: 50
-  jpg_quality: 25
+  resize_factor: 1
   remove_pngs: true
 
 job_now_date: &nowdir ${now:%Y-%m-%d}
