@@ -56,6 +56,7 @@ class PngToJpgConverter:
             "-O", self.output_path,
             "-p", self.pp3_file,
             "-j99", "-Y",
+            "-js3",
             "-c", self.input_path
         ]
         try:
