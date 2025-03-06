@@ -1,5 +1,6 @@
 import logging
 import random
+import shutil
 from concurrent.futures import as_completed, ProcessPoolExecutor
 from pathlib import Path
 
@@ -35,6 +36,8 @@ class Raw2Jpg:
         # Locate long-term storage directory
         self.lts_dir = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations,
                                     local=False)
+        # LTS location of image development profiles
+        self.profiles_backup = self.cfg.paths.img_dev_lts_bkp
 
         # Set up image input and output directories
         (self.src_dir, self.temp_png_output_dir, self.jpg_output_dir,
@@ -83,9 +86,13 @@ class Raw2Jpg:
         pp3_path = Path(
             self.cfg.paths.image_development) / "dev_profiles" / f"{self.cfg.png2jpg.rt_pp3_name}.pp3"
         if not pp3_path.exists():
-            log.error(f"RawTherapee profile not found: {pp3_path}")
-            raise FileNotFoundError(
-                f"RawTherapee profile not found: {pp3_path}")
+            log.warning(f"RawTherapee profile not found locally, copying from {self.profiles_backup}")
+            pp3_backup_path = Path(self.profiles_backup) / "dev_profiles" / f"{self.cfg.png2jpg.rt_pp3_name}.pp3"
+            shutil.copy(pp3_backup_path, pp3_path)
+        # sanity check
+        if not pp3_path.exists():
+            log.error(f"RawTherapee profile not found")
+            raise FileNotFoundError(f"RawTherapee profile not found: {pp3_path}")
 
         validate_rt_cli_script = Path(
             self.cfg.paths.scripts) / "validate_rawtherapee.sh"
@@ -108,10 +115,13 @@ class Raw2Jpg:
         color_matrix_path = Path(self.cfg.paths.image_development,
                                  "color_matrix", ccm_name + ".npz")
         if not color_matrix_path.exists():
-            log.error(f"Color matrix file {color_matrix_path} not found.")
-            raise FileNotFoundError(
-                f"Color matrix file {color_matrix_path} not found.")
-
+            log.warning(f"Color matrix file not found locally, copying from {self.profiles_backup}")
+            color_matrix_backup_path = Path(self.profiles_backup) / "color_matrix" / f"{ccm_name}.npz"
+            shutil.copy(color_matrix_backup_path, color_matrix_path)
+        # sanity check
+        if not color_matrix_path.exists():
+            log.error(f"Color matrix file not found")
+            raise FileNotFoundError(f"Color matrix file not found: {color_matrix_path}")
         return color_matrix_path
 
     def get_raw_files(self) -> list[Path]:
