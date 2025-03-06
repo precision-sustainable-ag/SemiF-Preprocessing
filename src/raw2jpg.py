@@ -3,7 +3,7 @@ import random
 import shutil
 from concurrent.futures import as_completed, ProcessPoolExecutor
 from pathlib import Path
-
+import os
 import cv2
 import hydra
 import numpy as np
@@ -86,6 +86,7 @@ class Raw2Jpg:
         pp3_path = Path(
             self.cfg.paths.image_development) / "dev_profiles" / f"{self.cfg.png2jpg.rt_pp3_name}.pp3"
         if not pp3_path.exists():
+            os.makedirs(pp3_path.parent, exist_ok=True)
             log.warning(f"RawTherapee profile not found locally, copying from {self.profiles_backup}")
             pp3_backup_path = Path(self.profiles_backup) / "dev_profiles" / f"{self.cfg.png2jpg.rt_pp3_name}.pp3"
             shutil.copy(pp3_backup_path, pp3_path)
@@ -115,6 +116,7 @@ class Raw2Jpg:
         color_matrix_path = Path(self.cfg.paths.image_development,
                                  "color_matrix", ccm_name + ".npz")
         if not color_matrix_path.exists():
+            os.makedirs(color_matrix_path.parent, exist_ok=True)
             log.warning(f"Color matrix file not found locally, copying from {self.profiles_backup}")
             color_matrix_backup_path = Path(self.profiles_backup) / "color_matrix" / f"{ccm_name}.npz"
             shutil.copy(color_matrix_backup_path, color_matrix_path)
