@@ -155,5 +155,5 @@ def add_exif_data(image_path: Path, updated_exif: dict) -> None:
         updated_exif['ImageWidth'])
     # use PIL to save the image with updated exif information
     image = Image.open(image_path)
-    image.save(image_path, "jpeg", exif=piexif.dump(exif_dict), quality=100, subsampling='keep')
+    image.save(image_path, "jpeg", exif=piexif.dump(exif_dict), quality='keep', subsampling='keep')
     return
