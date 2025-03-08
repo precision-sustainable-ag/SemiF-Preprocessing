@@ -1,0 +1,32 @@
+# DNG metadata details
+Make: SVS
+Model: Camera Model
+DNGVersion: "V1_4"
+DNGBackwardVersion: "V1_2"
+PreviewColorSpace: sRGB
+
+# Basic image_details
+ImageWidth: 13376     # image width in pixels
+ImageLength: 9528     # image length in pixels
+TileWidth: ${dng_tags.ImageWidth}
+TileLength: ${dng_tags.ImageLength}
+Orientation: Horizontal
+SamplesPerPixel: 1
+BitsPerSample: 16
+FocalLength: 60       # focal length in mm
+FocalLengthIn35mmFilm: 46  # Rounded from 45.78 
+
+# Photometric interpretation
+PhotometricInterpretation: Color_Filter_Array
+CFARepeatPatternDim: [2, 2]
+CFAPattern: RGGB
+
+# Image calibration
+BlackLevel: 0
+WhiteLevel: 65535
+CalibrationIlluminant1: D65
+BaselineExposure: [-150, 100]
+AsShotNeutral: [[1, 1], [1, 1], [1, 1]]
+
+SensorHeight: 32.87   # Sensor height in mm
+SensorWidth: 46.2     # Sensor width in mm
