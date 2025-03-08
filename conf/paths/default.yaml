@@ -3,6 +3,7 @@ log_dir: ${paths.workdir}/logs/
 data_dir: ${paths.workdir}/data/
 image_development: ${paths.data_dir}/semifield-utils/image_development/
 scripts: ${paths.workdir}/scripts
+img_dev_lts_bkp: /mnt/research-projects/s/screberg/longterm_images2/semifield-utils/image_development/  # lts location with CCM and dev profile backups
 
 lts_locations:
   - /mnt/research-projects/s/screberg/longterm_images
