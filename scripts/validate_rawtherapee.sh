@@ -4,7 +4,7 @@
 set -e
 
 RT_CLI_PATH="$(pwd)/squashfs-root/usr/bin/rawtherapee-cli"
-APP_IMAGE="RawTherapee_5.11_release.AppImage"
+APP_IMAGE="RawTherapee_5.10.AppImage"
 INSTALL_DIR="$(pwd)/squashfs-root"
 
 validate_rt_cli() {
