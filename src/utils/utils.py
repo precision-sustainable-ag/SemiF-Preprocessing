@@ -25,6 +25,10 @@ def find_raw_dir(local_data_dir: Path, batch_id: str,
         raise FileNotFoundError(
             f"Remote RAW directory not found: {remote_raw_dir}")
 
+    # if local does not exist, return remote
+    if not local_raw_dir.exists():
+        return remote_raw_dir
+
     local_count = count_raw_files(local_raw_dir)
     remote_count = count_raw_files(remote_raw_dir)
 
@@ -44,7 +48,7 @@ def find_raw_dir(local_data_dir: Path, batch_id: str,
 
 # Find the batch NFS location from a list of possible parent directories
 def find_lts_dir(batch_id: str, nfs_locations: list[str], local: bool = False,
-                 developed: bool = False) -> Path | None:
+                 developed: bool = False, dngs: bool = False) -> Path | None:
     """
     Searches for the specified batch directory within the given NFS locations and checks for the presence and completeness of RAW files.
     Args:
@@ -79,8 +83,13 @@ def find_lts_dir(batch_id: str, nfs_locations: list[str], local: bool = False,
         if batch_location.exists():
             dir_found = True
             if developed:
-                files = list(Path(batch_location, "pngs").glob("*.png")) + list(
-                    Path(batch_location, "pngs").glob("*.PNG"))
+                if dngs:
+                    dng_location = batch_location / "dngs"
+                    if dng_location.exists():
+                        return nfs_location
+                else:
+                    files = list(Path(batch_location, "pngs").glob("*.png")) + list(
+                        Path(batch_location, "pngs").glob("*.PNG"))
             else:
                 files = list(batch_location.glob("*.RAW")) + list(
                     batch_location.glob("*.raw"))
