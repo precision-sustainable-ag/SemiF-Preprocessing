@@ -10,6 +10,8 @@ dependencies:
   - opencv
   - pandas
   - tqdm
+  - piexif
+  - pillow
   - pip:
-    - opencv-python-headless  # Optional: for headless systems without GUI
+    # - opencv-python-headless  # Optional: for headless systems without GUI
     - piDNG

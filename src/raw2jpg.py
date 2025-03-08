@@ -10,7 +10,7 @@ from omegaconf import DictConfig
 
 from src.png2jpg import PngToJpgConverter
 from src.utils.preprocess import Preprocessor
-from src.utils.utils import find_lts_dir, find_raw_dir
+from src.utils.utils import find_lts_dir, find_raw_dir, add_exif_data
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class Raw2Jpg:
         self.local_data_dir = Path(self.cfg.paths.data_dir)
         self.max_workers = cfg.max_workers
         self.file_masks = cfg.file_masks
+        self.exif_info = dict(self.cfg.exif_info)
 
         # Locate long-term storage directory
         self.lts_dir = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations,
@@ -184,6 +185,7 @@ class Raw2Jpg:
 
         if is_converted:
             log.info(f"Successfully converted {png_file.name} to JPG")
+            add_exif_data(output_jpg_path, self.exif_info)
             if to_inspect:
                 sample_path = self.local_sample_dir / f"{png_file.stem}.jpg"
                 self.save_local_sample(str(output_jpg_path), str(sample_path))
