@@ -7,8 +7,10 @@ Preprocessing includes color calibration using a color checker chart and running
 To set up the necessary dependencies for running the preprocessing pipeline:
 ```bash
 conda env create -f ./environment.yaml
-conda activate semif_preprocessing
+conda activate semif_prep
 ```
+**Note**: The project requires the most recent version of PiDNG which can be installed by running `python pip install  git+https://github.com/schoolpost/PiDNG.git`
+
 **Note**: The project also requires `rawtherapee-cli` which is 
 auto-installed when needed. Alternatively, it can be manually installed 
 using `scripts/validate_rawtherapee.sh`. 
