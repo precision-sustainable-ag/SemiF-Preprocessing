@@ -2,15 +2,21 @@
 defaults:
   - _self_
   - paths: default
+  - dng_tags: default
   - ccm: NC_1740166530
   - override hydra/job_logging: custom
   
 batch_id: NC_2025-02-21
 tasks:
-  - raw2jpg
-# raw2jpg does raw2png + png2jpg
+  - raw2dng
+  - dng2jpg
+
+  # - raw2jpg # raw2jpg does raw2png + png2jpg
 #  - raw2png
 #  - png2jpg
+
+rt_pp3_name: default
+ccm_name: NC_1740166530
 
 file_masks:
   raw_files:
@@ -23,30 +29,21 @@ file_masks:
     - .png
     - .PNG
 
-# note: exif info is only added in raw2jpg flow
-exif_info:
-  ImageHeight: 9528     # image length in pixels
-  ImageWidth: 13376     # image width in pixels
-  FocalLength: 60       # focal length in mm
-  SensorHeight: 32.87   # Sensor height in mm
-  SensorWidth: 46.2     # Sensor width in mm
-#  FocalLengthIn35mmFilm: 30    # can sensor height and width be replaced
-#  with direct focal length info
-
 raw2png:
   height: 9528
   width: 13376
   bpp: 16
   remove_raws: true
 
-png2jpg:
-  rt_pp3_name: NC_2025-02-21
-
+dng2jpg:
+  remove_dngs: true
+  
 raw2jpg:
   jpg_samples: 50
-  resize_factor: 1
+  resize_factor: 0.25
   remove_pngs: true
+  remove_dngs: true
 
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
-max_workers: 12
+max_workers: 16
