@@ -2,16 +2,12 @@
 defaults:
   - _self_
   - paths: default
-  - dng_tags: default
   - ccm: NC_1740166530
   - override hydra/job_logging: custom
   
 batch_id: NC_2025-02-21
 tasks:
-  - raw2dng
-  - dng2jpg
-
-  # - raw2jpg # raw2jpg does raw2png + png2jpg
+   - raw2jpg # raw2jpg does raw2png + png2jpg
 #  - raw2png
 #  - png2jpg
 
@@ -22,9 +18,6 @@ file_masks:
   raw_files:
     - .RAW
     - .raw
-  dng_files:
-    - .DNG
-    - .dng
   png_files:
     - .png
     - .PNG
@@ -35,14 +28,10 @@ raw2png:
   bpp: 16
   remove_raws: true
 
-dng2jpg:
-  remove_dngs: true
-  
 raw2jpg:
   jpg_samples: 50
   resize_factor: 0.25
   remove_pngs: true
-  remove_dngs: true
 
 job_now_date: &nowdir ${now:%Y-%m-%d}
 

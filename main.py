@@ -16,17 +16,21 @@ def main(cfg: DictConfig) -> None:
     """
     Main entry point for running SemiF-Preprocesing pipeline.
     """
-    cfg = OmegaConf.create(cfg)
-    log.info(f"Starting task {','.join(cfg.tasks)}")
-    
-    for tsk in cfg.tasks:
-        try:
-            task = get_method(f"{tsk}.main")
-            task(cfg)
+    try:
+        cfg = OmegaConf.create(cfg)
+        log.info(f"Starting task {','.join(cfg.tasks)}")
 
-        except Exception as e:
-            log.exception("Failed")
-            return
+        for tsk in cfg.tasks:
+            try:
+                task = get_method(f"{tsk}.main")
+                task(cfg)
+
+            except Exception as e:
+                log.exception("Failed")
+                sys.exit(1)     # used to communicate error with bash shell
+    except Exception as e:
+        log.exception(f"Fatal error, failed: {e}")
+        sys.exit(1)     # used to communicate error with bash shell
 
 
 if __name__ == "__main__":
