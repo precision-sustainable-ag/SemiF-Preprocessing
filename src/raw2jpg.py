@@ -84,11 +84,11 @@ class Raw2Jpg:
             tuple[Path, Path]: Paths to the RawTherapee profile (.pp3) and CLI validation script.
         """
         pp3_path = Path(
-            self.cfg.paths.image_development) / "dev_profiles" / f"{self.cfg.png2jpg.rt_pp3_name}.pp3"
+            self.cfg.paths.image_development) / "dev_profiles" / f"{self.cfg.rt_pp3_name}.pp3"
         if not pp3_path.exists():
             os.makedirs(pp3_path.parent, exist_ok=True)
             log.warning(f"RawTherapee profile not found locally, copying from {self.profiles_backup}")
-            pp3_backup_path = Path(self.profiles_backup) / "dev_profiles" / f"{self.cfg.png2jpg.rt_pp3_name}.pp3"
+            pp3_backup_path = Path(self.profiles_backup) / "dev_profiles" / f"{self.cfg.rt_pp3_name}.pp3"
             shutil.copy(pp3_backup_path, pp3_path)
         # sanity check
         if not pp3_path.exists():

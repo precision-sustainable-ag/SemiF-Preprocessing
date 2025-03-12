@@ -11,7 +11,7 @@ tasks:
 #  - raw2png
 #  - png2jpg
 
-rt_pp3_name: default
+rt_pp3_name: NC_2025-02-21
 ccm_name: NC_1740166530
 
 file_masks:
@@ -36,3 +36,13 @@ raw2jpg:
 job_now_date: &nowdir ${now:%Y-%m-%d}
 
 max_workers: 16
+
+
+exif_info:
+  ImageHeight: 9528     # image length in pixels
+  ImageWidth: 13376     # image width in pixels
+  FocalLength: 60       # focal length in mm
+  SensorHeight: 32.87   # Sensor height in mm
+  SensorWidth: 46.2     # Sensor width in mm
+#  FocalLengthIn35mmFilm: 30    # can sensor height and width be replaced
+#  with direct focal length info
