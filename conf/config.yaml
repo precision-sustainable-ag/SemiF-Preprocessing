@@ -25,32 +25,10 @@ file_masks:
   png_files:
     - .png
     - .PNG
-
-raw2png:
-  height: 9528
-  width: 13376
-  bpp: 16
-  remove_raws: true
-
-dng2jpg:
-  remove_dngs: true
   
 raw2jpg:
   jpg_samples: 50
   resize_factor: 0.25
-  remove_pngs: true
   remove_dngs: true
 
-job_now_date: &nowdir ${now:%Y-%m-%d}
-
 max_workers: 16
-
-
-exif_info:
-  ImageHeight: 9528     # image length in pixels
-  ImageWidth: 13376     # image width in pixels
-  FocalLength: 60       # focal length in mm
-  SensorHeight: 32.87   # Sensor height in mm
-  SensorWidth: 46.2     # Sensor width in mm
-#  FocalLengthIn35mmFilm: 30    # can sensor height and width be replaced
-#  with direct focal length info
