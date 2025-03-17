@@ -65,7 +65,7 @@ def show_images(folder_path, timestamp=None, user=None):
             elif key == ord('s'):
                 selection = "fail"
             elif key == ord('d'):
-                selection = "review"
+                selection = "flagged"
             
             results.append([img_path.stem, selection, timestamp, user])
             df = pd.DataFrame(results, columns=['Image Path', 'Selection', 'Timestamp', 'User'])
@@ -84,14 +84,42 @@ def show_images(folder_path, timestamp=None, user=None):
 
     # Check for any failed or review images
     df_final = pd.read_csv(csv_file)
-    failed_or_review = df_final[df_final["Selection"].isin(["fail", "review"])]
+    failed_or_review = df_final[df_final["Selection"].isin(["fail", "flagged"])]
 
     if not failed_or_review.empty:
         log.warning(f"Failed/Reviewed images: {failed_or_review['Image Path'].tolist()}")
-        print("\n⚠️ Some images were marked as 'fail' or 'review'.")
+        print("\n⚠️ Some images were marked as 'fail' or 'flagged'.")
         print(f"📌 Please create an issue in our GitHub repository: {GITHUB_REPO_URL}")
-        print("Mention the failed/reviewed images and describe any issues you encountered.")
-        print(f"Title the issue: 'Failed/Reviewed images for batch {folder_path.parent.name}'\n")
+        print("Mention the failed/flagged images and describe any issues you encountered.")
+        print(f"Title the issue: 'Failed/Flagged images for batch {folder_path.parent.name}'\n")
+        # Offer to display failed/review images for screenshot capture
+        show_flagged = input("Would you like to review the failed/review images for screenshots? (y/n): ").strip().lower()
+
+        if show_flagged == 'y':
+            for _, row in failed_or_review.iterrows():
+                img_path = folder / f"{row['Image Path']}.jpg"  # Assuming .jpg, modify if needed
+                if not Path(img_path).exists():
+                    img_path = folder / f"{row['Image Path']}.JPG"  # Try uppercase
+
+                if Path(img_path).exists():
+                    image = cv2.imread(str(img_path))
+                    resized_image = cv2.resize(image, (800, 600))
+                    
+                    cv2.imshow("Flagged Image", resized_image)
+                    print(f"Displaying: {row['Image Path']} - {row['Selection']}")
+                    print("📸 Take a screenshot for documentation.")
+                    print("Press any key to move to the next image.")
+                    
+                    key = cv2.waitKey(0) & 0xFF  # Wait for key press to move to next
+                    if key == ord('q'):  # Allow early exit
+                        break
+                else:
+                    print(f"⚠️ Could not find image: {row['Image Path']}")
+
+            cv2.destroyAllWindows()
+        
+        print("\n📌 Once you've taken screenshots, submit an issue on GitHub:")
+        print(f"🔗 {GITHUB_REPO_URL}\n")
 
     return csv_file
 
