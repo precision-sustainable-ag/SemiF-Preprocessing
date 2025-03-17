@@ -3,30 +3,31 @@ AppVersion=5.10
 Version=350
 
 [General]
+Rank=0
 ColorLabel=0
 InTrash=false
 
 [Exposure]
 Auto=false
 Clip=0.02
-Compensation=0.63
-Brightness=1
-Contrast=28
-Saturation=3
-Black=351
-HighlightCompr=100
+Compensation=-0.38
+Brightness=0
+Contrast=0
+Saturation=0
+Black=0
+HighlightCompr=0
 HighlightComprThreshold=0
 ShadowCompr=50
 HistogramMatching=false
 CurveFromHistogramMatching=false
 ClampOOG=true
-CurveMode=Standard
+CurveMode=FilmLike
 CurveMode2=Standard
-Curve=0;
+Curve=1;0;0;1;1;
 Curve2=0;
 
 [HLRecovery]
-Enabled=false
+Enabled=true
 Method=Coloropp
 Hlbl=0
 Hlth=1
@@ -66,7 +67,7 @@ TransmissionCurve=1;0;0.5;0.34999999999999998;0.34999999999999998;0.599999999999
 GainTransmissionCurve=1;0;0.10000000000000001;0.34999999999999998;0;0.25;0.25;0.34999999999999998;0.34999999999999998;0.69999999999999996;0.25;0.34999999999999998;0.34999999999999998;1;0.10000000000000001;0;0;
 
 [Local Contrast]
-Enabled=false
+Enabled=true
 Radius=80
 Amount=0.20000000000000001
 Darkness=1
@@ -75,7 +76,7 @@ Lightness=1
 [Channel Mixer]
 Enabled=false
 Red=1000;0;0;
-Green=0;1000;0;
+Green=0;815;183;
 Blue=0;0;1000;
 
 [Black & White]
@@ -104,10 +105,10 @@ BeforeCurve=0;
 AfterCurve=0;
 
 [Luminance Curve]
-Enabled=false
+Enabled=true
 Brightness=0
-Contrast=0
-Chromaticity=0
+Contrast=10
+Chromaticity=25
 Gamutmunse=MUN
 RedAndSkinTonesProtection=0
 LCredsk=true
@@ -122,7 +123,7 @@ LcCurve=0;
 ClCurve=0;
 
 [Sharpening]
-Enabled=false
+Enabled=true
 Contrast=20
 Method=usm
 Radius=0.5
@@ -164,9 +165,9 @@ Uniformity=5
 
 [White Balance]
 Enabled=true
-Setting=Camera
-Temperature=6501
-Green=1
+Setting=Custom
+Temperature=7652
+Green=0.45400000000000001
 Equal=1
 TemperatureBias=0
 StandardObserver=TWO_DEGREES
@@ -279,10 +280,10 @@ Amount=20
 Anchor=50
 
 [Shadows & Highlights]
-Enabled=false
+Enabled=true
 Highlights=0
 HighlightTonalWidth=70
-Shadows=0
+Shadows=23
 ShadowTonalWidth=30
 Radius=40
 Lab=false
@@ -301,8 +302,8 @@ Pivot=0
 Enabled=false
 X=0
 Y=0
-W=13376
-H=9528
+W=13368
+H=9520
 FixedRatio=true
 Ratio=As Image
 Orientation=As Image
@@ -324,7 +325,7 @@ Degree=0
 Amount=0
 
 [LensProfile]
-LcMode=none
+LcMode=lfauto
 LCPFile=
 UseDistortion=true
 UseVignette=true
@@ -394,11 +395,11 @@ ShortEdge=900
 AllowUpscaling=false
 
 [PostDemosaicSharpening]
-Enabled=false
-Contrast=10
+Enabled=true
+Contrast=12
 AutoContrast=true
 AutoRadius=true
-DeconvRadius=0.75
+DeconvRadius=0.72999999999999998
 DeconvRadiusOffset=0
 DeconvIterCheck=true
 DeconvIterations=20
@@ -421,9 +422,9 @@ DeconvDamping=0
 DeconvIterations=100
 
 [Color Management]
-InputProfile=(embedded)
+InputProfile=(none)
 ToneCurve=false
-ApplyLookTable=false
+ApplyLookTable=true
 ApplyBaselineExposureOffset=true
 ApplyHueSatMap=true
 DCPIlluminant=0
@@ -692,16 +693,16 @@ LabRegionChannel_1=-1
 LabRegionsShowMask=-1
 
 [RAW]
-DarkFrame=/szeva
+DarkFrame=\\szeva
 DarkFrameAuto=false
-FlatFieldFile=/szeva
+FlatFieldFile=\\szeva
 FlatFieldAutoSelect=false
 FlatFieldFromMetaData=false
 FlatFieldBlurRadius=32
 FlatFieldBlurType=Area Flatfield
 FlatFieldAutoClipControl=false
 FlatFieldClipControl=0
-CA=false
+CA=true
 CAAvoidColourshift=true
 CAAutoIterations=2
 CARed=0
@@ -715,7 +716,7 @@ PreExposure=1
 Method=amaze
 Border=4
 ImageNum=1
-CcSteps=0
+CcSteps=2
 PreBlack0=0
 PreBlack1=0
 PreBlack2=0
@@ -728,7 +729,7 @@ DCBIterations=2
 DCBEnhance=true
 LMMSEIterations=2
 DualDemosaicAutoContrast=true
-DualDemosaicContrast=20
+DualDemosaicContrast=12
 PixelShiftMotionCorrectionMethod=1
 PixelShiftEperIso=0
 PixelShiftSigma=1
@@ -758,7 +759,7 @@ PreBlackBlue=0
 
 [MetaData]
 Mode=1
-ExifKeys=*;
+ExifKeys=Exif.Image.Artist;Exif.Image.Copyright;Exif.Image.ImageDescription;Exif.Image.Make;Exif.Image.Model;Exif.Image.XResolution;Exif.Image.YResolution;Exif.Photo.DateTimeOriginal;Exif.Photo.ExposureBiasValue;Exif.Photo.ExposureTime;Exif.Photo.FNumber;Exif.Photo.Flash;Exif.Photo.FocalLength;Exif.Photo.ISOSpeedRatings;Exif.Photo.LensModel;Exif.Photo.UserComment;
 
 [Film Negative]
 Enabled=false
