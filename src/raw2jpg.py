@@ -145,7 +145,14 @@ class Raw2Jpg:
 
     def process_files(self) -> None:
         raw_files = self.get_raw_files()
-        
+
+        # Validate RawTherapee profile and CLI script
+        dng2jpg = DNGToJpgConverter(None, None, self.pp3_path, self.validate_rt_cli_script)
+        rt_cli = dng2jpg.validate_rawtherapee()
+        if not rt_cli:
+            log.error("RawTherapee validation failed. Exiting.")
+            return
+
         with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {executor.submit(self.convert_raw_to_jpg, args): args for
                        args in raw_files}
