@@ -39,8 +39,8 @@ class Raw2Jpg:
         self.lts_jpg_dst = self.lts_dir / "semifield-developed-images" / self.batch_id / "images"
         self.lts_jpg_dst.mkdir(parents=True, exist_ok=True)
         # Local JPG sample directory
-        self.local_sample_dir = self.local_data_dir / self.lts_dir.name / "semifield-developed-images" / self.batch_id / "sample_images"
-        self.local_sample_dir.mkdir(parents=True, exist_ok=True)
+        self.lts_sample_dir = self.lts_dir / "semifield-developed-images" / self.batch_id / "preprocessing_samples"
+        self.lts_sample_dir.mkdir(parents=True, exist_ok=True)
         # File masks
         self.file_masks = self.cfg.file_masks
         # Image Development paths
@@ -98,7 +98,7 @@ class Raw2Jpg:
         else:
             log.warning(f"Cannot remove {dng_file} as it is not a DNG file.")
 
-    def save_local_sample(self, original_path: str, output_path:str) -> None:
+    def save_lts_sample(self, original_path: str, output_path:str) -> None:
         """Save a fast, low-quality version for process verification"""
         img = cv2.imread(original_path)
 
@@ -131,9 +131,9 @@ class Raw2Jpg:
         if is_converted:
             log.info(f"Converted DNG to JPG: {dng_file.name} -> {jpg_output_path.name}")
             if to_inspect:
-                local_sample_path = self.local_sample_dir / f"{dng_file.stem}.jpg"
-                self.save_local_sample(str(jpg_output_path), str(local_sample_path))
-                log.info(f"Saved low-quality sample: {local_sample_path.name}")
+                lts_sample_path = self.lts_sample_dir / f"{dng_file.stem}.jpg"
+                self.save_lts_sample(str(jpg_output_path), str(lts_sample_path))
+                log.info(f"Saved low-quality sample: {lts_sample_path.name}")
         else:
             log.warning(f"Failed to convert {dng_file.name} to JPG")
         

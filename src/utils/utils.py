@@ -48,7 +48,7 @@ def find_raw_dir(local_data_dir: Path, batch_id: str,
 
 # Find the batch NFS location from a list of possible parent directories
 def find_lts_dir(batch_id: str, nfs_locations: list[str], local: bool = False,
-                 developed: bool = False, dngs: bool = False) -> Path | None:
+                 developed: bool = False, dngs: bool = False, jpgs: bool = False) -> Path | None:
     """
     Searches for the specified batch directory within the given NFS locations and checks for the presence and completeness of RAW files.
     Args:
@@ -87,6 +87,9 @@ def find_lts_dir(batch_id: str, nfs_locations: list[str], local: bool = False,
                     dng_location = batch_location / "dngs"
                     if dng_location.exists():
                         return nfs_location
+                elif jpgs:
+                    files = list(Path(batch_location, "images").glob("*.jpg")) + list(
+                        Path(batch_location, "images").glob("*.JPG"))
                 else:
                     files = list(Path(batch_location, "pngs").glob("*.png")) + list(
                         Path(batch_location, "pngs").glob("*.PNG"))
@@ -97,7 +100,7 @@ def find_lts_dir(batch_id: str, nfs_locations: list[str], local: bool = False,
             if files:
                 # todo: md5 checksum for data verification?
                 log.info(
-                    f"Batch {batch_id} found in {batch_location} with {len(files)} {'RAW' if not developed else 'PNG'} files")
+                    f"Batch {batch_id} found in {batch_location} with {len(files)} {'RAW' if not developed else ('JPG' if jpgs else 'PNG')} files")
                 return nfs_location
     if not dir_found:
         log.error(
