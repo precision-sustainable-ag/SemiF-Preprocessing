@@ -1,19 +1,35 @@
 # Hydra defaults and settings. Ignore these (don't change)
 defaults:
   - _self_
+  - paths: default
+  - dng_tags: default
+  - ccm: NC_1740166530
+  - override hydra/job_logging: custom
   
-batch_id: ???
+batch_id: NC_2025-02-21
 tasks:
-  # - copy_from_lockers
-  - raw2dng
+  # - raw2jpg # raw2jpg does raw2dng + dng2jpg
+  # - raw2dng
+  # - dng2jpg
+  - inspect_images
 
-copy_from_lockers:
-  raw_extension: .RAW # either .RAW or .ARW
+rt_pp3_name: NC_2025-02-21
+ccm_name: NC_1740166530
 
-paths:
-  workdir: ${hydra:runtime.cwd}  # where the code is executed
-  primary_nfs: /mnt/research-projects/s/screberg/longterm_images2/semifield-upload
-  local_upload: ${paths.workdir}/temp_data/semifield-upload/
-  semif_developed: ${paths.workdir}/temp_data/semifield-developed-images/
+file_masks:
+  raw_files:
+    - .RAW
+    - .raw
+  dng_files:
+    - .DNG
+    - .dng
+  png_files:
+    - .png
+    - .PNG
   
-job_now_date: &nowdir ${now:%Y-%m-%d}
+raw2jpg:
+  jpg_samples: 50
+  resize_factor: 0.25
+  remove_dngs: true
+
+max_workers: 16
