@@ -20,7 +20,7 @@ class RawToDNGConverter:
                  batch_id: str,
                  lts_dir: Path,
                  developed_dng_dir: Path,
-                 ) -> None:
+                 ccm_file: Path = None):
         """
         Class constructor.
         Separate parameters due to multiprocessing incompatibility of OmegaConf.
@@ -29,6 +29,7 @@ class RawToDNGConverter:
             batch_id (str): Batch id
             file_masks (DictConfig): File masks from config
             lts_dir (Path): LTS directory
+            ccm_file (Path, optional): Path to the CCM `.npy` file. Defaults to None.
         """
         self.dng_tags = dng_tags_cfg
         self.batch_id = batch_id
@@ -36,6 +37,7 @@ class RawToDNGConverter:
         self.lts_dir = lts_dir
         self.developed_dng_dir = developed_dng_dir
         self.developed_dng_dir.mkdir(parents=True, exist_ok=True)
+        self.ccm_file = ccm_file  # Path to CCM file
 
         
         self.height = self.dng_tags.ImageLength
@@ -51,6 +53,19 @@ class RawToDNGConverter:
         raw_image = np.reshape(raw_image, (self.height, self.width))
         log.info(f"Loaded raw image from {file_path.name}")
         return raw_image
+
+    def load_ccm(self):
+        """Loads the CCM from a NumPy `.npy` file if provided."""
+        if self.ccm_file and self.ccm_file.exists():
+            log.info(f"Loading CCM from {self.ccm_file}")
+            ccm = np.load(self.ccm_file)
+            return self.format_ccm4pidng(ccm)
+        else:
+            log.warning("CCM file not found or not provided. Using default color matrix.")
+            return [[19549, 10000], [-7877, 10000], [-2582, 10000],    
+                    [-5724, 10000], [10121, 10000], [1917, 10000],
+                    [-1267, 10000], [-110, 10000], [6621, 10000]]  # Default matrix
+
 
     def format_ccm4pidng(self, ccm):
         # Not implemented yet
@@ -104,6 +119,9 @@ class RawToDNGConverter:
            [-5724, 10000], [10121, 10000], [1917, 10000],
            [-1267, 10000], [ -110, 10000], [ 6621, 10000]]
         
+
+        # **Load and set the ColorMatrix1**
+        ccm1 = self.load_ccm()
         t.set(Tag.ColorMatrix1, ccm1)
 
         return t

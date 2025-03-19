@@ -30,9 +30,6 @@ class Raw2Jpg:
         # LTS directory
         self.lts_locations = self.cfg.paths.lts_locations
         self.lts_dir = find_lts_dir(self.batch_id, self.lts_locations, local=False)
-        # PP3 and RT validation script
-        self.pp3_path = Path(self.cfg.paths.image_development) / "dev_profiles" / f"{self.cfg.rt_pp3_name}.pp3"
-        self.validate_rt_cli_script = Path(self.cfg.paths.scripts) / "validate_rawtherapee.sh"
         # Developed DNG (local) and JPG (LTS) directory
         self.developed_dng_dir = self.local_data_dir / self.lts_dir.name / "semifield-developed-images" / self.batch_id / "dngs"
         self.developed_dng_dir.mkdir(parents=True, exist_ok=True)
@@ -43,13 +40,17 @@ class Raw2Jpg:
         self.lts_sample_dir.mkdir(parents=True, exist_ok=True)
         # File masks
         self.file_masks = self.cfg.file_masks
-        # Image Development paths
+        # Image Development paths (.pp3)
         self.rt_pp3_name = f"{self.cfg.rt_pp3_name}.pp3"
         self.local_pp3_path = Path(self.cfg.paths.image_development) / "dev_profiles" / self.rt_pp3_name
         self.profiles_backup = self.cfg.paths.img_dev_lts_bkp
         # RT validation script
         self.validate_rt_cli_script = Path(self.cfg.paths.scripts) / "validate_rawtherapee.sh"
         self.setup_profiling_paths()
+        # CCM Path
+        self.ccm_name = f"{self.cfg.ccm_name}.npy"
+        self.local_ccm_path = Path(self.cfg.paths.image_development) / "color_matrices" / self.ccm_name
+
         
 
     def setup_profiling_paths(self) -> None:
@@ -57,7 +58,7 @@ class Raw2Jpg:
         Sets up paths for the RawTherapee profile and validation script.
         """
         if not self.local_pp3_path.exists():
-            self.pp3_path.parent.mkdir(parents=True, exist_ok=True)
+            self.local_pp3_path.parent.mkdir(parents=True, exist_ok=True)
             log.warning(f"RawTherapee profile not found locally, copying from {self.profiles_backup}")
             pp3_backup_path = Path(self.profiles_backup) / "dev_profiles" / self.rt_pp3_name
             shutil.copy(pp3_backup_path, self.local_pp3_path)
@@ -115,7 +116,7 @@ class Raw2Jpg:
         """
         # Convert RAW to DNG
         raw_file, to_inspect = raw_file_tuple
-        raw2dng = RawToDNGConverter(self.cfg.dng_tags, self.batch_id, self.lts_dir, self.developed_dng_dir)
+        raw2dng = RawToDNGConverter(self.cfg.dng_tags, self.batch_id, self.lts_dir, self.developed_dng_dir, self.local_ccm_path)
         raw_data = raw2dng.load_raw_image(raw_file)
         dng_tags = raw2dng.configure_dng_tags()
         dng_file = raw2dng.convert_to_dng(raw_data, dng_tags, raw_file)
@@ -123,7 +124,7 @@ class Raw2Jpg:
         
         # Convert DNG to JPG
         jpg_output_path = self.lts_jpg_dst / f"{dng_file.stem}.jpg"
-        dng2jpg = DNGToJpgConverter(dng_file, jpg_output_path, self.pp3_path, self.validate_rt_cli_script)
+        dng2jpg = DNGToJpgConverter(dng_file, jpg_output_path, self.local_pp3_path, self.validate_rt_cli_script)
         rt_cli = dng2jpg.validate_rawtherapee()
         is_converted = dng2jpg.convert(rt_cli)
         
@@ -147,7 +148,7 @@ class Raw2Jpg:
         raw_files = self.get_raw_files()
 
         # Validate RawTherapee profile and CLI script
-        dng2jpg = DNGToJpgConverter(None, None, self.pp3_path, self.validate_rt_cli_script)
+        dng2jpg = DNGToJpgConverter(None, None, self.local_pp3_path, self.validate_rt_cli_script)
         rt_cli = dng2jpg.validate_rawtherapee()
         if not rt_cli:
             log.error("RawTherapee validation failed. Exiting.")

@@ -15,7 +15,7 @@ tasks:
   # - inspect_images
 
 rt_pp3_name: NC_2025-02-21
-ccm_name: NC_1740166530
+ccm_name: NC_1740163043
 
 file_masks:
   raw_files:
