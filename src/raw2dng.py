@@ -169,6 +169,11 @@ class DNGConversionPipeline:
 
         self._set_developed_output_folder()
 
+        # CCM Path
+        self.ccm_name = f"{self.cfg.ccm_name}.npy"
+        self.local_ccm_path = Path(self.cfg.paths.image_development) / "color_matrices" / self.ccm_name
+
+
     def _find_lts_dir(self) -> Path:
         """Locate the long-term storage directory."""
         lts_dir = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations, local=False)
@@ -197,7 +202,7 @@ class DNGConversionPipeline:
         args = []
         
         for raw_file in self.raw_files:
-            args.append((self.dng_tags_cfg, self.batch_id, self.lts_dir, raw_file, self.developed_dng_dir))
+            args.append((self.dng_tags_cfg, self.batch_id, self.lts_dir, raw_file, self.developed_dng_dir, self.local_ccm_path))
         return args
 
     def run(self, multiproc: bool = False) -> None:
@@ -241,7 +246,7 @@ class DNGConversionPipeline:
             except Exception as e:
                 log.exception(f"Error processing {arg[3]}")
 
-def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir):
+def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir, local_ccm_path):
     """
     Multiprocessing function to convert raw image to DNG format in parallel.
     Args:
@@ -251,7 +256,7 @@ def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir):
         lts_dir (Dict): LTS directory
         raw_file (Path): Raw image to convert
     """
-    raw2dng_conv = RawToDNGConverter(dng_tags_cfg, batch_id, lts_dir, developed_dng_dir)
+    raw2dng_conv = RawToDNGConverter(dng_tags_cfg, batch_id, lts_dir, developed_dng_dir, local_ccm_path)
     log.debug("Initialized raw to DNG converter.")
 
     raw_data = raw2dng_conv.load_raw_image(raw_file)
