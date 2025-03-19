@@ -10,12 +10,12 @@ InTrash=false
 [Exposure]
 Auto=false
 Clip=0.02
-Compensation=-0.38
-Brightness=0
-Contrast=0
-Saturation=0
-Black=0
-HighlightCompr=0
+Compensation=0.030000000000000007
+Brightness=1
+Contrast=20
+Saturation=10
+Black=567
+HighlightCompr=100
 HighlightComprThreshold=0
 ShadowCompr=50
 HistogramMatching=false
@@ -339,7 +339,7 @@ Method=simple
 Horizontal=0
 Vertical=0
 CameraCropFactor=0
-CameraFocalLength=0
+CameraFocalLength=60
 CameraPitch=0
 CameraRoll=0
 CameraShiftHorizontal=0
@@ -366,8 +366,8 @@ Enabled=false
 Selspot=0
 
 [PCVignette]
-Enabled=false
-Strength=0.59999999999999998
+Enabled=true
+Strength=-1.00
 Feather=50
 Roundness=50
 
@@ -396,10 +396,10 @@ AllowUpscaling=false
 
 [PostDemosaicSharpening]
 Enabled=true
-Contrast=12
+Contrast=14
 AutoContrast=true
 AutoRadius=true
-DeconvRadius=0.72999999999999998
+DeconvRadius=0.53000000000000003
 DeconvRadiusOffset=0
 DeconvIterCheck=true
 DeconvIterations=20
@@ -693,9 +693,9 @@ LabRegionChannel_1=-1
 LabRegionsShowMask=-1
 
 [RAW]
-DarkFrame=\\szeva
+DarkFrame=/szeva
 DarkFrameAuto=false
-FlatFieldFile=\\szeva
+FlatFieldFile=/szeva
 FlatFieldAutoSelect=false
 FlatFieldFromMetaData=false
 FlatFieldBlurRadius=32
