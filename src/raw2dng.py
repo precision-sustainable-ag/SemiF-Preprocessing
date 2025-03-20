@@ -20,7 +20,7 @@ class RawToDNGConverter:
                  batch_id: str,
                  lts_dir: Path,
                  developed_dng_dir: Path,
-                 ) -> None:
+                 ccm_file: Path = None):
         """
         Class constructor.
         Separate parameters due to multiprocessing incompatibility of OmegaConf.
@@ -29,6 +29,7 @@ class RawToDNGConverter:
             batch_id (str): Batch id
             file_masks (DictConfig): File masks from config
             lts_dir (Path): LTS directory
+            ccm_file (Path, optional): Path to the CCM `.npy` file. Defaults to None.
         """
         self.dng_tags = dng_tags_cfg
         self.batch_id = batch_id
@@ -36,6 +37,7 @@ class RawToDNGConverter:
         self.lts_dir = lts_dir
         self.developed_dng_dir = developed_dng_dir
         self.developed_dng_dir.mkdir(parents=True, exist_ok=True)
+        self.ccm_file = ccm_file  # Path to CCM file
 
         
         self.height = self.dng_tags.ImageLength
@@ -49,8 +51,21 @@ class RawToDNGConverter:
         """
         raw_image = np.fromfile(file_path, dtype=np.uint16).astype(np.uint16)
         raw_image = np.reshape(raw_image, (self.height, self.width))
-        log.info(f"Loaded raw image from {file_path.name}")
+        log.debug(f"Loaded raw image from {file_path.name}")
         return raw_image
+
+    def load_ccm(self):
+        """Loads the CCM from a NumPy `.npy` file if provided."""
+        if self.ccm_file and self.ccm_file.exists():
+            log.debug(f"Loading CCM from {self.ccm_file}")
+            ccm = np.load(self.ccm_file)
+            return self.format_ccm4pidng(ccm)
+        else:
+            log.debug("CCM file not found or not provided. Using default color matrix.")
+            return [[19549, 10000], [-7877, 10000], [-2582, 10000],    
+                    [-5724, 10000], [10121, 10000], [1917, 10000],
+                    [-1267, 10000], [-110, 10000], [6621, 10000]]  # Default matrix
+
 
     def format_ccm4pidng(self, ccm):
         # Not implemented yet
@@ -104,6 +119,9 @@ class RawToDNGConverter:
            [-5724, 10000], [10121, 10000], [1917, 10000],
            [-1267, 10000], [ -110, 10000], [ 6621, 10000]]
         
+
+        # **Load and set the ColorMatrix1**
+        ccm1 = self.load_ccm()
         t.set(Tag.ColorMatrix1, ccm1)
 
         return t
@@ -151,6 +169,11 @@ class DNGConversionPipeline:
 
         self._set_developed_output_folder()
 
+        # CCM Path
+        self.ccm_name = f"{self.cfg.ccm_name}.npy"
+        self.local_ccm_path = Path(self.cfg.paths.image_development) / "color_matrices" / self.ccm_name
+
+
     def _find_lts_dir(self) -> Path:
         """Locate the long-term storage directory."""
         lts_dir = find_lts_dir(self.batch_id, self.cfg.paths.lts_locations, local=False)
@@ -179,7 +202,7 @@ class DNGConversionPipeline:
         args = []
         
         for raw_file in self.raw_files:
-            args.append((self.dng_tags_cfg, self.batch_id, self.lts_dir, raw_file, self.developed_dng_dir))
+            args.append((self.dng_tags_cfg, self.batch_id, self.lts_dir, raw_file, self.developed_dng_dir, self.local_ccm_path))
         return args
 
     def run(self, multiproc: bool = False) -> None:
@@ -223,7 +246,7 @@ class DNGConversionPipeline:
             except Exception as e:
                 log.exception(f"Error processing {arg[3]}")
 
-def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir):
+def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir, local_ccm_path):
     """
     Multiprocessing function to convert raw image to DNG format in parallel.
     Args:
@@ -233,7 +256,7 @@ def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir):
         lts_dir (Dict): LTS directory
         raw_file (Path): Raw image to convert
     """
-    raw2dng_conv = RawToDNGConverter(dng_tags_cfg, batch_id, lts_dir, developed_dng_dir)
+    raw2dng_conv = RawToDNGConverter(dng_tags_cfg, batch_id, lts_dir, developed_dng_dir, local_ccm_path)
     log.debug("Initialized raw to DNG converter.")
 
     raw_data = raw2dng_conv.load_raw_image(raw_file)
@@ -244,7 +267,7 @@ def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir):
         log.exception(f"Error configuring DNG tags: {e}")
         return
     dng_dst_path = raw2dng_conv.convert_to_dng(raw_data, dns_tags, raw_file)
-    log.info(f"Converted {raw_file} to {dng_dst_path}.")
+    log.debug(f"Converted {raw_file} to {dng_dst_path}.")
     return dng_dst_path
 
 def main(cfg: DictConfig) -> None:
