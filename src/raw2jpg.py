@@ -95,7 +95,7 @@ class Raw2Jpg:
         """
         if dng_file.suffix.lower() == ".dng":
             dng_file.unlink()
-            log.info(f"Removed {dng_file.name}")
+            log.debug(f"Removed {dng_file.name}")
         else:
             log.warning(f"Cannot remove {dng_file} as it is not a DNG file.")
 
@@ -120,7 +120,7 @@ class Raw2Jpg:
         raw_data = raw2dng.load_raw_image(raw_file)
         dng_tags = raw2dng.configure_dng_tags()
         dng_file = raw2dng.convert_to_dng(raw_data, dng_tags, raw_file)
-        log.info(f"Converted RAW to DNG: {raw_file.name} -> {dng_file.name}")
+        log.debug(f"Converted RAW to DNG: {raw_file.name} -> {dng_file.name}")
         
         # Convert DNG to JPG
         jpg_output_path = self.lts_jpg_dst / f"{dng_file.stem}.jpg"
@@ -162,6 +162,8 @@ class Raw2Jpg:
                     future.result()
                 except Exception as e:
                     log.error(f"Error processing {futures[future]}: {e}")
+            # Ensure all processes finish before proceeding
+            executor.shutdown(wait=True)
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):

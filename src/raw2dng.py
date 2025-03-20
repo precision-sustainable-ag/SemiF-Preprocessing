@@ -51,17 +51,17 @@ class RawToDNGConverter:
         """
         raw_image = np.fromfile(file_path, dtype=np.uint16).astype(np.uint16)
         raw_image = np.reshape(raw_image, (self.height, self.width))
-        log.info(f"Loaded raw image from {file_path.name}")
+        log.debug(f"Loaded raw image from {file_path.name}")
         return raw_image
 
     def load_ccm(self):
         """Loads the CCM from a NumPy `.npy` file if provided."""
         if self.ccm_file and self.ccm_file.exists():
-            log.info(f"Loading CCM from {self.ccm_file}")
+            log.debug(f"Loading CCM from {self.ccm_file}")
             ccm = np.load(self.ccm_file)
             return self.format_ccm4pidng(ccm)
         else:
-            log.warning("CCM file not found or not provided. Using default color matrix.")
+            log.debug("CCM file not found or not provided. Using default color matrix.")
             return [[19549, 10000], [-7877, 10000], [-2582, 10000],    
                     [-5724, 10000], [10121, 10000], [1917, 10000],
                     [-1267, 10000], [-110, 10000], [6621, 10000]]  # Default matrix
@@ -267,7 +267,7 @@ def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir, 
         log.exception(f"Error configuring DNG tags: {e}")
         return
     dng_dst_path = raw2dng_conv.convert_to_dng(raw_data, dns_tags, raw_file)
-    log.info(f"Converted {raw_file} to {dng_dst_path}.")
+    log.debug(f"Converted {raw_file} to {dng_dst_path}.")
     return dng_dst_path
 
 def main(cfg: DictConfig) -> None:

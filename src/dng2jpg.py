@@ -95,7 +95,7 @@ def process_image(args: tuple) -> bool:
         is_converted (bool): true if converted successfully
     """
     dng_file, output_path, rt_pp3, val_rt_script = args
-    log.info(f"Converting {dng_file.name} to jpg")
+    log.debug(f"Converting {dng_file.name} to jpg")
     dng2jpg_conv = DNGToJpgConverter(dng_file, output_path, rt_pp3,
                                      val_rt_script)
     rt_cli = dng2jpg_conv.validate_rawtherapee()
