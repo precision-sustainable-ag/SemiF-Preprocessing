@@ -19,7 +19,8 @@ LABEL_OPTIONS = {
     "4": "Non-Target",
     "5": "Plant Spacing",
     "0": "Other",
-    "q": "Quit"
+    "q": "Quit",
+    "b": "Back"
 }
 
 class ImageReviewer:
@@ -62,22 +63,37 @@ class ImageReviewer:
     def display_instructions(self):
         """Prints instructions for user input."""
         print("\n--- Image Quality Assessment ---")
-        print_labels = {
-            "1": "Pass ✅",
-            "2": "Preprocessing Quality 🎨",
-            "3": "Potting Area Cleanliness 🧹",
-            "4": "Non-Target 🌿",
-            "5": "Plant Spacing 🌱",
-            "0": "Other 📝",
-            "q": "Quit ❌"
-            }
-        for key, label in print_labels.items():
+        for key, label in LABEL_OPTIONS.items():
             if key == "0":
-                print(f"{key}️ (zero) - {label}")
-            else:
-                print(f"{key}️ - {label}")
+                key = "0 (zero)"
+            bright_key = f"\033[1;97m{key}\033[0m"  # Makes numbers bold & bright white
+            
+            print(f"{bright_key} - {label}")
+        
         print("\n🔄 Please wait while the X11 or X410 forwarding initializes. This may take a few seconds...\n")
 
+    def _confirm_save_results(self):
+        """Ask the user if they want to save the final CSV. If not, delete the file."""
+        while True:
+            confirm = input("\n💾 Do you want to save the final inspection results? (y/n): ").strip().lower()
+            
+            if confirm == "y":
+                self._save_results()
+                log.info(f"✅ Inspection results saved to {self.csv_file}")
+                return self.csv_file  # File saved successfully
+
+            elif confirm == "n":
+                if self.csv_file.exists():
+                    if self.csv_file.name == f"{self.batch_id}_preprocessing_inspection_results.csv":
+                        self.csv_file.unlink()  # Delete the CSV
+                        log.info(f"❌ Inspection results discarded. {self.csv_file} removed.")
+                else:
+                    log.warning("⚠️ No saved CSV file found to delete.")
+                return None  # User discarded results
+
+            else:
+                print("⚠️ Invalid input. Please enter 'y' to save or 'n' to discard.")
+                
     def review_images(self):
         """Iterate over images and allow the user to label them."""
         if not self.images:
@@ -95,10 +111,19 @@ class ImageReviewer:
                 continue
 
             label = self._get_user_input()
-            if label == "Quit ❌":
+            if label == "Quit":
                 print("\n❌ Exiting image review.")
                 cv2.destroyAllWindows()
                 return self.csv_file  # Save progress and exit
+            
+            if label == "Back":
+                if index > 0:
+                    print("\n🔙 Going back to the previous image.")
+                    self.results.pop()  # Remove last entry
+                    index -= 1  # Move back an index
+                else:
+                    print("⚠️ Already at the first image, cannot go back further.")
+                continue  # Restart loop without saving
 
             self.results.append([self.batch_id, img_path.stem, label, self.timestamp, self.user, self.lts_dir_name])
             self._save_results()
@@ -106,7 +131,8 @@ class ImageReviewer:
 
         cv2.destroyAllWindows()
         log.info("✅ Image review completed.")
-        return self._review_flagged_images()
+        self._review_flagged_images()
+        return self._confirm_save_results()
 
     def _display_image(self, img_path):
         """Loads and displays an image, returns False if loading fails."""
