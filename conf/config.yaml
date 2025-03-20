@@ -4,15 +4,15 @@ defaults:
   - paths: default
   - dng_tags: default
   - ccm: NC_1740166530
-  - preprocess_batches: test
+  - batch_ids: test
   - override hydra/job_logging: custom
   
 batch_id: NC_2025-02-21
 tasks:
-  - raw2jpg # raw2jpg does raw2dng + dng2jpg
+  # - raw2jpg # raw2jpg does raw2dng + dng2jpg
   # - raw2dng
   # - dng2jpg
-  # - inspect_images
+  - inspect_images
 
 rt_pp3_name: NC_2025-02-21
 ccm_name:
