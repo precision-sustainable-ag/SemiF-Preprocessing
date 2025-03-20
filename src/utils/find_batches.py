@@ -12,7 +12,9 @@ def simple_batch_info(batch_dir):
 
 def batch_is_preprocessed(batch_dir):
     if batch_dir.exists():
-        return True
+        samples_images = list(Path(batch_dir, "preprocessing_samples").glob("*.jpg"))
+        if len(samples_images) >= 50:
+            return True
     return False
     
 
