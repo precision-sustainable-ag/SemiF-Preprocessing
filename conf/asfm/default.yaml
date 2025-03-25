@@ -5,7 +5,7 @@ use_masking: False
 
 # Pipeline settings
 check_for_asfm: True
-resize_photos: False
+resize_photos: True
 add_photos_and_masks: True
 detect_markers: True
 import_references: True
