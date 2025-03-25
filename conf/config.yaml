@@ -3,16 +3,31 @@ defaults:
   - _self_
   - paths: default
   - dng_tags: default
+  - exif: default
   - ccm: NC_1740166530
   - batch_ids: test
   - override hydra/job_logging: custom
-  
-batch_id: NC_2025-02-21
+
+hydra:
+  run:
+    dir: ${paths.log_dir}/${season}/${batch_id}/${job_now}
+  output_subdir: ${hydra.run.dir}/hydra
+
+job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
+
+############################################
+# Main configuration for the current batch
+############################################
+batch_id: NC_2025-03-17
+season: cool_season_covers_2024_2025
+############################################
+
 tasks:
   # - raw2jpg # raw2jpg does raw2dng + dng2jpg
+  - update_exif
   # - raw2dng
   # - dng2jpg
-  - inspect_images
+  # - inspect_images
 
 rt_pp3_name: NC_2025-02-21
 ccm_name:
