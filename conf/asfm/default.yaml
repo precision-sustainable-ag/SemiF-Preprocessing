@@ -1,0 +1,85 @@
+# Number of GPUs to use
+num_gpus: 1 # 8=255, 7=127, 6=63, 5=31, 4=15, 3=7, 2=3, 1=1; or use 'all' to use all available gpus
+# Masks blue benchbot pixels if masks are present
+use_masking: False
+
+# Pipeline settings
+check_for_asfm: True
+resize_photos: False
+add_photos_and_masks: True
+detect_markers: True
+import_references: True
+match: True
+align: True
+optimize_cameras: True
+export_gcp_camref_err: True
+build_depth: True
+build_dense: True
+build_model: True
+build_texture: False # Not necessary for typical pipeline
+build_dem: True
+build_ortho: True
+export_fov: True
+preview_img: False
+export_report: True
+
+## Main processing settings
+# Electives
+downscale:
+  enabled: True
+  factor: 0.5 # between (0, 1] 1 is highest accuracy. By default 0.5
+
+align_photos:
+  downscale: 4 # Accuracy parameter, lower means higher accuracy [0, 1, 2, 4, or 8]. By default 1
+  autosave: True
+  generic_preselection: False # broad filtering method based on general attributes of the images, faster but less accurate
+  reference_preselection: False # more targeted approach that utilizes existing 3D data to improve the efficiency of image matching, slower but more accurate
+  filter_stationary_points: False
+
+optimize_cameras_cfg:
+  fit_f: True
+  fit_cx: True
+  fit_cy: True
+  fit_b1: True
+  fit_b2: True
+  fit_k1: True
+  fit_k2: True
+  fit_k3: True
+  fit_k4: True
+  fit_p1: True
+  fit_p2: True
+  fit_corrections: False
+  adaptive_fitting: False
+  tiepoint_covariance: False
+
+depth_map:
+  enabled: True
+  downscale: 4 # Depth map quality, lower means higher accuracy [1, 2, 4, 8, or 16]. By default 4
+  autosave: True
+
+dense_cloud:
+  enabled: True
+  autosave: True
+
+model:
+  enabled: True
+  autosave: True
+
+texture: 
+  enabled: True
+  autosave: True
+  
+dem: 
+  enabled: True
+  autosave: True
+  export: 
+    enabled: True
+
+orthomosaic:
+  enabled: True
+  export: 
+    enabled: True
+  autosave: True
+
+camera_fov:
+    enabled: True
