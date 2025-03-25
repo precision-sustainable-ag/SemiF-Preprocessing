@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image, ImageFile
 from skimage.color import rgb2hsv
 from skimage.morphology import binary_closing, square
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -91,7 +92,7 @@ def resize_photo_diretory(cfg):
     save_dir = Path(cfg.paths.down_photos)
         
 
-    files = list(base_path.glob("*.jpg")) + list(base_path.glob("*.JPG"))
+    files = sorted(list(base_path.glob("*.jpg")) + list(base_path.glob("*.JPG")))
     num_files = len(files)
 
     if save_dir.exists():
@@ -116,18 +117,17 @@ def resize_photo_diretory(cfg):
         for src in files
     ]
 
-    # Adjust the number of processes as needed
-    num_processes = int(len(os.sched_getaffinity(0)) / cfg.max_workers)
-
-    # TODO: refactor to use concurrent.futures
     try:
-        with Pool(num_processes) as pool:
-            for i, _ in enumerate(pool.imap_unordered(resize_and_save, data), 1):
-                # pool.imap_unordered(resize_and_save, data)
-                print(f"Progress: {i}/{num_files} images resized")
+        with ThreadPoolExecutor(max_workers=16) as executor:
+            futures = {executor.submit(resize_and_save, item): item for item in data}
+            for i, future in enumerate(as_completed(futures), 1):
+                try:
+                    future.result()
+                    print(f"Progress: {i}/{num_files} images resized")
+                except Exception as e:
+                    log.error(f"An error occurred while resizing: {e}")
     except KeyboardInterrupt:
         log.info("Interrupted by user, terminating...")
-        pool.terminate()
     except Exception as e:
         log.error(f"An error occurred: {e}")
     finally:
