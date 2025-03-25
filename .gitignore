@@ -2,6 +2,9 @@
 temp_data
 outputs
 
+# Script logs
+*.logs
+
 # Rawtherapee app image
 *.AppImage
 # Rawtherapee extracted image
