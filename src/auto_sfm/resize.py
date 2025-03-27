@@ -52,6 +52,47 @@ def remove_missing_data(cfg):
         for mask in add:
             Path(cfg.asfm.down_masks, mask + "_mask.png").unlink()
 
+def fix_exif_types(exif_dict):
+    for ifd in ("0th", "Exif", "GPS", "1st"):
+        if ifd in exif_dict:
+            fixed = {}
+            for tag, value in exif_dict[ifd].items():
+
+                # Fix SRational[] for tag 50721
+                if tag == 50721 and isinstance(value, tuple) and all(isinstance(v, tuple) and len(v) == 2 for v in value):
+                    fixed[tag] = list(value)
+                    print(f"Fixed tag {tag} (SRational[]): {value} -> {list(value)}")
+                    continue
+
+                # Fix Short[] for tag 50728
+                if tag == 50728:
+                    if isinstance(value, tuple) and all(
+                        isinstance(v, tuple) and len(v) == 2 and v[1] != 0 for v in value
+                    ):
+                        # Convert SRationals to ints (numerator // denominator)
+                        fixed[tag] = [int(v[0] / v[1]) for v in value]
+                        print(f"Fixed tag {tag} (Short[]): {value} -> {fixed[tag]}")
+                        continue
+
+                # Fix BlackLevel (SRational single value)
+                if tag == 50714 and isinstance(value, int):
+                    fixed[tag] = (value, 1)
+                    print(f"Fixed tag {tag} (BlackLevel): {value} -> {(value, 1)}")
+                    continue
+
+                # General valid types
+                if isinstance(value, (int, str, bytes)):
+                    fixed[tag] = value
+                elif isinstance(value, tuple) and all(isinstance(v, int) for v in value):
+                    fixed[tag] = value
+                elif isinstance(value, list) and all(isinstance(v, int) for v in value):
+                    fixed[tag] = value
+                else:
+                    print(f"Skipping tag {tag} due to bad type: {type(value)} -> {value}")
+                    continue
+
+            exif_dict[ifd] = fixed
+    return exif_dict
 
 def resize_and_save(data):
     image_src = data["image_src"]
@@ -73,6 +114,7 @@ def resize_and_save(data):
         else:
             try:
                 exif_data = piexif.load(image.info["exif"])
+                exif_data = fix_exif_types(exif_data)
                 exif_bytes = piexif.dump(exif_data)
                 kwargs["exif"] = exif_bytes
             except KeyError:
