@@ -10,6 +10,7 @@ import hydra
 from omegaconf import DictConfig
 import logging
 from pathlib import Path
+from shutil import copyfile
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +93,8 @@ class DetectionPredictor(BasePredictor):
 
 
 def predict(opt, cfg=DEFAULT_CFG, use_python=True, save=True, save_dir="test_output", save_crop=True, save_txt=True, imgsz=3000):
-    model = "data/runs_yolov8/detect/train22/weights/last.pt"  #cfg.model or "yolov8n.pt"
+    # model = "data/runs_yolov8/detect/train22/weights/last.pt"  #cfg.model or "yolov8n.pt"
+    model = opt["model_path"] #cfg.model or "yolov8n.pt"
     batch_name = opt["batch_name"]
     source = opt["source"] #Path("test_images/"  #cfg.source if cfg.source is not None else ROOT / "assets" if (ROOT / "assets").exists() \
         #else "https://ultralytics.com/images/bus.jpg"
@@ -114,10 +116,19 @@ def main(cfg: DictConfig):
     source = cfg.paths.down_photos
     batch_name = cfg.batch_id
     source = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images" / batch_name / "images"
-    
+    # Check for presence of local detection model, cp if from lts if not present
+    local_model = Path(cfg.paths.local_detection_model)
+    if not local_model.exists():
+        local_model.parent.mkdir(parents=True, exist_ok=True)
+        lts_model = Path(cfg.paths.lts_detection_model)
+        # Copy from LTS
+        copyfile(lts_model, local_model)
+        log.info(f"Copied model from LTS: {lts_model} to local: {local_model}")
+        
     save_dir = Path(cfg.paths.batch_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     opt = {
+        "model_path": cfg.paths.local_detection_model,
         "source": source,
         "batch_name": batch_name,
         "save_dir": save_dir    }
