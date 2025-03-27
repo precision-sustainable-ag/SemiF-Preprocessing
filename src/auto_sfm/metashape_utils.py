@@ -1,8 +1,5 @@
-import glob
-from pathlib import Path
 import logging
-import os
-from collections import Counter
+from pathlib import Path
 from copy import deepcopy
 from typing import Callable
 
@@ -10,8 +7,7 @@ import Metashape as ms
 
 from .callbacks import percentage_callback
 from .dataframe import DataFrame
-from .estimation import (CameraStats, MarkerStats, field_of_view,
-                         find_object_dimension)
+from .estimation import CameraStats, MarkerStats
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +16,6 @@ class SfM:
     def __init__(self, cfg):
         self.cfg = cfg
         self.batch_id = self.cfg.batch_id
-        self.state_id = self.batch_id.split("_")[0]
         self.season = cfg.season
         # Directories
         self.project_path = Path(cfg.paths.proj_path)
@@ -177,9 +172,6 @@ class SfM:
         if self.doc.chunk is None:
             self.doc.addChunk()
         self.doc.chunk.crs = ms.CoordinateSystem(self.crs)
-        
-        print(photos)
-        print(len(photos))
         self.doc.chunk.addPhotos(photos)
 
     def add_masks(self):
@@ -521,18 +513,6 @@ class SfM:
         self.doc.chunk.model.closeHoles(level=100)
         self.save_project()
 
-    def build_texture(self, progress_callback: Callable = percentage_callback):
-        self.doc.chunk.buildUV(
-            mapping_mode=ms.GenericMapping, progress=progress_callback
-        )
-
-        self.save_project()
-
-        self.doc.chunk.buildTexture(
-            texture_size=4096, ghosting_filter=True, progress=progress_callback
-        )
-        self.save_project()
-
     def build_dem(self, progress_callback: Callable = percentage_callback):
         if self.doc.chunk.point_cloud is None:
             self.build_dense_cloud()
@@ -558,7 +538,7 @@ class SfM:
             kwargs = {"image_compression": image_compression}
 
             self.doc.chunk.exportRaster(
-                path=self.dem_path,
+                path=str(self.dem_path),
                 image_format=ms.ImageFormatTIFF,
                 source_data=ms.ElevationData,
                 progress=progress_callback,
@@ -594,7 +574,7 @@ class SfM:
             image_compression.tiff_big = True
 
             self.doc.chunk.exportRaster(
-                path=self.ortho_path,
+                path=str(self.ortho_path),
                 image_format=ms.ImageFormatTIFF,
                 source_data=ms.OrthomosaicData,
                 progress=progress_callback,
@@ -651,7 +631,26 @@ class SfM:
         dataframe.to_csv(self.err_ref, header=True, index=False)
 
     def camera_fov(self):
-        rows = []
+        """Calculates the field of view for each camera and saves it to a CSV file."""
+        
+        # Check if the chunk has a model or point cloud
+        if not self.doc.chunk.shapes:
+            self.doc.chunk.shapes = ms.Shapes()
+            self.doc.chunk.shapes.crs = self.doc.chunk.crs
+        
+        # Check if the chunk has a model or point cloud
+        surface = (
+            self.doc.chunk.model or
+            self.doc.chunk.point_cloud or
+            self.doc.chunk.tie_points
+        )
+        
+        # Get the transformation matrix
+        transform = self.doc.chunk.transform.matrix
+        
+        # Get the coordinate reference system
+        crs = self.doc.chunk.crs
+
         row_template = {
             "label": "",
             "top_left_x": "",
@@ -665,116 +664,70 @@ class SfM:
             "height": "",
             "width": "",
         }
+        rows = []
 
         for camera in self.doc.chunk.cameras:
+            if camera.type != ms.Camera.Type.Regular or not camera.transform:
+                continue
+
             row = deepcopy(row_template)
-            calculate_fov = True
-
             row["label"] = camera.label
+            corners_px = [
+                [0, 0],  # top-left
+                [camera.sensor.width - 1, 0],  # top-right
+                [camera.sensor.width - 1, camera.sensor.height - 1],  # bottom-right
+                [0, camera.sensor.height - 1],  # bottom-left
+            ]
 
-            pixel_height = camera.sensor.pixel_height
-            if pixel_height is None:
-                log.warning(
-                    f"pixel_height missing for camera {camera.label}, skipping FOV calculation."
-                )
-                calculate_fov = False
+            world_coords = []
 
-            pixel_width = camera.sensor.pixel_width
-            if pixel_width is None:
-                log.warning(
-                    f"pixel_width missing for camera {camera.label}, skipping FOV calculation."
-                )
-                calculate_fov = False
+            # Get the corners in world coordinates
+            for (x, y) in corners_px:
+                # Get the ray origin and target
+                ray_origin = camera.unproject(ms.Vector([x, y, 0]))
+                ray_target = camera.unproject(ms.Vector([x, y, 1]))
 
-            height = camera.sensor.height
-            if height is None:
-                log.warning(
-                    f"height missing for camera {camera.label}, skipping FOV calculation."
-                )
-                calculate_fov = False
+                # Pick the point on the surface
+                point = surface.pickPoint(ray_origin, ray_target)
+                # If no point is found, try to pick from tie points
+                if point is None:
+                    point = self.doc.chunk.tie_points.pickPoint(ray_origin, ray_target)
+                # If still no point is found, skip this camera
+                if point is None:
+                    log.warning(f"Failed to get FOV corner for camera: {camera.label}")
+                    break
 
-            width = camera.sensor.width
-            if width is None:
-                log.warning(
-                    f"width missing for camera {camera.label}, skipping FOV calculation."
-                )
-                calculate_fov = False
+                # Project the point to the CRS
+                projected = crs.project(transform.mulp(point))  # returns Vector in CRS
+                world_coords.append((projected.x, projected.y))
 
-            f = camera.calibration.f
-            if f is None:
-                log.warning(f"f missing for camera {camera.label}, skipping FOV calculation.")
-                calculate_fov = False
+            if len(world_coords) != 4:
+                continue  # skip this camera
 
-            if calculate_fov:
-                # Convert focal length and image dimensions
-                # to real-world units
-                f_height = f * pixel_height
-                f_width = f * pixel_width
-                image_height = height * pixel_height
-                image_width = width * pixel_width
+            # Assign corners
+            (top_left, top_right, bottom_right, bottom_left) = world_coords
+            row["top_left_x"], row["top_left_y"] = top_left
+            row["top_right_x"], row["top_right_y"] = top_right
+            row["bottom_right_x"], row["bottom_right_y"] = bottom_right
+            row["bottom_left_x"], row["bottom_left_y"] = bottom_left
 
-                # Find the actual object height and width
-                camera_height = self.camera_reference.retrieve(
-                    camera.label, "Estimated_Z"
-                )
-
-                if not camera_height:
-                    continue
-                object_half_height = find_object_dimension(
-                    f_height, image_height / 2, camera_height
-                )
-                object_half_width = find_object_dimension(
-                    f_width, image_width / 2, camera_height
-                )
-
-                row["height"] = 2.0 * object_half_height
-                row["width"] = 2.0 * object_half_width
-
-                # Find the field of view coordinates in the rotated
-                yaw_angle = self.camera_reference.retrieve(
-                    camera.label, "Estimated_Yaw"
-                )
-
-                center_x = self.camera_reference.retrieve(camera.label, "Estimated_X")
-                center_y = self.camera_reference.retrieve(camera.label, "Estimated_Y")
-                if not yaw_angle or not center_x or not center_y:
-                    continue
-
-                center_coords = [center_x, center_y]
-
-                (
-                    top_left_x,
-                    top_left_y,
-                    bottom_left_x,
-                    bottom_left_y,
-                    bottom_right_x,
-                    bottom_right_y,
-                    top_right_x,
-                    top_right_y,
-                ) = field_of_view(
-                    center_coords, object_half_width, object_half_height, yaw_angle
-                )
-
-                row["top_left_x"], row["top_left_y"] = top_left_x, top_left_y
-                row["bottom_left_x"], row["bottom_left_y"] = (
-                    bottom_left_x,
-                    bottom_left_y,
-                )
-                row["bottom_right_x"], row["bottom_right_y"] = (
-                    bottom_right_x,
-                    bottom_right_y,
-                )
-                row["top_right_x"], row["top_right_y"] = top_right_x, top_right_y
+            # Approximate width/height from distances
+            def distance(p1, p2):
+                return ((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)**0.5
+            # Calculate the average width and height in meters
+            # Note: This is a rough approximation and may not be accurate for all cases
+            row["width"] = (distance(top_left, top_right) + distance(bottom_left, bottom_right)) / 2.0
+            row["height"] = (distance(top_left, bottom_left) + distance(top_right, bottom_right)) / 2.0
 
             rows.append(row)
 
+        # Create a DataFrame and save to CSV
         df = DataFrame(rows, "label")
-
         df.to_csv(self.fov_ref, index=False, header=True)
 
     def export_report(self, progress_callback: Callable = percentage_callback):
         self.doc.chunk.exportReport(
-            path=self.pdf_report,
+            path=str(self.pdf_report),
             title=self.batch_id,
             description="report",
             font_size=12,
