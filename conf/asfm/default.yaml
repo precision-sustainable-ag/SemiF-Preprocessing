@@ -12,15 +12,13 @@ import_references: True
 match: True
 align: True
 optimize_cameras: True
-export_gcp_camref_err: True
+export_gcp_camref_err: True # Necessary for export FOV
 build_depth: True
 build_dense: True
 build_model: True
-build_texture: False # Not necessary for typical pipeline
 build_dem: True
 build_ortho: True
 export_fov: True
-preview_img: False
 export_report: True
 
 ## Main processing settings
@@ -30,7 +28,7 @@ downscale:
   factor: 0.5 # between (0, 1] 1 is highest accuracy. By default 0.5
 
 align_photos:
-  downscale: 4 # Accuracy parameter, lower means higher accuracy [0, 1, 2, 4, or 8]. By default 1
+  downscale: 2 # Accuracy parameter, lower means higher accuracy [0, 1, 2, 4, or 8]. By default 1
   autosave: True
   generic_preselection: False # broad filtering method based on general attributes of the images, faster but less accurate
   reference_preselection: False # more targeted approach that utilizes existing 3D data to improve the efficiency of image matching, slower but more accurate
@@ -54,7 +52,7 @@ optimize_cameras_cfg:
 
 depth_map:
   enabled: True
-  downscale: 4 # Depth map quality, lower means higher accuracy [1, 2, 4, 8, or 16]. By default 4
+  downscale: 2 # Depth map quality, lower means higher accuracy [1, 2, 4, 8, or 16]. By default 4
   autosave: True
 
 dense_cloud:
