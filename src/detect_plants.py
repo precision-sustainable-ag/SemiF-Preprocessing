@@ -1,5 +1,4 @@
 # Ultralytics YOLO 🚀, GPL-3.0 license
-import sys
 import torch
 
 from ultralytics.yolo.engine.predictor import BasePredictor
@@ -10,14 +9,8 @@ import hydra
 from omegaconf import DictConfig
 import logging
 from pathlib import Path
-from shutil import copyfile
 
 log = logging.getLogger(__name__)
-
-print('Number of arguments:', len(sys.argv), 'arguments.')
-print('Argument List:', str(sys.argv))
-
-
 
 
 class DetectionPredictor(BasePredictor):
@@ -116,15 +109,6 @@ def main(cfg: DictConfig):
     source = cfg.paths.down_photos
     batch_name = cfg.batch_id
     source = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images" / batch_name / "images"
-    # Check for presence of local detection model, cp if from lts if not present
-    local_model = Path(cfg.paths.local_detection_model)
-    if not local_model.exists():
-        local_model.parent.mkdir(parents=True, exist_ok=True)
-        lts_model = Path(cfg.paths.lts_detection_model)
-        # Copy from LTS
-        copyfile(lts_model, local_model)
-        log.info(f"Copied model from LTS: {lts_model} to local: {local_model}")
-        
     save_dir = Path(cfg.paths.batch_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     opt = {
