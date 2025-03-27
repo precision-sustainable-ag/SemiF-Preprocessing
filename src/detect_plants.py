@@ -1,22 +1,22 @@
 # Ultralytics YOLO 🚀, GPL-3.0 license
 import sys
-import argparse
 import torch
 
 from ultralytics.yolo.engine.predictor import BasePredictor
 from ultralytics.yolo.engine.results import Results
 from ultralytics.yolo.utils import DEFAULT_CFG, ROOT, ops
 from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
+import hydra
+from omegaconf import DictConfig
+import logging
+from pathlib import Path
 
+log = logging.getLogger(__name__)
 
 print('Number of arguments:', len(sys.argv), 'arguments.')
 print('Argument List:', str(sys.argv))
 
 
-assert (len(sys.argv) > 2)
-    
-batch_name = sys.argv[1]
-image_dir = sys.argv[2]
 
 
 class DetectionPredictor(BasePredictor):
@@ -93,32 +93,36 @@ class DetectionPredictor(BasePredictor):
 
 def predict(opt, cfg=DEFAULT_CFG, use_python=True, save=True, save_dir="test_output", save_crop=True, save_txt=True, imgsz=3000):
     model = "data/runs_yolov8/detect/train22/weights/last.pt"  #cfg.model or "yolov8n.pt"
-    batch_name = opt.batch_name
-    source = opt.source#Path("test_images/"  #cfg.source if cfg.source is not None else ROOT / "assets" if (ROOT / "assets").exists() \
+    batch_name = opt["batch_name"]
+    source = opt["source"] #Path("test_images/"  #cfg.source if cfg.source is not None else ROOT / "assets" if (ROOT / "assets").exists() \
         #else "https://ultralytics.com/images/bus.jpg"
+    save_dir = opt["save_dir"]
     
 #/home/psa_images/temp_data/semifield-upload/
     args = dict(model=model, source=source)
     if use_python:
         from ultralytics import YOLO
         print("using python option...")
-        YOLO(batch_name, model)(**args)
+        YOLO(save_dir, batch_name, model)(**args)
     else:
         print("using cli option...")
         predictor = DetectionPredictor(overrides=args)
         predictor.predict_cli()
 
-def parse_opt():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--source', type=str, default=ROOT / '', help='file/dir/URL/glob, 0 for webcam')
-    parser.add_argument('--batch_name', type=str, default=ROOT / 'test_batch', help='file/dir/URL/glob, 0 for webcam')
-    parser.add_argument('--save_crop', type=bool, default=False, help='file/dir/URL/glob, 0 for webcam')
-    opt = parser.parse_args()
-    #print_args(vars(opt))
-    return opt
+@hydra.main(version_base="1.3", config_path="../conf", config_name="config")
+def main(cfg: DictConfig):
+    source = cfg.paths.down_photos
+    batch_name = cfg.batch_id
+    source = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images" / batch_name / "images"
     
-# TODO implement hydra config
-if __name__ == "__main__":
+    save_dir = Path(cfg.paths.batch_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    opt = {
+        "source": source,
+        "batch_name": batch_name,
+        "save_dir": save_dir    }
 
-    opt = parse_opt()
     predict(opt)
+    
+if __name__ == "__main__":
+    main()
