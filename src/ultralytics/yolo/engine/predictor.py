@@ -280,9 +280,9 @@ class BasePredictor:
                     self.show(p)
 
                 if self.args.save:
-                    print("Saving predictions.. " + str(self.save_dir / "prediction_images" / p.name))
-                    os.makedirs(str(self.save_dir / "prediction_images"), exist_ok = True) 
-                    self.save_preds(vid_cap, i, str(self.save_dir / "prediction_images" / p.name))
+                    print("Saving predictions.. " + str(self.save_dir / "inspection" / "prediction_images" / p.name))
+                    os.makedirs(str(self.save_dir / "inspection" / "prediction_images"), exist_ok = True) 
+                    self.save_preds(vid_cap, i, str(self.save_dir / "inspection" /  "prediction_images" / p.name))
 
                 if self.args.export_predictions:
                     print("Exporting predictions.. " + str(self.save_dir / "plant-detections" / p.name))

@@ -76,6 +76,16 @@ class DetectionPredictor(BasePredictor):
             appended_data['xmax'] = appended_data['xmax'].div(im0s.shape[1]).round(7)
             appended_data['ymin'] = appended_data['ymin'].div(im0s.shape[0]).round(7)
             appended_data['ymax'] = appended_data['ymax'].div(im0s.shape[0]).round(7)
+            # make sure xmin, ymin, xmax, and ymax are in the range of 0 to 1
+            appended_data['xmin'] = appended_data['xmin'].clip(lower=0, upper=1)
+            appended_data['xmax'] = appended_data['xmax'].clip(lower=0, upper=1)
+            appended_data['ymin'] = appended_data['ymin'].clip(lower=0, upper=1)
+            appended_data['ymax'] = appended_data['ymax'].clip(lower=0, upper=1)
+        else:
+            # Account for empty predictions
+            appended_data = pd.DataFrame(columns=['xmin', 'ymin', 'xmax', 'ymax', 'conf', 'class', 'classname'])
+            appended_data.index.name = 'bounding_box_id'
+
         appended_data.to_csv(csv_out_path)
         
         # appended_data_yolo = pd.concat([pd.DataFrame(d) for d in predlist])
