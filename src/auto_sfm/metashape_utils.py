@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from copy import deepcopy
 from typing import Callable
+from tqdm import tqdm
 
 import Metashape as ms
 
@@ -666,12 +667,15 @@ class SfM:
         }
         rows = []
 
-        for camera in self.doc.chunk.cameras:
+        for camera in tqdm(self.doc.chunk.cameras, desc="Calculating FOV", unit="camera"):
+            # Skip cameras that are not regular or do not have a transform
             if camera.type != ms.Camera.Type.Regular or not camera.transform:
                 continue
 
+            # Create a row for the camera
             row = deepcopy(row_template)
             row["label"] = camera.label
+            # Get the corners in pixel coordinates
             corners_px = [
                 [0, 0],  # top-left
                 [camera.sensor.width - 1, 0],  # top-right

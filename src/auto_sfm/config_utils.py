@@ -53,6 +53,7 @@ def make_autosfm_dirs(cfg):
     Path(cfg.paths.refs).mkdir(parents=True, exist_ok=True)
     Path(cfg.paths.orthodir).mkdir(parents=True, exist_ok=True)
     Path(cfg.paths.demdir).mkdir(parents=True, exist_ok=True)
+    Path(cfg.paths.inspection_dir).mkdir(parents=True, exist_ok=True)
 
 
 def config_gcp_path(cfg):
@@ -278,106 +279,3 @@ def autosfm_present(cfg: DictConfig) -> None:
     presence = [x["present"] for x in asfm_list]
     return True if all(presence) else False
 
-
-def parse_and_generate_config(config):
-    data_dir = config["data"]["datadir"]
-    batch_id = config["general"]["batch_id"]
-    gcp_dir = config["gcp_dir"]
-    state_id = batch_id.split("_")[0]
-
-    dev_img_dir = os.path.join(data_dir, "semifield-developed-images")
-    project_name = batch_id
-    batch_dir = os.path.join(dev_img_dir, batch_id)
-    batch_autosfm = config.batch_autosfm
-
-    config["base_path"] = batch_autosfm
-    config["project_name"] = project_name
-
-    make_dir(batch_autosfm)
-
-    photo_directory = os.path.join(batch_dir, "images")
-    masks_directory = os.path.join(batch_dir, "masks")
-
-    if state_id == "NC":
-        gcp_reference_path = os.path.join(
-            gcp_dir, f"GroundControlPoints_NC_2022-07-14_elongated.csv"
-        )
-    elif state_id == "MD":
-        gcp_reference_path = os.path.join(
-            gcp_dir, f"GroundControlPoints_MD_2022-06-21_elongated.csv"
-        )
-
-    config["photo_directory"] = photo_directory
-    config["masks_directory"] = masks_directory
-    config["gcp_reference_path"] = gcp_reference_path
-
-    if config["use_masking"]:
-        assert os.path.exists(masks_directory)
-
-    # Add the required keys
-    if not config.get("project_path", ""):
-        project_path = os.path.join(batch_autosfm, "project")
-        make_dir(project_path)
-        config["project_path"] = os.path.join(
-            project_path, config["project_name"] + ".psx"
-        )
-
-    if not config.get("camera_export_path", ""):
-        reference_path = os.path.join(batch_autosfm, "reference")
-        make_dir(reference_path)
-        config["camera_export_path"] = os.path.join(
-            reference_path, "camera_reference.csv"
-        )
-
-    if not config.get("gcp_export_path", ""):
-        reference_path = os.path.join(batch_autosfm, "reference")
-        make_dir(reference_path)
-        config["gcp_export_path"] = os.path.join(reference_path, "gcp_reference.csv")
-
-    if not config.get("error_statistics_path", ""):
-        reference_path = os.path.join(batch_autosfm, "reference")
-        make_dir(reference_path)
-        config["error_statistics_path"] = os.path.join(
-            reference_path, "error_statistics.csv"
-        )
-
-    if config["dem"]["enabled"] and config["dem"]["export"]["enabled"]:
-        dem_config = config["dem"]["export"]
-        if not dem_config.get("path", ""):
-            dem_image_path = os.path.join(batch_autosfm, "dem")
-            make_dir(dem_image_path)
-            dem_config["path"] = os.path.join(dem_image_path, "dem.tif")
-        config["dem"]["export"] = dem_config
-
-    if config["orthomosaic"]["enabled"] and config["orthomosaic"]["export"]["enabled"]:
-        orthomosaic_config = config["orthomosaic"]["export"]
-        if not orthomosaic_config.get("path", ""):
-            image_path = os.path.join(batch_autosfm, "ortho")
-            make_dir(image_path)
-            orthomosaic_config["path"] = os.path.join(image_path, "orthomosaic.tif")
-        config["orthomosaic"]["export"] = orthomosaic_config
-
-    if config["camera_fov"]["enabled"]:
-        if not config["camera_fov"].get("camera_fov_path", ""):
-            reference_path = os.path.join(batch_autosfm, "reference")
-            make_dir(reference_path)
-            config["camera_fov"]["camera_fov_path"] = os.path.join(
-                reference_path, "fov.csv"
-            )
-
-    if config["downscale"]["enabled"]:
-        assert not config["downscale"].get(
-            "destination", ""
-        ), "The downscale path should not be manualy specified."
-        downscale_dir = os.path.join(batch_autosfm, "downscaled_photos")
-        make_dir(downscale_dir)
-        config["downscale"]["destination"] = downscale_dir
-
-        if config["use_masking"]:
-            downscaled_mask_dir = os.path.join(batch_autosfm, "downscaled_masks")
-            make_dir(downscaled_mask_dir)
-            config["downscale"]["mask_destination"] = downscaled_mask_dir
-
-    config["logfile"] = os.path.join(batch_autosfm, "logfile.log")
-
-    return config

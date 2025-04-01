@@ -44,7 +44,7 @@ class SpeciesAssigner:
         metadata = self.read_json(filepath)
 
         batch_id = metadata.get("batch_id", "")
-        for bbox in metadata.get("bboxes", []):
+        for bbox in metadata.get("annotations", []):
             species_info = self._determine_species(bbox, batch_id)
             self._assign_species(bbox, species_info)
 
