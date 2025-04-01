@@ -36,7 +36,8 @@ ortho_path: ${paths.orthodir}/orthomosaic.tif
 demdir: ${paths.autosfm}/dem
 dem_path: ${paths.demdir}/dem.tif
 # PDF report output
-pdf_report: ${paths.autosfm}/${batch_id}.pdf
+pdf_report: ${paths.inspection_dir}/${batch_id}.pdf
+fov_shapefiles: ${paths.inspection_dir}/fov_shapefiles
 # Config save paths
 log_folder: ${paths.autosfm}
 
@@ -50,3 +51,8 @@ lts_detection_model: /mnt/research-projects/s/screberg/longterm_images2/semifiel
 # Species info
 lts_species_info: /mnt/research-projects/s/screberg/longterm_images2/semifield-utils/species_information/species_info.json 
 species_info: ${paths.semif_util_dir}/species_information/species_info.json
+
+marker_file:
+
+# Main batch inspection directory
+inspection_dir: ${paths.batch_dir}/inspection
