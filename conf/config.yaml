@@ -6,6 +6,8 @@ defaults:
   - exif: default
   - ccm: NC_1740166530
   - batch_ids: test
+  - asfm: default
+  - date_ranges: default
   - override hydra/job_logging: custom
 
 hydra:
@@ -18,16 +20,24 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 # Main configuration for the current batch
 ############################################
-batch_id: NC_2025-03-17
-season: cool_season_covers_2024_2025
+batch_id: NC_2025-03-21
+season: cool_season_covers_2024_2025_NCpos2
 ############################################
 
 tasks:
-  # - raw2jpg # raw2jpg does raw2dng + dng2jpg
+  - sync_from_remote
+  - raw2jpg # raw2jpg does raw2dng + dng2jpg
   - update_exif
-  # - raw2dng
-  # - dng2jpg
-  # - inspect_images
+  - autosfm
+  - detect_plants
+  - remap_labels
+  - assign_species
+  - inspection_images
+  - move_data
+
+inspection:
+  inspect: false
+  use_lts_images: false  # set true to inspect from LTS
 
 rt_pp3_name: NC_2025-02-21
 ccm_name:

@@ -1,6 +1,10 @@
 workdir: ${hydra:runtime.cwd}  # where the code is executed
 log_dir: ${paths.workdir}/.logs/
 data_dir: ${paths.workdir}/data/
+developed_dir: ${paths.data_dir}/longterm_images2/semifield-developed-images
+batch_dir: ${paths.developed_dir}/${batch_id}
+semif_util_dir: ${paths.data_dir}/semifield-utils
+marker_dir: ${paths.semif_util_dir}/autosfm/GroundControlPoints
 image_development: ${paths.data_dir}/semifield-utils/image_development/
 scripts: ${paths.workdir}/scripts
 img_dev_lts_bkp: /mnt/research-projects/s/screberg/longterm_images2/semifield-utils/image_development/  # lts location with CCM and dev profile backups
@@ -9,3 +13,46 @@ lts_locations:
   - /mnt/research-projects/s/screberg/longterm_images
   - /mnt/research-projects/s/screberg/GROW_DATA
   - /mnt/research-projects/s/screberg/longterm_images2
+
+# ASFM directories
+images: ${paths.batch_dir}/images
+## Defines output directory and file paths for the various data products
+autosfm: ${paths.batch_dir}/autosfm
+proj_dir: ${paths.autosfm}/project
+proj_path: ${paths.autosfm}/project/${batch_id}.psx
+# Rescaled photos and mask outputs and used as main asfm inputs
+down_photos: ${paths.autosfm}/downscaled_photos
+down_masks: ${paths.autosfm}/downscaled_masks
+# Reference directory and csv paths outputs
+refs: ${paths.autosfm}/reference
+gcp_ref: ${paths.autosfm}/reference/gcp_reference.csv
+cam_ref: ${paths.autosfm}/reference/camera_reference.csv
+err_ref: ${paths.autosfm}/reference/error_statistics.csv
+fov_ref: ${paths.autosfm}/reference/fov.csv
+# Orthomosaic output
+orthodir: ${paths.autosfm}/ortho
+ortho_path: ${paths.orthodir}/orthomosaic.tif
+# DEM output
+demdir: ${paths.autosfm}/dem
+dem_path: ${paths.demdir}/dem.tif
+# PDF report output
+pdf_report: ${paths.inspection_dir}/${batch_id}.pdf
+fov_shapefiles: ${paths.inspection_dir}/fov_shapefiles
+# Config save paths
+log_folder: ${paths.autosfm}
+
+pipeline_keys: ./.keys/pipeline_keys.yaml
+metashape_key:
+
+# Detection model
+local_detection_model: ${paths.data_dir}/semifield-tools/detection_model/last.pt
+lts_detection_model: /mnt/research-projects/s/screberg/longterm_images2/semifield-tools/models/plant_detector/train22/weights/last.pt
+
+# Species info
+lts_species_info: /mnt/research-projects/s/screberg/longterm_images2/semifield-utils/species_information/species_info.json 
+species_info: ${paths.semif_util_dir}/species_information/species_info.json
+
+marker_file:
+
+# Main batch inspection directory
+inspection_dir: ${paths.batch_dir}/inspection

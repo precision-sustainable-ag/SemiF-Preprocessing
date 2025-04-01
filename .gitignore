@@ -5,6 +5,9 @@ outputs
 # Script logs
 *.logs
 
+# Key files
+*.keys
+
 # Rawtherapee app image
 *.AppImage
 # Rawtherapee extracted image

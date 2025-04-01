@@ -12,3 +12,12 @@ dependencies:
   - tqdm
   - piexif
   - pillow
+  - pip:
+    - pexpect
+    - requests
+    - thop
+    - tensorboard
+    - shapely
+    - exifread
+    # TODO: add torch and torchvision and explicit Metashape install instructions
+    # torch and torchvision
