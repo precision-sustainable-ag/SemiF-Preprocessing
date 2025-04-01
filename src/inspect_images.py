@@ -1,5 +1,7 @@
+import fitz  # PyMuPDF
 import cv2
 import pandas as pd
+from tqdm import tqdm
 import datetime
 import getpass
 from pathlib import Path
@@ -7,9 +9,12 @@ import hydra
 from omegaconf import DictConfig
 from src.utils.utils import find_lts_dir
 import logging
+import json
+import random
 
 log = logging.getLogger(__name__)
 
+random.seed(42)  # For reproducibility
 GITHUB_REPO_URL = "https://github.com/precision-sustainable-ag/SemiF-Preprocessing/issues"
 
 LABEL_OPTIONS = {
@@ -18,40 +23,116 @@ LABEL_OPTIONS = {
     "3": "Potting Area Cleanliness",
     "4": "Non-Target",
     "5": "Plant Spacing",
+    "6": "Incorrect Species",
+    "7": "Bad size estimate",
     "0": "Other",
     "q": "Quit",
     "b": "Back"
 }
 
+
 class ImageReviewer:
     def __init__(self, cfg: DictConfig):
+        self.cfg = cfg
         self.batch_id = cfg.batch_id
+        self.use_lts_images = cfg.inspection.use_lts_images
+        
+
         self.lts_locations = cfg.paths.lts_locations
         self.lts_dir = find_lts_dir(self.batch_id, self.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
         self.lts_dir_name = Path(self.lts_dir).name
-        self.batch_folder = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
-        self.lts_sample_dir = self.batch_folder / "preprocessing_samples"
-        self.csv_file = self.batch_folder / f"{self.batch_id}_preprocessing_inspection_results.csv"
-        self.images = self._load_images()
+        self.lts_batch_dir = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
+        
+        self.batch_folder = Path(cfg.paths.batch_dir)
+
+        # Inputs
+        self.image_dir = Path(cfg.paths.down_photos)
+        self.metadata_dir = Path(cfg.paths.batch_dir) / "metadata"
+        self.species_info = self.read_species_info(Path(cfg.paths.species_info))
+        
+        # Outputs
+        
+        self.inspection_dir = self.lts_batch_dir / "inspection" if self.use_lts_images else Path(cfg.paths.inspection_dir)
+        self.csv_file = self.inspection_dir / f"{self.batch_id}_label_inspection.csv"
+        self.remapped_sample_dir = self.inspection_dir / "remapped_samples"
+        if not self.remapped_sample_dir.exists():
+            self.remapped_sample_dir.mkdir(parents=True, exist_ok=True)
+
+        
+
+        self.sample_size = 75
+        self.images = self._get_image_paths()
         self.results = self._load_existing_results()
+        
+        # Get the current timestamp and user
         self.timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.user = getpass.getuser()
 
-    def _load_images(self):
-        """Load images and return a sorted list of unlabeled ones."""
-        all_images = sorted(self.lts_sample_dir.glob("*.jpg")) + sorted(self.lts_sample_dir.glob("*.JPG"))
-        if not all_images:
-            log.warning(f"No images found in {self.lts_sample_dir}")
-            return []
+    def _find_multiple_species_images(self):
+        metadata = self.metadata_dir.glob("*.json")
+        multiple_species_images = []
+        for file in metadata:
+            with open(file, 'r') as f:
+                data = json.load(f)
+            cat_class_ids = set()
+            for annotation in data.get("annotations", []):
+                cat_class_ids.add(str(annotation.get("category_class_id", "Unknown")))
+            if len(cat_class_ids) > 1:
+                multiple_species_images.append(data["image_id"])
+        return multiple_species_images
+            
+    def read_species_info(self, path: Path):
+        """Reads species information from a JSON file."""
+        if not path.exists():
+            log.error(f"⚠️ Species info file not found: {path}")
+            return None
+        with open(path, 'r') as f:
+            species_data = json.load(f)
+        # remap species class_id to common name
+        species_data = {
+            str(species["class_id"]): species["common_name"]
+            for species in species_data["species"].values()
+        }
+        return species_data
 
-        return [img for img in all_images if img.stem not in self._get_labeled_images()]
+    def _get_image_paths(self):
+        """Load images and return a sorted list of (a subset of) unlabeled ones."""
+        images = sorted(self.image_dir.glob("*.jpg"))
+        # Find images with multiple species. These help confirm species group separation is accurate.
+        multi_species_images = self._find_multiple_species_images()
+        multi_spec_img_paths = [self.image_dir / f"{img_id}.jpg" for img_id in multi_species_images]
+        # Get a random sample of images
+        random_sample = random.sample(images, min(len(images), self.sample_size))
+        # Combine the random sample with the multi-species images
+        data_paths = sorted(random_sample + multi_spec_img_paths)
+        return data_paths
 
-    def _get_labeled_images(self):
-        """Retrieve a set of already labeled images from the CSV file."""
-        if self.csv_file.exists():
-            df_existing = pd.read_csv(self.csv_file)
-            return set(df_existing['ImageID'].tolist())
-        return set()
+    def display_instructions(self):
+        """Prints instructions for user input."""
+        print("\n--- Image Quality Assessment ---")
+        for key, label in LABEL_OPTIONS.items():
+            display_key = f"{key} (zero)" if key == "0" else key
+            bright_key = f"\033[1;97m{display_key}\033[0m"
+            print(f"{bright_key} - {label}")
+        print("\n🔄 Please wait while the X11 or X410 forwarding initializes. This may take a few seconds...\n")
+
+    def confirm_save_results(self):
+        """Ask the user if they want to save the final CSV. If not, delete the file."""
+        while True:
+            confirm = input("\n💾 Do you want to save the final inspection results? (y/n): ").strip().lower()
+            if confirm == "y":
+                self._save_results()
+                log.info(f"✅ Inspection results saved to {self.csv_file}")
+                return self.csv_file
+            elif confirm == "n":
+                if self.csv_file.exists():
+                    self.csv_file.unlink()
+                    log.info(f"❌ Inspection results discarded. {self.csv_file} removed.")
+                else:
+                    log.warning("⚠️ No saved CSV file found to delete.")
+                return None
+            else:
+                print("⚠️ Invalid input. Please enter 'y' to save or 'n' to discard.")
 
     def _load_existing_results(self):
         """Load existing CSV results or return an empty list."""
@@ -60,53 +141,27 @@ class ImageReviewer:
             return pd.read_csv(self.csv_file).values.tolist()
         return []
 
-    def display_instructions(self):
-        """Prints instructions for user input."""
-        print("\n--- Image Quality Assessment ---")
-        for key, label in LABEL_OPTIONS.items():
-            if key == "0":
-                key = "0 (zero)"
-            bright_key = f"\033[1;97m{key}\033[0m"  # Makes numbers bold & bright white
-            
-            print(f"{bright_key} - {label}")
-        
-        print("\n🔄 Please wait while the X11 or X410 forwarding initializes. This may take a few seconds...\n")
+    def _save_results(self):
+        """Save the labeling results to a CSV file."""
+        df = pd.DataFrame(
+            self.results,
+            columns=['BatchID', 'ImageID', 'Selection', 'Timestamp', 'User', 'LTSLocation']
+        )
+        df.to_csv(self.csv_file, index=False)
 
-    def _confirm_save_results(self):
-        """Ask the user if they want to save the final CSV. If not, delete the file."""
-        while True:
-            confirm = input("\n💾 Do you want to save the final inspection results? (y/n): ").strip().lower()
-            
-            if confirm == "y":
-                self._save_results()
-                log.info(f"✅ Inspection results saved to {self.csv_file}")
-                return self.csv_file  # File saved successfully
-
-            elif confirm == "n":
-                if self.csv_file.exists():
-                    if self.csv_file.name == f"{self.batch_id}_preprocessing_inspection_results.csv":
-                        self.csv_file.unlink()  # Delete the CSV
-                        log.info(f"❌ Inspection results discarded. {self.csv_file} removed.")
-                else:
-                    log.warning("⚠️ No saved CSV file found to delete.")
-                return None  # User discarded results
-
-            else:
-                print("⚠️ Invalid input. Please enter 'y' to save or 'n' to discard.")
-                
     def review_images(self):
         """Iterate over images and allow the user to label them."""
-        if not self.images:
-            log.info("✅ All images have been labeled. Exiting.")
+        sample_images = sorted(list(self.remapped_sample_dir.glob("*.jpg")))
+        if not sample_images:
+            log.warning("⚠️ No sample images found for review.")
             return None
 
         self.display_instructions()
         cv2.namedWindow("Inspection Viewer")
-
         index = 0
-        while index < len(self.images):
-            img_path = self.images[index]
-            if not self._display_image(img_path):
+        while index < len(sample_images):
+            img_path = sample_images[index]
+            if not self._display_bboxes_on_image(img_path):
                 index += 1
                 continue
 
@@ -115,15 +170,15 @@ class ImageReviewer:
                 print("\n❌ Exiting image review.")
                 cv2.destroyAllWindows()
                 return self.csv_file  # Save progress and exit
-            
+
             if label == "Back":
                 if index > 0:
                     print("\n🔙 Going back to the previous image.")
                     self.results.pop()  # Remove last entry
-                    index -= 1  # Move back an index
+                    index -= 1
                 else:
                     print("⚠️ Already at the first image, cannot go back further.")
-                continue  # Restart loop without saving
+                continue
 
             self.results.append([self.batch_id, img_path.stem, label, self.timestamp, self.user, self.lts_dir_name])
             self._save_results()
@@ -132,19 +187,159 @@ class ImageReviewer:
         cv2.destroyAllWindows()
         log.info("✅ Image review completed.")
         self._review_flagged_images()
-        return self._confirm_save_results()
+        return self.confirm_save_results()
 
-    def _display_image(self, img_path):
-        """Loads and displays an image, returns False if loading fails."""
+    def _create_bboxes_on_image(self, img_path, preview_only=False):
+        """Displays bounding boxes on an image for visual inspection."""
+        metadata_path = self.metadata_dir / img_path.with_suffix(".json").name
+
+        if not metadata_path.exists():
+            log.error(f"⚠️ Metadata file not found: {metadata_path}")
+            return False
+        if not img_path.exists():
+            log.error(f"⚠️ Image file not found: {img_path}")
+            return False
+
         image = cv2.imread(str(img_path))
         if image is None:
             log.error(f"⚠️ Error loading image: {img_path}")
             return False
 
-        resized_image = cv2.resize(image, (13376 // 10, 9528 // 10))
-        cv2.imshow("Inspection Viewer", resized_image)
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+
+        # Set up resizing/scaling parameters
+        fullres_h, fullres_w = (9520, 13368)
+        downscaling_factor = 5
+        resized_h, resized_w = int(image.shape[0] / downscaling_factor), int(image.shape[1] / downscaling_factor)
+        scale_x = resized_w / fullres_w
+        scale_y = resized_h / fullres_h
+        resized_image = cv2.resize(image, (resized_w, resized_h))
+
+        base_lw = max(round(sum(resized_image.shape) / 2 * 0.003), 2)
+        label_color = (128, 128, 128)
+        text_color = (255, 255, 255)
+
+        for bbox in metadata.get("annotations", []):
+            x1, y1, w, h = bbox["bbox_xywh"]
+            
+            x2, y2 = x1 + w, y1 + h
+            x1, y1 = int(x1 * scale_x), int(y1 * scale_y)
+            x2, y2 = int(x2 * scale_x), int(y2 * scale_y)
+            cv2.rectangle(resized_image, (x1, y1), (x2, y2), (0, 15, 200), 2)
+
+            cat_class_id = str(bbox.get("category_class_id", "Unknown"))
+            area_sqm = bbox["global_coordinates"]["area_sqm"]
+            area_sqcm = area_sqm * 10000  # convert m² to cm²
+            is_primary = bbox.get("is_primary", False)
+            
+            label_text = f"{self.species_info.get(cat_class_id, 'Unknown')} ({area_sqcm:.2f} cm2) {'P' if is_primary else ''}"
+
+            bbox_height = max(y2 - y1, 1)
+            bbox_width = max(x2 - x1, 1)
+            font_thickness = max(int(base_lw / 2), 1)
+
+            proposed_scale = bbox_height / 50
+            (text_width, text_height), _ = cv2.getTextSize(
+                label_text, cv2.FONT_HERSHEY_SIMPLEX, proposed_scale, font_thickness
+            )
+            max_text_width = bbox_width * 0.9
+            if text_width > max_text_width:
+                proposed_scale *= max_text_width / text_width
+                (text_width, text_height), _ = cv2.getTextSize(
+                    label_text, cv2.FONT_HERSHEY_SIMPLEX, proposed_scale, font_thickness
+                )
+            font_scale = min(max(proposed_scale, 0.4), 1.5)
+            (text_width, text_height), _ = cv2.getTextSize(
+                label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness
+            )
+            draw_above = y1 - text_height >= 3
+
+            text_bg_top_left = (x1, y1 - text_height - 3) if draw_above else (x1, y1 + 3)
+            text_bg_bottom_right = (x1 + text_width, y1 - 3) if draw_above else (x1 + text_width, y1 + text_height + 6)
+            cv2.rectangle(resized_image, text_bg_top_left, text_bg_bottom_right, label_color, -1, cv2.LINE_AA)
+
+            text_org = (x1, y1 - 5) if draw_above else (x1, y1 + text_height + 2)
+            cv2.putText(
+                resized_image, label_text, text_org, cv2.FONT_HERSHEY_SIMPLEX, font_scale,
+                text_color, font_thickness, cv2.LINE_AA
+            )
+            # 🔹 Add info box with image ID and unique species names
+            unique_species_ids = {
+                str(bbox.get("category_class_id", "Unknown"))
+                for bbox in metadata.get("annotations", [])
+            }
+            unique_species_names = [
+                self.species_info.get(sp_id, "Unknown") for sp_id in unique_species_ids
+            ]
+
+            info_lines = [f"Image ID: {img_path.stem}"] + [f"Unique species: {','.join(unique_species_names)}"]
+            font_scale = 0.6
+            font_thickness = 1
+            padding = 10
+            line_height = 20
+
+            # Draw background box
+            box_width = 0
+            for line in info_lines:
+                (text_width, _), _ = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
+                box_width = max(box_width, text_width)
+            box_height = line_height * len(info_lines)
+
+            cv2.rectangle(
+                resized_image,
+                (5, 5),
+                (5 + box_width + 2 * padding, 5 + box_height + 2 * padding),
+                (50, 50, 50),
+                thickness=-1
+            )
+
+            # Draw text lines
+            for i, line in enumerate(info_lines):
+                y = 5 + padding + i * line_height + 15
+                cv2.putText(
+                    resized_image,
+                    line,
+                    (10, y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    font_scale,
+                    (255, 255, 255),
+                    font_thickness,
+                    cv2.LINE_AA
+                )
+
+        if not preview_only:
+            cv2.imshow("Inspection Viewer", resized_image)
+        
+        save_path = self.remapped_sample_dir / img_path.name
+        if not save_path.exists():
+            cv2.imwrite(str(save_path), resized_image)
+        
+        return True
+    
+    def _display_bboxes_on_image(self, img_path: Path):
+        """"""
+        if img_path.exists():
+            image = cv2.imread(str(img_path))
+            cv2.imshow("Inspection Viewer", image)
+        
         return True
 
+    def generate_all_sample_images(self):
+        """Pre-generates and saves annotated sample images before user review."""
+        log.info("📸 Generating sample images...")
+        count = 0        
+        for img_path in tqdm(self.images, desc="Generating sample images"):
+            save_path = self.remapped_sample_dir / img_path.name
+            if not save_path.exists():
+                success = self._create_bboxes_on_image(img_path, preview_only=True)
+                if success:
+                    count += 1
+            else:
+                log.debug(f"⚠️ Sample image already exists: {save_path}")
+                continue
+        log.info(f"✅ Generated {count} sample images in {self.remapped_sample_dir}")
+        
     def _get_user_input(self):
         """Captures user input for labeling images."""
         while True:
@@ -152,64 +347,170 @@ class ImageReviewer:
             key_char = chr(key)
             if key_char in LABEL_OPTIONS:
                 return LABEL_OPTIONS[key_char]
-            print("⚠️ Invalid choice. Please press a number between 1-5 or 'q' to quit.")
-
-    def _save_results(self):
-        """Save the labeling results to a CSV file."""
-        df = pd.DataFrame(self.results, columns=['BatchID', 'ImageID', 'Selection', 'Timestamp', 'User', 'LTSLocation'])
-        df.to_csv(self.csv_file, index=False)
+            print("⚠️ Invalid choice. Please press a valid key (1-7, 0, q, or b).")
 
     def _review_flagged_images(self):
-        """Checks and offers to display flagged images for issue reporting."""
+        """Offers the option to review flagged images for issue reporting."""
         df_final = pd.read_csv(self.csv_file)
         flagged_images = df_final[df_final["Selection"] != "Pass"]
-
         if flagged_images.empty:
             return self.csv_file
 
         print("\n⚠️ Some images have issues.")
-        print(f"📌 Please report in our GitHub repository: {GITHUB_REPO_URL}")
-        print("Mention the flagged images and describe the issues.")
-        
+        print(f"📌 Please report them at our GitHub repository: {GITHUB_REPO_URL}")
         if input("Would you like to review the flagged images for screenshots? (y/n): ").strip().lower() == 'y':
             self._display_flagged_images(flagged_images)
 
         print("\n📌 After taking screenshots, submit an issue on GitHub:")
-        print(f"🔗 {GITHUB_REPO_URL}\n")
+        print(f"🔗 {GITHUB_REPO_URL}")
         print(f"Title the issue: {self.batch_folder.name} preprocessing inspection: {len(flagged_images)} flagged images\n")
         return self.csv_file
 
     def _display_flagged_images(self, flagged_images):
         """Displays flagged images for screenshot capture."""
         for _, row in flagged_images.iterrows():
-            img_path = self.lts_sample_dir / f"{row['ImageID']}.jpg"
+            # Use self.image_dir to locate images based on ImageID
+            img_path = self.image_dir / f"{row['ImageID']}.jpg"
             if not img_path.exists():
-                img_path = self.lts_sample_dir / f"{row['ImageID']}.JPG"
-
+                img_path = self.image_dir / f"{row['ImageID']}.JPG"
             if img_path.exists():
                 image = cv2.imread(str(img_path))
                 resized_image = cv2.resize(image, (13376 // 10, 9528 // 10))
                 cv2.imshow("Flagged Image", resized_image)
                 print(f"📸 Take a screenshot for: {row['ImageID']} ({row['Selection']})")
-
                 key = cv2.waitKey(0) & 0xFF
-                if key == ord('q'):  # Allow early exit
+                if key == ord('q'):
                     break
             else:
                 print(f"⚠️ Could not find image: {row['ImageID']}")
+        cv2.destroyAllWindows()
+
+
+class PDFReviewer:
+    def __init__(self, cfg: DictConfig):
+        self.cfg = cfg
+        self.use_lts_images = cfg.inspection.use_lts_images
+
+        self.lts_dir = find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
+        self.lts_batch_dir = Path(self.lts_dir) / "semifield-developed-images" / cfg.batch_id
+
+        self.ms_pdf_report = self.lts_batch_dir / "inspection" / Path(cfg.paths.pdf_report).name if self.use_lts_images else Path(cfg.paths.pdf_report)
+        self.inspection_dir = self.lts_batch_dir / "inspection" if self.use_lts_images else Path(cfg.paths.inspection_dir)
+        
+        self.output_dir = self.inspection_dir / "metashape_report_pages"
+        if not self.output_dir.exists():
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def extract_pdf_images(self, dpi=250):
+        """Extracts pages from a PDF and saves them as images."""
+        if len(list(self.output_dir.glob("*.jpg"))) > 10:
+            log.info("⚠️ PDF pages already extracted. Skipping extraction.")
+            return self.output_dir
+        
+        doc = fitz.open(self.ms_pdf_report)
+        for i in range(len(doc)):
+            page = doc.load_page(i)
+            zoom = dpi / 72.0  # 72 is the default resolution
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
+            output_path = self.output_dir / f"page_{i+1:03d}.jpg"
+            pix.save(str(output_path))
+        print(f"✅ Saved PDF pages to: {self.output_dir}")
+        doc.close()
+        return True
+
+    def review_pdf(self):
+        """Allows a user to review PDF pages as images using a manually set window size,
+        with an option to go back to the previous page."""
+        # Set desired window dimensions (adjust these values as needed)
+        manual_width, manual_height = 1000, 1200
+
+        window_name = "PDF Viewer"
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_name, manual_width, manual_height)
+        
+        pdf_images = sorted(self.output_dir.glob("*.jpg"))
+        if not pdf_images:
+            log.info("No PDF pages found for review.")
+            return
+
+        index = 0
+        log.info(f"Reviewing PDF pages.")
+        print("Press any key for next, 'b' to go back, 'q' to quit.")
+        while index < len(pdf_images):
+            image = cv2.imread(str(pdf_images[index]))
+            if image is None:
+                index += 1
+                continue
+
+            # Scale the image to fit within the manually set window dimensions.
+            h, w = image.shape[:2]
+            scale_factor = min(manual_width / w, manual_height / h, 1.0)
+            if scale_factor < 1.0:
+                image = cv2.resize(image, (int(w * scale_factor), int(h * scale_factor)))
+
+            cv2.imshow(window_name, image)
+            
+            key = cv2.waitKey(0) & 0xFF
+
+            if key == ord('q'):
+                break
+            elif key == ord('b'):
+                if index > 0:
+                    index -= 1
+                else:
+                    print("Already at the first page; cannot go back further.")
+            else:
+                index += 1
 
         cv2.destroyAllWindows()
+        log.info("PDF review completed.")
+
+class ReviewSession:
+    def __init__(self, cfg: DictConfig):
+        self.cfg = cfg
+        self.image_reviewer = ImageReviewer(cfg)
+        self.pdf_reviewer = PDFReviewer(cfg)
+
+    def run(self):
+        """Prompt the user to select a review mode and run the corresponding review."""
+        while True:
+            print("\nSelect review mode:")
+            print("1 - Image Review")
+            print("2 - PDF Review")
+            print("3 - Both")
+            print("q - Quit")
+            choice = input("Your choice: ").strip().lower()
+            if choice == "1":
+                self.image_reviewer.review_images()
+            elif choice == "2":
+                self.pdf_reviewer.review_pdf()
+            elif choice == "3":
+                self.image_reviewer.review_images()
+                self.pdf_reviewer.review_pdf()
+            elif choice == "q":
+                print("Exiting review session.")
+                break
+            else:
+                print("Invalid choice. Please select again.")
 
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
-    """Main entry point for image quality inspection."""
-    log.info("🔍 Inspecting images...")
 
-    reviewer = ImageReviewer(cfg)
-    src_csv_file = reviewer.review_images()
-    log.info(f"Inspection results saved to {src_csv_file}")
-    log.info("Image inspection completed.")
+    log.info("Creating inspection images...")
+    image_reviewer = ImageReviewer(cfg)
+    image_reviewer.generate_all_sample_images()
+    
+    pdf_reviewer = PDFReviewer(cfg)
+    pdf_reviewer.extract_pdf_images()
+    log.info("Inspection images created.")
+
+    if cfg.inspection.inspect:
+        log.info("Starting review session...")
+        session = ReviewSession(cfg)
+        session.run()
+        log.info("Review session completed.")
 
 if __name__ == "__main__":
     main()
