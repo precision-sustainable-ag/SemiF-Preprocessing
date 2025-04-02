@@ -2,21 +2,33 @@ import json
 import logging
 import random
 import time
+from datetime import datetime
+from dataclasses import asdict
 from pathlib import Path
-from typing import List, Optional, Dict
-import numpy as np
+from typing import List, Optional
+
 import cv2
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from omegaconf import DictConfig
-from shapely.geometry import Polygon
 from pyproj import CRS
+from shapely.geometry import Polygon
 from tqdm import tqdm
-from utils.datasets import BBoxCoordinates, GlobalCoordinates, BoundingBox, CameraInfo, ImageMetadata, FOV, CameraCoefficients
-from dataclasses import asdict
-from datetime import datetime
+
+from concurrent.futures import ThreadPoolExecutor
+
 import Metashape
 from filter_bboxes import BBoxFilter
+from utils.datasets import (
+    BBoxCoordinates,
+    BoundingBox,
+    CameraCoefficients,
+    CameraInfo,
+    FOV,
+    GlobalCoordinates,
+    ImageMetadata,
+)
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +37,7 @@ class DataMerger:
     def __init__(self, cfg: DictConfig) -> None:
         self.batch_dir = Path(cfg.paths.batch_dir)
         self.reference_dir = Path(cfg.paths.autosfm) / "reference"
-        self.detections_dir = self.batch_dir / "plant-detections"
+        self.detections_dir = Path(cfg.paths.plant_detection_dir)
         self.output_path = Path(cfg.paths.autosfm) / "reference" / f"{self.batch_dir.name}_metadata.csv"
 
     def _load_csvs(self, directory: Path) -> pd.DataFrame:
@@ -72,6 +84,7 @@ class BBoxMapper:
         self.images = images
         self.doc = Metashape.Document()
         self.doc.open(str(project_path), ignore_lock=True)
+        self.camera_lookup = {cam.label: cam for chunk in self.doc.chunks for cam in chunk.cameras}
     
     def map(self):
         """
@@ -110,7 +123,7 @@ class BBoxMapper:
         return chunk
     
     def _map_bbox(self, bbox, image_id, chunk, surface, height, width):
-        cam = next((c for c in chunk.cameras if c.label == image_id), None)
+        cam = self.camera_lookup.get(image_id)
         
         if not cam:
             raise ValueError(f"No camera found for {image_id}")
@@ -196,8 +209,11 @@ class RemapLabels:
         self.fullres_h = cfg.exif.Image.ImageHeight
         self.fullres_w = cfg.exif.Image.ImageWidth
 
-        self.shp_dir = cfg.paths.fov_shapefiles
+        self.shp_dir = Path(cfg.paths.fov_shapefiles)
         self.shp_dir.mkdir(exist_ok=True, parents=True)
+
+        with open(cfg.paths.species_info) as f:
+            self.species_info = json.load(f)
 
     def _get_image_shape(self) -> tuple:
         jpgs = list(self.downscaled_dir.glob("*.jpg")) + list(self.downscaled_dir.glob("*.JPG"))
@@ -272,12 +288,13 @@ class RemapLabels:
                 local_centroid=[(row["xmin"] + row["xmax"]) / 2, (row["ymin"] + row["ymax"]) / 2],
                 is_normalized=row["is_normalized"],
             )
+            category_class_id = self.species_info["species"].get(row["name"], {}).get("class_id", None)
             bbox = BoundingBox(
                 is_primary=None,
                 cutout_exists=None,
                 bbox_xywh=self._bbox_xywh(row),
                 # image_id=image_id,
-                category_class_id=None,
+                category_class_id=category_class_id,
                 cutout_id=f"{image_id}_{row['bounding_box_id']}",
                 # overlapping_cutout_ids=None,
                 local_coordinates=local_coords,
@@ -332,6 +349,8 @@ class RemapLabels:
     def remap(self) -> List[dict]:
         h, w = self._get_image_shape()
         images = [self._build_metadata(iid, h, w) for iid in sorted(self.metadata["image_id"].unique())]
+        # Sort images by image_id
+        images.sort(key=lambda x: x.image_id)
         return BBoxMapper(self.project_path, images).map()
 
     # Optional: convert numpy types if needed
