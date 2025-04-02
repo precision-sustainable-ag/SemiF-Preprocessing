@@ -37,7 +37,8 @@ LABEL_OPTIONS = {
 class AnnotationPlotter:
     def __init__(self, cfg: DictConfig):
         self.metadata_dir = Path(cfg.paths.batch_dir) / "metadata"
-        self.save_dir = Path(cfg.paths.inspection_dir)
+        self.save_dir = Path(cfg.paths.inspection_dir) / "plots"
+        self.save_dir.mkdir(parents=True, exist_ok=True)
         
         with open(cfg.paths.species_info, 'r') as f:
             species_data = json.load(f)
@@ -89,7 +90,6 @@ class AnnotationPlotter:
 
         g.figure.suptitle("Centroid Density per Species (Normalized)", y=1.02)
         plt.tight_layout(rect=[0, 0, 0.9, 1])  # Leave space for colorbar
-        # plt.tight_layout()
         plt.savefig(self.save_dir / "species_centroid_density.png", dpi=300)
 
     def log_scale_histogram(self, df: pd.DataFrame, bins: int = 30):
