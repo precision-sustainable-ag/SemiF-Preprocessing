@@ -11,7 +11,15 @@ from src.utils.utils import find_lts_dir
 import logging
 import json
 import random
-
+from pathlib import Path
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
 
 random.seed(42)  # For reproducibility
@@ -29,7 +37,96 @@ LABEL_OPTIONS = {
     "q": "Quit",
     "b": "Back"
 }
+class AnnotationPlotter:
+    def __init__(self, cfg: DictConfig):
+        self.metadata_dir = Path(cfg.paths.batch_dir) / "metadata"
+        self.save_dir = Path(cfg.paths.inspection_dir)
+        
+        with open(cfg.paths.species_info, 'r') as f:
+            species_data = json.load(f)
+        # remap species class_id to common name
+        self.species_info = {
+            str(species["class_id"]): species["common_name"]
+            for species in species_data["species"].values()
+        }
 
+    def load_annotation_data(self) -> pd.DataFrame:
+        """Loads annotation data from JSON files in the metadata directory."""
+        records = []
+        for json_file in sorted(self.metadata_dir.glob("*.json")):
+            try:
+                with open(json_file, "r") as f:
+                    data = json.load(f)
+                    annotations = data.get("annotations", [])
+                    for ann in annotations:
+                        species_id = ann.get("category_class_id")
+                        species_id = self.species_info[str(species_id)].lower()
+                        x, y, w, h = ann.get("bbox_xywh", [None]*4)
+                        centroid = ann.get("local_coordinates", {}).get("local_centroid")
+                        x_centroid, y_centroid  = centroid[0], centroid[1]
+                        area = ann.get("global_coordinates", {}).get("area_sqm") * 10000  # Convert to square cm
+                        if species_id is not None and area is not None:
+                            records.append({"species_id": species_id, "area_sqcm": area, "x": x, "y": y, "w": w, "h": h, "x_centroid": x_centroid, "y_centroid": y_centroid})
+            except Exception as e:
+                print(f"Failed to process {json_file.name}: {e}")
+        return pd.DataFrame(records)
+
+    def plot_species_centroid_density(self, df: pd.DataFrame):
+    
+        plt.figure(figsize=(10, 8))
+
+        g = sns.FacetGrid(df, col="species_id", col_wrap=3, height=3.5)
+        g.map_dataframe(sns.kdeplot, x="x_centroid", y="y_centroid", fill=True, cmap="viridis", bw_adjust=0.5, clip=((0, 1), (0, 1)))
+        g.set_titles("{col_name}")
+        g.set_axis_labels("X (relative)", "Y (relative)")
+        for ax in g.axes.flatten():
+            ax.invert_yaxis()
+
+        # Add a shared colorbar (density scale)
+        norm = colors.Normalize(vmin=0, vmax=1)
+        sm = cm.ScalarMappable(cmap="viridis", norm=norm)
+        sm.set_array([])
+        cbar_ax = g.figure.add_axes([0.92, 0.25, 0.02, 0.5])  # [left, bottom, width, height]
+        cbar = g.figure.colorbar(sm, cax=cbar_ax)
+        cbar.set_label("Relative Density")
+
+        g.figure.suptitle("Centroid Density per Species (Normalized)", y=1.02)
+        plt.tight_layout(rect=[0, 0, 0.9, 1])  # Leave space for colorbar
+        # plt.tight_layout()
+        plt.savefig(self.save_dir / "species_centroid_density.png", dpi=300)
+
+    def log_scale_histogram(self, df: pd.Series, bins: int = 30):
+        # Plot 2: Log-scaled histogram per species
+        g = sns.FacetGrid(df, col="species_id", col_wrap=3, sharey=False, height=3.5)
+        g.map_dataframe(sns.histplot, x="area_sqcm", bins=30, log_scale=(True, False))
+        g.set_titles("{col_name}")
+        g.set_axis_labels("Area (cm², log scale)", "Count")
+        g.figure.suptitle("Log-Scaled Histograms of Area per Species")
+        plt.tight_layout()
+        plt.savefig(self.save_dir / "area_log_scaled_histograms.png", dpi=300)
+
+    def species_count(self, df: pd.DataFrame):
+        """Counts the number of annotations per species."""
+        # Plot 1: Bar plot — Count per species
+        species_counts = df["species_id"].value_counts().sort_index()
+        plt.figure(figsize=(8, 5))
+        species_counts.plot(kind="bar")
+        plt.title("Number of Annotations per Species")
+        plt.xlabel("Species ID")
+        plt.ylabel("Count")
+        plt.tight_layout()
+        plt.grid(axis="y")
+        plt.savefig(self.save_dir / "species_counts.png", dpi=300)
+
+    def plot_summary(self):
+        """Generates summary plots for the annotation data."""
+        df = self.load_annotation_data()
+        
+        self.species_count(df)
+
+        self.log_scale_histogram(df)
+
+        self.plot_species_centroid_density(df)
 
 class ImageReviewer:
     def __init__(self, cfg: DictConfig):
@@ -505,6 +602,10 @@ def main(cfg: DictConfig):
     pdf_reviewer = PDFReviewer(cfg)
     pdf_reviewer.extract_pdf_images()
     log.info("Inspection images created.")
+
+    plotter = AnnotationPlotter(cfg)
+    plotter.plot_summary()
+    log.info("Summary plots generated.")
 
     if cfg.inspection.inspect:
         log.info("Starting review session...")
