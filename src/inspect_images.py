@@ -1,25 +1,22 @@
-import fitz  # PyMuPDF
-import cv2
-import pandas as pd
-from tqdm import tqdm
 import datetime
 import getpass
-from pathlib import Path
-import hydra
-from omegaconf import DictConfig
-from src.utils.utils import find_lts_dir
-import logging
 import json
+import logging
 import random
 from pathlib import Path
-import json
-import pandas as pd
-import matplotlib.pyplot as plt
+
+import cv2
+import fitz  # PyMuPDF
+import hydra
 import matplotlib.cm as cm
 import matplotlib.colors as colors
-import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+from omegaconf import DictConfig
+from tqdm import tqdm
+
+from src.utils.utils import find_lts_dir
 log = logging.getLogger(__name__)
 
 random.seed(42)  # For reproducibility
@@ -95,10 +92,10 @@ class AnnotationPlotter:
         # plt.tight_layout()
         plt.savefig(self.save_dir / "species_centroid_density.png", dpi=300)
 
-    def log_scale_histogram(self, df: pd.Series, bins: int = 30):
+    def log_scale_histogram(self, df: pd.DataFrame, bins: int = 30):
         # Plot 2: Log-scaled histogram per species
         g = sns.FacetGrid(df, col="species_id", col_wrap=3, sharey=False, height=3.5)
-        g.map_dataframe(sns.histplot, x="area_sqcm", bins=30, log_scale=(True, False))
+        g.map_dataframe(sns.histplot, x="area_sqcm", bins=bins, log_scale=(True, False))
         g.set_titles("{col_name}")
         g.set_axis_labels("Area (cm², log scale)", "Count")
         g.figure.suptitle("Log-Scaled Histograms of Area per Species")
