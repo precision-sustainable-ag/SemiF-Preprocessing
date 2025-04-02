@@ -1,13 +1,15 @@
-import hydra
-from omegaconf import DictConfig
-from pathlib import Path
-import matplotlib.pyplot as plt
-import pandas as pd
-from datetime import datetime
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 import logging
 import random
+from datetime import datetime
+from pathlib import Path
+
+import hydra
+import matplotlib.pyplot as plt
+import pandas as pd
+from omegaconf import DictConfig
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
 from src.utils.utils import find_lts_dir
 
 log = logging.getLogger(__name__)
@@ -192,7 +194,7 @@ class ImageReport:
 
         # Add the line plot to the PDF
         capture_plot_path = self.plot_file_base / f"capture_time_plot_{batch_id}.png"
-        if Path(self.plot_file_base).exists():
+        if capture_plot_path.exists():
             c.drawImage(capture_plot_path, 5, 400, width=500//1.6, height=300//1.5)
         
         # Add the line plot to the PDF
@@ -203,11 +205,8 @@ class ImageReport:
         c.showPage()  # Start a new page
         # Metashape report page
         metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_001.jpg"
-        if Path(metashape_page_1).exists():
+        if metashape_page_1.exists():
             c.drawImage(metashape_page_1, -150, -125, width=850, height=1000, preserveAspectRatio=True)
-
-
-        "data/longterm_images2/semifield-developed-images/NC_2025-03-19/inspection/metashape_report_pages/page_001.jpg"
 
         # -----------------------------
         # Add the "Sample images" section at the bottom
