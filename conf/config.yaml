@@ -20,7 +20,7 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 # Main configuration for the current batch
 ############################################
-batch_id: NC_2025-03-21
+batch_id: NC_2025-03-19
 season: cool_season_covers_2024_2025_NCpos2
 ############################################
 
@@ -30,9 +30,10 @@ tasks:
   - update_exif
   - autosfm
   - detect_plants
+  - merge_overlapping_bboxes
   - remap_labels
   - assign_species
-  - inspection_images
+  - inspect_images
   - move_data
 
 inspection:
