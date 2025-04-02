@@ -52,12 +52,11 @@ class SpeciesAssigner:
 
     def _determine_species(self, bbox: dict, batch_id: str) -> dict:
         x, y = bbox["global_coordinates"]["global_centroid"]
-        bbox_cls = bbox.get("cls")
+        bbox_cls = bbox.get("category_class_id")
+        if bbox_cls == 28:
+            return self.spec_dict["species"].get("colorchecker", None)
 
-        if bbox_cls == "colorchecker":
-            return self.spec_dict["species"].get("colorchecker", self.spec_dict["species"]["plant"])
-
-        if "cash" in self.season and bbox_cls != "colorchecker":
+        if "cash" in self.season and bbox_cls != 28:
             return self._get_cash_crop_species()
 
         point = Point(x, y)

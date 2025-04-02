@@ -3,6 +3,7 @@ log_dir: ${paths.workdir}/.logs/
 data_dir: ${paths.workdir}/data/
 developed_dir: ${paths.data_dir}/longterm_images2/semifield-developed-images
 batch_dir: ${paths.developed_dir}/${batch_id}
+plant_detection_dir: ${paths.batch_dir}/plant-detections/merged
 semif_util_dir: ${paths.data_dir}/semifield-utils
 marker_dir: ${paths.semif_util_dir}/autosfm/GroundControlPoints
 image_development: ${paths.data_dir}/semifield-utils/image_development/
@@ -36,7 +37,7 @@ ortho_path: ${paths.orthodir}/orthomosaic.tif
 demdir: ${paths.autosfm}/dem
 dem_path: ${paths.demdir}/dem.tif
 # PDF report output
-pdf_report: ${paths.inspection_dir}/${batch_id}.pdf
+pdf_report: ${paths.inspection_dir}/${batch_id}_asfm_report.pdf
 fov_shapefiles: ${paths.inspection_dir}/fov_shapefiles
 # Config save paths
 log_folder: ${paths.autosfm}
