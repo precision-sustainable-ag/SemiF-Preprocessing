@@ -35,6 +35,7 @@ tasks:
   - assign_species
   - inspect_images
   - move_data
+  - report
 
 inspection:
   inspect: false

@@ -12,6 +12,7 @@ dependencies:
   - tqdm
   - piexif
   - pillow
+  - reportlab
   - pip:
     - pexpect
     - requests
