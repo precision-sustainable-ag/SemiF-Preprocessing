@@ -4,17 +4,22 @@ It compares files based on their SHA-256 hash. If a local file is missing or dif
 version, it is automatically downloaded and updated.
 """
 
-import logging
 import hashlib
+import logging
 import shutil
 from pathlib import Path
-from omegaconf import DictConfig
+
 import hydra
+from omegaconf import DictConfig
 
 log = logging.getLogger(__name__)
 
 def compute_file_hash(filepath: Path, chunk_size: int = 65536) -> str:
-    """Compute SHA-256 hash for a file."""
+    """
+    Compute SHA-256 hash for a file.
+    Returns:
+        str: The hexadecimal representation of the file's SHA-256 hash.
+    """
     hash_func = hashlib.sha256()
     with filepath.open("rb") as f:
         for chunk in iter(lambda: f.read(chunk_size), b""):
@@ -22,9 +27,13 @@ def compute_file_hash(filepath: Path, chunk_size: int = 65536) -> str:
     return hash_func.hexdigest()
 
 def files_are_identical(local_file: Path, remote_file: Path) -> bool:
-    """Compare hash of local and remote files to determine if they are identical."""
+    """
+    Compare hash of local and remote files to determine if they are identical.
+    Returns:
+        bool: True if both files exist and have identical hashes, False otherwise.
+    """
     if not local_file.exists() or not remote_file.exists():
-        log.warning(f"Missing file: {local_file} or {remote_file}")
+        log.error(f"Missing file: {local_file} or {remote_file}")
         return False
 
     local_hash = compute_file_hash(local_file)
@@ -33,7 +42,7 @@ def files_are_identical(local_file: Path, remote_file: Path) -> bool:
     return local_hash == remote_hash
 
 def update_file(local_file: Path, remote_file: Path):
-    """Copy remote file to local if they are different."""
+    """Replace the local file with the remote file if they are different."""
     try:
         log.info(f"Updating {local_file} from {remote_file}")
         local_file.parent.mkdir(parents=True, exist_ok=True)
@@ -65,7 +74,7 @@ def main(cfg: DictConfig) -> None:
         remote = paths["remote"]
 
         if not remote.exists():
-            log.warning(f"Remote file {remote} does not exist, skipping.")
+            log.error(f"Remote file {remote} does not exist, skipping.")
             continue
         
         if not local.exists():

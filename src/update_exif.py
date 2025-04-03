@@ -1,13 +1,20 @@
+"""
+This script updates EXIF metadata in image files for a given batch. It:
+- Converts epoch-based filenames to EXIF-compliant timestamps.
+- Adds additional EXIF tags from the config file.
+- Uses multiprocessing for faster updates via `exiftool`.
+"""
+
 import datetime
-from datetime import datetime
-import pytz
 import logging
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
+from datetime import datetime
 from pathlib import Path
 from shutil import which
 
 import hydra
+import pytz
 from omegaconf import DictConfig
 
 from src.utils.utils import find_lts_dir
@@ -15,7 +22,11 @@ from src.utils.utils import find_lts_dir
 log = logging.getLogger(__name__)
 
 def epoch_to_datetime(epoch: int) -> str:
-    """Convert an epoch timestamp to 'YYYY:MM:DD HH:MM:SS' format."""
+    """
+    Convert epoch timestamp to standard string.
+    Returns:
+        str: Formatted date-time string.
+    """
     try:
         dt = datetime.datetime.fromtimestamp(epoch)
         return dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -48,7 +59,7 @@ def epoch_to_exif_datetime_eastern(epoch: int, use_fractional=True) -> str:
 
     return base
 
-def flatten_exif_dict(config: dict, parent_key: str = '', sep: str = ':') -> dict:
+def flatten_exif_dict(config: dict) -> dict:
     """Flatten a nested EXIF dictionary for exiftool usage."""
     items = {}
     for k, v in config.items():
@@ -59,7 +70,12 @@ def flatten_exif_dict(config: dict, parent_key: str = '', sep: str = ':') -> dic
     return items
 
 def _update_exif_worker(args):
-    """Worker function for multiprocessing."""
+    """
+    Worker function to update EXIF tags for one image.
+
+    Args:
+        args (tuple): (Path to image, flattened EXIF tags dict)
+    """
     file_path, base_tags = args
     img_stem = file_path.stem
     try:
@@ -78,67 +94,81 @@ def _update_exif_worker(args):
             value = ",".join(map(str, value))
         cmd.append(f"-{key}={value}")
     cmd.append(str(file_path))
-    log.info(f"Command: {' '.join(cmd)}")
+    log.info(f"[{file_path.name}] Running: {' '.join(cmd)}")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.stdout:
-            log.warning(f"Command output: {result.stdout}")
-        if result.stderr:
-            log.error(f"Command error: {result.stderr}")
         if result.returncode == 0:
-            log.info(f"Updated: {file_path.name}")
+            log.info(f"[{file_path.name}] EXIF updated successfully.")
         else:
-            log.error(f"Failed: {file_path.name}\n{result.stderr}")
+            log.error(f"[{file_path.name}] EXIF update failed with error: {result.stderr.strip()}")
+        if result.stdout:
+            log.debug(f"[{file_path.name}] STDOUT: {result.stdout.strip()}")
+        if result.stderr:
+            log.debug(f"[{file_path.name}] STDERR: {result.stderr.strip()}")
     except Exception as e:
-        log.error(f"Error updating {file_path.name}: {e}")
+        log.exception(f"[{file_path.name}] Exception during EXIF update: {e}")
 
 def batch_update(cfg: DictConfig, image_dir: Path):
     """Update EXIF tags in all image files within a directory using multiprocessing."""
     tags = flatten_exif_dict(cfg.exif)
     if not tags:
-        log.warning("No EXIF tags loaded. Aborting.")
+        log.warning("No EXIF tags found in config. Skipping update.")
         return
 
-    images = sorted(image_dir.glob("*.jpg"), reverse=False)
+    images = sorted(image_dir.glob("*.jpg"))
+    if not images:
+        log.warning(f"No .jpg images found in {image_dir}")
+        return
+    
+    log.info(f"Found {len(images)} images in {image_dir} for EXIF update.")
+    
     args = [(img, tags) for img in images]
-    multiprocess = True
-    if multiprocess:
-        with ProcessPoolExecutor(max_workers=16) as executor:
-            list(executor.map(_update_exif_worker, args))
-    else:
-        for arg in args:
-        # arg = (Path("/mnt/research-projects/s/screberg/longterm_images2/semifield-developed-images/NC_2025-03-17/images/NC_1742223170.jpg"), tags)
-            _update_exif_worker(arg)
+
+    with ProcessPoolExecutor(max_workers=16) as executor:
+        list(executor.map(_update_exif_worker, args))
+
 
 def ensure_exiftool_installed(setup_script_path: Path = Path("setup_exiftool.sh")):
     """Ensure exiftool is available. If not, run setup script to install it."""
 
-    exiftool_path = which("exiftool")
-    if exiftool_path:
-        log.info(f"ExifTool found at: {exiftool_path}")
+    if which("exiftool"):
+        log.info("ExifTool is available.")
         return
 
-    log.warning("ExifTool not found in PATH. Running setup script...")
+    log.warning("ExifTool not found in PATH. Attempting installation...")
 
     try:
-        result = subprocess.run(["bash", str(setup_script_path)], capture_output=True, text=True, check=True)
-        log.info(result.stdout)
-        log.warning(result.stderr)
+        result = subprocess.run(
+            ["bash", str(setup_script_path)],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        log.info(f"Setup script stdout:\n{result.stdout}")
+        if result.stderr:
+            log.warning(f"Setup script stderr:\n{result.stderr}")
     except subprocess.CalledProcessError as e:
-        log.error(f"Failed to run setup script: {e.stderr}")
+        log.error(f"ExifTool installation failed: {e.stderr}")
         raise RuntimeError("ExifTool setup failed.") from e
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
     """Main entry point for updating exif information."""
-    log.info("Starting update_exif_tags.py")
+    
+    log.info("Running EXIF tag update pipeline...")
     batch_id = cfg.batch_id
-    # Check for exiftool
+
+    # Ensure exiftool is ready
     setup_script = Path(cfg.paths.workdir) / "scripts" / "setup_exiftool.sh"
     ensure_exiftool_installed(setup_script)
+
     # Find image directory
     lts_dir = find_lts_dir(batch_id, cfg.paths.lts_locations, local=False, developed=True, jpgs=True)
     image_directory = Path(lts_dir) / "semifield-developed-images" / batch_id / "images"
+    if not image_directory.exists():
+        log.error(f"Image directory not found: {image_directory}")
+        return
+    
     # Update EXIF tags
     batch_update(cfg, image_directory)
     log.info("Finished updating EXIF tags.")
