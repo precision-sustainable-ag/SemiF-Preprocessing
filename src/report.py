@@ -2,13 +2,17 @@ import logging
 import random
 from datetime import datetime
 from pathlib import Path
-
+import re
+from typing import List
+import shutil
 import hydra
+from hydra.core.hydra_config import HydraConfig
 import matplotlib.pyplot as plt
 import pandas as pd
 from omegaconf import DictConfig
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import simpleSplit
 
 from src.utils.utils import find_lts_dir
 
@@ -17,72 +21,79 @@ log = logging.getLogger(__name__)
 class ImageReport:
     def __init__(self, cfg: DictConfig):
         self.batch_id = cfg.batch_id
-        self.output_report_dir = Path(cfg.paths.inspection_dir)
+        
+        self.lts_dir = find_lts_dir(self.batch_id, cfg.paths.lts_locations)
+        self.upload_directory = Path(self.lts_dir) / "semifield-upload" / self.batch_id
+        self.developed_directory = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
+
+        self.output_report_dir = self.developed_directory / "inspection"
         self.output_report_dir.mkdir(parents=True, exist_ok=True)
 
         self.plot_file_base = self.output_report_dir / "plots"
         self.plot_file_base.mkdir(parents=True, exist_ok=True)
 
-        self.lts_dir = find_lts_dir(self.batch_id, cfg.paths.lts_locations)
-
-        self.upload_directory = Path(self.lts_dir) / "semifield-upload" / self.batch_id
-        self.developed_directory = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
-
         self.raw_image_files = list(self.upload_directory.glob("*.RAW"))  # Adjust extension if necessary
         self.developed_image_files = list(Path(self.developed_directory, "images").glob("*.jpg"))
         self.image_data = []
 
-        self.local_sample_dir = Path(cfg.paths.inspection_dir) / "remapped_samples"
+        self.local_sample_dir = self.output_report_dir / "remapped_samples"
 
-    def calculate_total_images(self):
+        self.log_parser = LogParser(cfg, self.output_report_dir)
+
+    def calculate_total_images(self) -> int:
         return len(self.raw_image_files)
 
-    def calculate_total_size(self):
+    def calculate_total_size(self) -> int:
         return sum(image.stat().st_size for image in self.raw_image_files)
 
-    def calculate_developed_total_size(self):
+    def calculate_developed_total_size(self) -> int:
         return sum(image.stat().st_size for image in self.developed_image_files)
     
-    def calculate_average_size(self):
+    def calculate_average_size(self) -> float:
         total_images = self.calculate_total_images()
         total_size = self.calculate_total_size()
         return total_size / total_images if total_images > 0 else 0
 
-    def calculate_average_developed_size(self):
+    def calculate_average_developed_size(self) -> float:
         total_images = len(self.developed_image_files)
         total_size = self.calculate_developed_total_size()
         return total_size / total_images if total_images > 0 else 0
     
-    def find_max_image_size(self):
+    def find_max_image_size(self) -> int:
         return max((image.stat().st_size for image in self.raw_image_files), default=0)
 
-    def count_partial_uploads(self):
+    def count_partial_uploads(self) -> int:
         max_size = self.find_max_image_size()
         return sum(1 for image in self.raw_image_files if image.stat().st_size < max_size)
 
-    def extract_image_metadata(self):
+    def extract_image_metadata(self) -> None:
         for image in self.raw_image_files:
-            name = image.stem
-            state, epoch = name.split("_")
-            file_size = image.stat().st_size
-            file_mtime = datetime.fromtimestamp(image.stat().st_mtime)
-            capture_datetime = datetime.fromtimestamp(int(epoch))
-            average_upload_time = file_mtime - capture_datetime
+            try:
+                name = image.stem
+                state, epoch = name.split("_")
+                file_size = image.stat().st_size
+                file_mtime = datetime.fromtimestamp(image.stat().st_mtime)
+                capture_datetime = datetime.fromtimestamp(int(epoch))
+                upload_delay = file_mtime - capture_datetime
+
+                self.image_data.append({
+                    "batch_id": self.batch_id,
+                    "filename": image.name,
+                    "state": state,
+                    "epoch": int(epoch),
+                    "file_size_bytes": file_size,
+                    "file_size_kib": file_size / 1024,
+                    "file_datetime_est_modified": file_mtime,
+                    "capture_datetime_epoch": capture_datetime,
+                    "average_upload_time_seconds": upload_delay.total_seconds(),
+                    "average_upload_time_minutes": upload_delay,
+                })
+            except Exception as e:
+                log.error(f"Error extracting metadata from {image}: {e}")
+                continue
             
-            data = {
-                "batch_id": self.batch_id,
-                "filename": image.name,
-                "state": state,
-                "epoch": int(epoch),
-                "file_size_bytes": file_size,
-                "file_size_kib": file_size / 1024,
-                "file_datetime_est_modified": file_mtime, 
-                "capture_datetime_epoch": capture_datetime,
-                "average_upload_time_seconds": average_upload_time.total_seconds(),
-                "average_upload_time_minutes": average_upload_time
-            }
-            self.image_data.append({**data})
         self.image_data = sorted(self.image_data, key=lambda x: x["epoch"])
+        log.info(f"Extracted {len(self.image_data)} records")
 
     def get_first_and_last_upload(self):
         if not self.image_data:
@@ -93,7 +104,10 @@ class ImageReport:
         last_upload = self.image_data[-1]["file_datetime_est_modified"]
         return first_upload, last_upload
 
-    def generate_capture_line_plot(self):
+    def generate_capture_line_plot(self) -> None:
+        """
+        Generates a line plot of the capture times of the images.
+        """
         if not self.image_data:
             self.extract_image_metadata()
         timestamps = [datetime.fromtimestamp(data["epoch"]) for data in self.image_data]
@@ -111,8 +125,12 @@ class ImageReport:
         file_path = self.plot_file_base / f"capture_time_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
+        log.info(f"Capture time plot saved to {file_path}")
 
-    def generate_modified_line_plot(self):
+    def generate_modified_line_plot(self) -> None:
+        """
+        Generates a line plot of the modified times of the images.
+        """
         if not self.image_data:
             self.extract_image_metadata()
         timestamps = sorted([data["file_datetime_est_modified"] for data in self.image_data])
@@ -130,8 +148,12 @@ class ImageReport:
         file_path = self.plot_file_base / f"upload_time_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
+        log.info(f"Upload time plot saved to {file_path}")
     
-    def generate_average_upload_time_plot(self):
+    def generate_average_upload_time_plot(self) -> None:
+        """
+        Generates a line plot of the average upload time differences between images.
+        """
         if not self.image_data:
             self.extract_image_metadata()
         # sort self.image_data by epoch
@@ -149,8 +171,12 @@ class ImageReport:
         file_path = self.plot_file_base / f"upload_time_difference_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
+        log.info(f"Upload time difference plot saved to {file_path}")
 
-    def calculate_average_upload_time(self):
+    def calculate_average_upload_time(self) -> float:
+        """
+        Calculates the average upload time between images.
+        """
         if not self.image_data:
             self.extract_image_metadata()
         if len(self.image_data) <= 1:
@@ -284,26 +310,116 @@ class ImageReport:
         if Path(density_plot_path).exists():
             c.drawImage(density_plot_path, 50, 350, width=plot_w * 2, height=plot_h* 2, preserveAspectRatio=True)
 
+        # Parse errors and warnings
+        errors_df = self.log_parser.extract_error_blocks()
+        if not errors_df.empty:
+            c.showPage()  # Start a new page for the three analytical plots
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 750, "Errors and Warnings:")
+            c.setFont("Helvetica", 10)
+            y_position = 730
+            page_height = 750
+            
+            y = page_height
 
+            for _, row in errors_df.iterrows():
+                module = row['ScriptModule']
+                level = row['Level']
+                message = row['LogSnippet']
+                if y_position < 50:
+                    c.showPage()
+                    y_position = 750
+                    c.setFont("Helvetica-Bold", 12)
+                    c.drawString(50, y_position, "Continued Errors & Warnings:")
+                    y_position -= 20
+                    c.setFont("Helvetica", 10)
+                c.drawString(25, y_position, f"[{module}] - {level.upper()} - {message}")
+                y_position -= 15
+        else:
+            c.drawString(50, 540, "No errors or warnings found in logs.")
+
+        
         # Save the PDF
         c.save()
         log.info(f"PDF report saved to {pdf_output_path}")
 
-    def generate_report(self):
+    def generate_report(self) -> None:
+        """
+        Main execution function to generate all visual plots and the final PDF report.
+        """
+        log.info(f"Generating report for batch: {self.batch_id}")
         self.extract_image_metadata()
-
         self.generate_capture_line_plot()
         self.generate_modified_line_plot()
         self.generate_average_upload_time_plot()
         self.generate_pdf_report()
+        log.info(f"Completed report for batch: {self.batch_id}")
+        # Copy the log file to the output directory
+        self.log_parser.copy_log_file()
 
+class LogParser:
+    def __init__(self, cfg: DictConfig, output_report_dir: Path = None):
+        
+        self.log_path = Path(HydraConfig.get().runtime.output_dir) / f"{cfg.batch_id}.log"
+        
+        self.log_lines: List[str] = self._read_log_file()
+        
+        self.output_report_dir = output_report_dir
+
+    def _read_log_file(self) -> List[str]:
+        if not self.log_path.exists():
+            raise FileNotFoundError(f"Log file does not exist: {self.log_path}")
+        with open(self.log_path, "r") as f:
+            return f.readlines()
+        
+    def copy_log_file(self) -> None:
+        """
+        Copies the log file to the output report directory.
+        """
+        shutil.copy(self.log_path, self.output_report_dir)
+        log.info(f"Log file copied to {self.output_report_dir}")
+
+    def extract_error_blocks(self) -> pd.DataFrame:
+        """
+        Extracts blocks of log entries beginning with ERROR or WARNING.
+
+        Returns:
+            pd.DataFrame: DataFrame containing index, module name, and error/warning log blocks.
+        """
+        messages = []
+        modules = []
+        levels = []
+
+        for line in self.log_lines:
+            match = re.search(r"\[\d{4}-\d{2}-\d{2}.*?\]\[([^\]]+)\]\[(ERROR|WARNING)\]\s+-\s+(.*)", line)
+            if match:
+                module = match.group(1)
+                level = match.group(2)
+                message = match.group(3).strip()
+                modules.append(module)
+                levels.append(level)
+                messages.append(message)
+
+        return pd.DataFrame({
+            "ErrorIndex": range(1, len(messages) + 1),
+            "ScriptModule": modules,
+            "Level": levels,
+            "LogSnippet": messages
+        })
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
+    """
+    Hydra-based entry point to generate an image batch report and optionally parse logs for warnings/errors.
 
+    Args:
+        cfg (DictConfig): Hydra config with paths and batch settings.
+    """
+    image_report = ImageReport(cfg)
+    image_report.generate_report()
+    log.info(f"Report generated for batch: {cfg.batch_id}")
     
-    report = ImageReport(cfg)
-    report.generate_report()
+    
 
 if __name__ == "__main__":
     main()
