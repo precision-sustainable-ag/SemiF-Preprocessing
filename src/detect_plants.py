@@ -106,10 +106,15 @@ def predict(opt, cfg=DEFAULT_CFG, use_python=True, save=True, save_dir="test_out
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
+    log.info(f"Starting detection for batch {cfg.batch_id}")
+    
     source = cfg.paths.down_photos
     batch_name = cfg.batch_id
     source = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images" / batch_name / "images"
     save_dir = Path(cfg.paths.batch_dir)
+    log.info(f"Source: {source}")
+    log.info(f"Save directory: {save_dir}")
+    log.info(f"Using model: {cfg.paths.local_detection_model}")
     save_dir.mkdir(parents=True, exist_ok=True)
     opt = {
         "model_path": cfg.paths.local_detection_model,
@@ -118,6 +123,7 @@ def main(cfg: DictConfig):
         "save_dir": save_dir    }
 
     predict(opt)
+    log.info("Detection completed.")
     
 if __name__ == "__main__":
     main()

@@ -26,23 +26,30 @@ def generate_hash(box: Dict, auxiliary_hash: Optional[str] = None) -> str:
 
 class BBoxFilter:
     def __init__(self, cfg, images: List[dict]=None, load_existing: bool = False):
+        """
+        Initialize the BBoxFilter to deduplicate bounding boxes based on FOV and IoU.
+
+        Args:
+            cfg: Hydra configuration object.
+            images (List[dict], optional): List of image metadata with annotations.
+            load_existing (bool): Whether to load annotations from existing JSONs.
+        """
         
         self.batch_dir = Path(cfg.paths.batch_dir)
         self.metadata_output_dir = self.batch_dir / "metadata"
 
-        if load_existing:
-            self.images = self.load_existing_metadata()
-        else:
-            self.images = images
-
+        self.images = self.load_existing_metadata() if load_existing else images
         self.image_map = {image.image_id: image for image in self.images}
-        self.total_bboxes = sum([len(image.annotations) for image in self.images])
+        self.total_bboxes = sum(len(image.annotations) for image in self.images)
         self.primary_boxes = []
         self.primary_box_ids = set()
 
     def load_existing_metadata(self) -> List[dict]:
         """
-        Loads previously saved JSON metadata if available.
+        Loads previously saved image JSON metadata files.
+
+        Returns:
+            List[dict]: List of image metadata dictionaries.
         """
         json_files = sorted(self.metadata_output_dir.glob("*.json"))
         image_data = []
@@ -51,20 +58,22 @@ class BBoxFilter:
             with open(json_file, "r") as f:
                 data = json.load(f)
                 image_data.append(data)
-        
-        log.info(f"Loaded {len(image_data)} image metadata files from JSON.")
+
+        log.info(f"Loaded {len(image_data)} metadata files from {self.metadata_output_dir}")
         return image_data
 
-    def deduplicate_bboxes(self):
-        """Calculates the ideal bounding box and the associated image from all the
-        bounding boxes
+    def deduplicate_bboxes(self) -> None:
         """
+        Main entry point to deduplicate overlapping bounding boxes and
+        identify the primary bounding box for each plant/object.
+        """
+        log.info("Starting bounding box deduplication.")
         comparisons = self._filter_images_by_fov()
-        # Comment out cleanup step for debug
         self.filter_bounding_boxes(comparisons)
         self.select_best_bbox()
         self.cleanup_primary_boxes()
         self.cleanup_overlapping_bboxes()
+        log.info("Deduplication complete.")
 
     def _filter_images_by_fov(self) -> Dict[str, List[str]]:
         """Filter the images to compare based on the overlap between their fields of
@@ -74,20 +83,22 @@ class BBoxFilter:
             Dict[str, List[str]]: A dictionary containing the image IDs as keys, and
                                   a list of image IDs each key overlaps with
         """
+        log.debug("Filtering images by FOV IoU.")
         image_ids = list(self.image_map.keys())
         comparisons = dict()
         # Find the overlap between FOVs of the images
         for i, image_id in enumerate(image_ids):
             image = self.image_map[image_id]
             comparisons[image_id] = []
+
             for j in range(i + 1, len(image_ids)):
                 compare_image_id = image_ids[j]
                 compare_image = self.image_map[compare_image_id]
-                # fov_iou = bb_iou(image["camera_info"]["fov"], compare_image["camera_info"]["fov"])
+
                 fov_iou = self._simple_bb_iou(image.camera_info.fov, compare_image.camera_info.fov)
                 if fov_iou > FOV_IOU_THRESH:
                     comparisons[image_id].append(compare_image_id)
-
+        log.info(f"Image comparison sets prepared for {len(comparisons)} images.")
         return comparisons
 
 
@@ -98,6 +109,7 @@ class BBoxFilter:
             comparisons (Dict[str, List[str]]): Images to compare, found via
                                                 filter_images
         """
+        log.info("Identifying overlapping bounding boxes.")
         # For all the overlapping images
         visited_bboxes = set()
 
@@ -138,6 +150,11 @@ class BBoxFilter:
                             
 
     def select_best_bbox(self):
+        """
+        From each group of overlapping bounding boxes, select the 'best' one
+        based on camera proximity to the centroid.
+        """
+        log.info("Selecting primary bounding boxes from overlapping groups.")
         # visited will be a set of boxes that have been compared
         visited = set()
         for image in self.images:
@@ -151,7 +168,6 @@ class BBoxFilter:
                 if box_hash in visited:
                     continue
 
-
                 all_boxes = [box] + [self._get_box_by_id(bid) for bid in box.overlapping_cutout_ids]
                 box_hashes = [generate_hash(b) for b in all_boxes]
                 visited.update(box_hashes)
@@ -159,34 +175,29 @@ class BBoxFilter:
                 for b in all_boxes:
                     b.is_primary = False
 
-                # Find the best bounding box
-                centers = np.array([self.image_map["_".join(b.cutout_id.split("_")[:2])].camera_info.estimated_xyz for b in all_boxes])
-                centroids = np.array([b.global_coordinates.global_centroid for b in all_boxes])
-                
-                distances = 0
-
                 try:
+                    # Find the best bounding box
+                    centers = np.array([self.image_map["_".join(b.cutout_id.split("_")[:2])].camera_info.estimated_xyz for b in all_boxes])
+                    centroids = np.array([b.global_coordinates.global_centroid for b in all_boxes])
                     distances = ((centroids - centers[:, :2]) ** 2).sum(axis=-1)
-                except ValueError as e:
-                    log.exception(f"Error calculating distances: {str(e)}")
-                    log.error(f"Centroids: {centroids}")
-                    log.error(f"Centers: {centers}")
-                    log.error(f"Centers [:, :2]: {centers[:, :2]}")
+                except Exception as e:
+                    log.exception("Error calculating distances for primary selection.")
                     continue
 
                 best_idx = np.argmin(distances)
                 best_box = all_boxes[best_idx]
                 best_box.is_primary = True
 
-                log.info(f"Selected primary bbox: {best_box.cutout_id}")
-
-
                 if best_box.cutout_id not in self.primary_box_ids:
                     self.primary_boxes.append(best_box)
                     self.primary_box_ids.add(best_box.cutout_id)
+                
+                log.debug(f"Selected primary bbox: {best_box.cutout_id}")
 
-    def cleanup_overlapping_bboxes(self):
-        """Remove duplicate entries in the _overlapping_cutout_ids field and sort them"""
+    def cleanup_overlapping_bboxes(self) -> None:
+        """
+        Remove duplicates from the `overlapping_cutout_ids` list for all boxes.
+        """
         for image in self.images:
             for box in image.annotations:
                 box.overlapping_cutout_ids = list(set(box.overlapping_cutout_ids))
@@ -194,7 +205,13 @@ class BBoxFilter:
 
 
     def cleanup_primary_boxes(self):
+        """
+        Refine the selected primary boxes by removing those outside the image center,
+        and resolve overlaps by proximity to the camera.
+        """
+        log.info("Cleaning up primary bounding boxes.")
         _primary_boxes = []
+
         for box in self.primary_boxes:
             image_id = "_".join(box.cutout_id.split("_")[:2])
             image = self.image_map[image_id]
@@ -205,7 +222,6 @@ class BBoxFilter:
         
             if w // 4 < x < 3 * w // 4 and h // 4 < y < 3 * h // 4:
                 _primary_boxes.append(box)
-        
             else:
                 box.is_primary = False
 

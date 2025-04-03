@@ -1,27 +1,62 @@
+"""
+This script processes bounding box CSV files for plant and colorchecker detection.
+It merges overlapping or nested boxes based on IoU, and preserves the class label.
+"""
+
 import logging
 from pathlib import Path
+from typing import List, Dict, Tuple
+
+import pandas as pd
+import networkx as nx
 
 import hydra
-import networkx as nx
-import pandas as pd
 from omegaconf import DictConfig
 
 log = logging.getLogger(__name__)
 
 
-
-def merge_bboxes_with_class(bboxes, iou_threshold=0.5):
+def iou(box1: List[float], box2: List[float]) -> float:
     """
-    Merge bounding boxes while carrying the class along.
-    Input:
-      - bboxes: a list of dictionaries. Each dictionary must have:
-          'xmin', 'ymin', 'xmax', 'ymax', 'conf', 'class', 'classname'
-      - iou_threshold: threshold for considering boxes overlapping.
-      
-    For each merged group:
-      - The coordinates are merged (taking the min and max over the group).
-      - If any box in the group is a "colorchecker", then the merged box is marked as a colorchecker.
-      - Otherwise, it remains a "plant".
+    Compute Intersection over Union for two bounding boxes.
+    """
+    xmin1, ymin1, xmax1, ymax1 = box1
+    xmin2, ymin2, xmax2, ymax2 = box2
+
+    # Calculate intersection coordinates
+    xi1 = max(xmin1, xmin2)
+    yi1 = max(ymin1, ymin2)
+    xi2 = min(xmax1, xmax2)
+    yi2 = min(ymax1, ymax2)
+
+    # Calculate the area of the intersection rectangle
+    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+
+    # Calculate the areas of both bounding boxes
+    box1_area = (xmax1 - xmin1) * (ymax1 - ymin1)
+    box2_area = (xmax2 - xmin2) * (ymax2 - ymin2)
+
+    # Calculate IoU
+    union_area = box1_area + box2_area - inter_area
+    return inter_area / union_area if union_area != 0 else 0
+
+def is_contained(box1: List[float], box2: List[float]) -> bool:
+    """Check if box2 is fully contained within box1."""
+    xmin1, ymin1, xmax1, ymax1 = box1
+    xmin2, ymin2, xmax2, ymax2 = box2
+
+    return (xmin1 <= xmin2 <= xmax2 <= xmax1) and (ymin1 <= ymin2 <= ymax2 <= ymax1)
+
+def merge_bboxes_with_class(bboxes: List[Dict], iou_threshold: float = 0.5) -> List[Dict]:
+    """
+    Merge overlapping/contained bounding boxes while preserving class info.
+
+    Args:
+        bboxes (List[Dict]): List of dicts with keys: xmin, ymin, xmax, ymax, conf, class, classname
+        iou_threshold (float): Minimum IoU for merging
+
+    Returns:
+        List[Dict]: Merged list of bounding box dicts
     """
     n = len(bboxes)
     G = nx.Graph()
@@ -70,40 +105,19 @@ def merge_bboxes_with_class(bboxes, iou_threshold=0.5):
     return merged_boxes
 
 
-def iou(box1, box2):
+
+
+def merge_boxes(boxes: List[List[float]], threshold: float = 0.5) -> List[List[float]]:
     """
-    Compute Intersection over Union for two bounding boxes.
-    Each box is in the format: [xmin, ymin, xmax, ymax]
+    Merge raw bounding box coordinate lists based on IoU and containment.
+
+    Args:
+        boxes (List[List[float]]): List of [xmin, ymin, xmax, ymax] boxes
+        threshold (float): IoU threshold
+
+    Returns:
+        List[List[float]]: Merged bounding boxes
     """
-    xmin1, ymin1, xmax1, ymax1 = box1
-    xmin2, ymin2, xmax2, ymax2 = box2
-
-    # Calculate intersection coordinates
-    xi1 = max(xmin1, xmin2)
-    yi1 = max(ymin1, ymin2)
-    xi2 = min(xmax1, xmax2)
-    yi2 = min(ymax1, ymax2)
-
-    # Calculate the area of the intersection rectangle
-    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-
-    # Calculate the areas of both bounding boxes
-    box1_area = (xmax1 - xmin1) * (ymax1 - ymin1)
-    box2_area = (xmax2 - xmin2) * (ymax2 - ymin2)
-
-    # Calculate IoU
-    union_area = box1_area + box2_area - inter_area
-    return inter_area / union_area if union_area != 0 else 0
-
-def is_contained(box1, box2):
-    """Check if box2 is fully contained within box1."""
-    xmin1, ymin1, xmax1, ymax1 = box1
-    xmin2, ymin2, xmax2, ymax2 = box2
-
-    return (xmin1 <= xmin2 <= xmax2 <= xmax1) and (ymin1 <= ymin2 <= ymax2 <= ymax1)
-
-def merge_boxes(boxes, threshold=0.5):
-    """Merge overlapping or fully contained bounding boxes into a single larger one."""
     merged_boxes = []
 
     while boxes:
@@ -136,13 +150,14 @@ def merge_boxes(boxes, threshold=0.5):
     return merged_boxes
 
 
-def process_csv_file(csv_path, output_dir, iou_threshold=0.5):
+def process_csv_file(csv_path: Path, output_dir: Path, iou_threshold: float = 0.5) -> None:
     """
-    Read a CSV file with bounding boxes, merge overlapping boxes while carrying
-    the class information (only two classes: plant and colorchecker), and write back.
-    
-    The CSV is expected to have the columns:
-      bounding_box_id, xmin, ymin, xmax, ymax, conf, class, classname
+    Process a single CSV, merge overlapping boxes, and save to output directory.
+
+    Args:
+        csv_path (Path): Input CSV path.
+        output_dir (Path): Output directory for merged CSVs.
+        iou_threshold (float): Overlap threshold.
     """
     try:
         df = pd.read_csv(csv_path)
@@ -154,7 +169,7 @@ def process_csv_file(csv_path, output_dir, iou_threshold=0.5):
     required_cols = ['bounding_box_id', 'xmin', 'ymin', 'xmax', 'ymax', 'conf', 'class', 'classname']
     for col in required_cols:
         if col not in df.columns:
-            log.error(f"CSV {csv_path} is missing required column '{col}'")
+            log.error(f"Missing column '{col}' in {csv_path}")
             return
 
     # Ensure numeric columns are numbers
@@ -165,34 +180,40 @@ def process_csv_file(csv_path, output_dir, iou_threshold=0.5):
     # Convert the DataFrame to a list of dictionaries (each representing one bbox)
     bboxes = df.to_dict(orient='records')
     if not bboxes:
-        log.warning(f"No valid bounding boxes found in {csv_path}")
+        log.warning(f"No valid bounding boxes found in {csv_path.name}")
         return
 
     merged_bboxes = merge_bboxes_with_class(bboxes, iou_threshold=iou_threshold)
-    
     # If merging changed the number of boxes (i.e. some were merged together),
     # we keep only the class information (as carried by our merging function).
     merged_df = pd.DataFrame(merged_bboxes)
-
     # Optionally, you can reassign new bounding_box_id values.
     merged_df.insert(0, 'bounding_box_id', range(len(merged_df)))
     
     try:
         csv_path = output_dir / csv_path.name 
         merged_df.to_csv(csv_path, index=False)
-        log.info(f"Processed and saved merged boxes to {csv_path}")
+        log.debug(f"Merged CSV saved: {csv_path}")
     except Exception as e:
-        log.error(f"Error writing CSV {csv_path}: {e}")
+        log.error(f"Error writing merged CSV to {csv_path}: {e}")
 
-def process_all_csvs_in_directory(directory_path, output_dir, iou_threshold=0.5):
-    """Process all CSV files in the given directory."""
+
+def process_all_csvs_in_directory(directory_path: Path, output_dir: Path, iou_threshold: float = 0.5) -> None:
+    """
+    Process all CSVs in a directory and output merged versions.
+
+    Args:
+        directory_path (Path): Directory containing input CSVs.
+        output_dir (Path): Where merged CSVs will be saved.
+        iou_threshold (float): IOU threshold for merging boxes.
+    """
     directory = Path(directory_path)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Find all CSV files in the directory
     csv_files = list(directory.rglob("*.csv"))
-    log.info(f"Found {len(csv_files)} CSV files to process.")
+    log.info(f"Found {len(csv_files)} CSV files in {directory_path}")
 
     # Process each CSV file
     for csv_file in csv_files:
@@ -204,9 +225,10 @@ def main(cfg: DictConfig) -> None:
     csv_directory = Path(cfg.paths.batch_dir) / "plant-detections"  # Directory containing CSV files
     output_dir = csv_directory / "merged"  # Directory for saving merged CSVs
     iou_threshold = 0.5  # Default IoU threshold for merging
-
+    log.info(f"Starting CSV merging in: {csv_directory}")
     # Process all CSVs in the specified directory
     process_all_csvs_in_directory(csv_directory,output_dir, iou_threshold)
+    log.info("Finished merging CSVs.")
 
 if __name__ == "__main__":
     main()

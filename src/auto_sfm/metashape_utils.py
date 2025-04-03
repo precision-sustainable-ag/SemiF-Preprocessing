@@ -345,7 +345,7 @@ class SfM:
         
         
         """Aligns photos in the specified chunk and optionally corrects unaligned cameras."""
-        log.info("Aligning photos")
+        log.info(f"[{self.batch_id}] Aligning photos in chunk {chunk}")
         ms.app.cpu_enable = False
         ms.app.gpu_mask = self.num_gpus
 
@@ -361,7 +361,7 @@ class SfM:
         self.save_project()
 
         unaligned_cameras = self.get_unaligned_cameras(chunk)
-        if unaligned_cameras:
+        if len(unaligned_cameras) > 2:
             log.warning(f"Found {len(unaligned_cameras)} unaligned cameras.")
             if correct:
                 prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
@@ -418,14 +418,8 @@ class SfM:
         self.save_project()
     
     def _correct_unaligned_cameras(self, unaligned_cameras, chunk, progress_callback):
-        """Attempts to correct unaligned cameras by reprocessing them."""
-        log.warning("Correction enabled. Checking for unaligned cameras.")
-        
-        if len(unaligned_cameras) < 1:
-            log.info("Not enough unaligned cameras to perform alignment, skipping.")
-            return
-
-        log.info("Attempting to align unaligned cameras.")
+        """Attempts to correct unaligned cameras by reprocessing them."""        
+        log.info(f"Attempting to align {len(unaligned_cameras)} unaligned cameras.")
         new_chunk = self.doc.addChunk()
         photos = [camera.photo.path for camera in unaligned_cameras]
 
@@ -435,13 +429,13 @@ class SfM:
             self.detect_markers(chunk=len(self.doc.chunks) - 1)
         self.import_reference(chunk=len(self.doc.chunks) - 1)
 
-        log.info("Matching and Aligning photos again.")
+        log.debug("Matching and Aligning photos again.")
         self.match_photos(chunk=len(self.doc.chunks) - 1)
         self.align_photos(chunk=len(self.doc.chunks) - 1, correct=False)
 
-        log.info("Merging Chunks.")
+        log.debug("Merging Chunks.")
         self.doc.mergeChunks(chunks=[chunk, len(self.doc.chunks) - 1], merge_markers=True, progress=progress_callback)
-        log.info("Setting active chunk.")
+        log.debug("Setting active chunk.")
         self.doc.chunk = self.doc.chunks[-1]
 
 
@@ -452,7 +446,7 @@ class SfM:
         log.info(
             f"Number of cameras in chunk at depth map: {len(self.doc.chunk.cameras)}"
         )
-        log.info(f"Chunks names: {[chunk.label for chunk in self.doc.chunks]}")
+        log.debug(f"Chunks names: {[chunk.label for chunk in self.doc.chunks]}")
         
         self.doc.chunk.buildDepthMaps(
             downscale=self.depth_map_cfg.downscale,

@@ -35,6 +35,10 @@ LABEL_OPTIONS = {
     "b": "Back"
 }
 class AnnotationPlotter:
+    """
+    A class for loading annotation metadata and generating summary plots
+    such as species counts, area histograms, and centroid density heatmaps.
+    """
     def __init__(self, cfg: DictConfig):
         self.metadata_dir = Path(cfg.paths.batch_dir) / "metadata"
         self.save_dir = Path(cfg.paths.inspection_dir) / "plots"
@@ -42,6 +46,7 @@ class AnnotationPlotter:
         
         with open(cfg.paths.species_info, 'r') as f:
             species_data = json.load(f)
+        
         # remap species class_id to common name
         self.species_info = {
             str(species["class_id"]): species["common_name"]
@@ -49,7 +54,12 @@ class AnnotationPlotter:
         }
 
     def load_annotation_data(self) -> pd.DataFrame:
-        """Loads annotation data from JSON files in the metadata directory."""
+        """
+        Loads annotation data from JSON files in the metadata directory.
+
+        Returns:
+            pd.DataFrame: A DataFrame with species ID, area (cm²), bounding box, and centroid coordinates.
+        """
         records = []
         for json_file in sorted(self.metadata_dir.glob("*.json")):
             try:
@@ -66,10 +76,13 @@ class AnnotationPlotter:
                         if species_id is not None and area is not None:
                             records.append({"species_id": species_id, "area_sqcm": area, "x": x, "y": y, "w": w, "h": h, "x_centroid": x_centroid, "y_centroid": y_centroid})
             except Exception as e:
-                print(f"Failed to process {json_file.name}: {e}")
+                log.error(f"Failed to process {json_file.name}: {e}", exc_info=True)
         return pd.DataFrame(records)
 
     def plot_species_centroid_density(self, df: pd.DataFrame):
+        """
+        Creates density heatmaps of centroid positions per species.
+        """
     
         plt.figure(figsize=(10, 8))
 
@@ -90,9 +103,14 @@ class AnnotationPlotter:
 
         g.figure.suptitle("Centroid Density per Species (Normalized)", y=1.02)
         plt.tight_layout(rect=[0, 0, 0.9, 1])  # Leave space for colorbar
-        plt.savefig(self.save_dir / "species_centroid_density.png", dpi=300)
+        plot_path = self.save_dir / "species_centroid_density.png"
+        plt.savefig(plot_path, dpi=300)
+        log.info(f"Centroid density plot saved to {plot_path}")
 
     def log_scale_histogram(self, df: pd.DataFrame, bins: int = 30):
+        """
+        Creates log-scaled histograms of plant area (in cm²) for each species.
+        """
         # Plot 2: Log-scaled histogram per species
         g = sns.FacetGrid(df, col="species_id", col_wrap=3, sharey=False, height=3.5)
         g.map_dataframe(sns.histplot, x="area_sqcm", bins=bins, log_scale=(True, False))
@@ -100,11 +118,14 @@ class AnnotationPlotter:
         g.set_axis_labels("Area (cm², log scale)", "Count")
         g.figure.suptitle("Log-Scaled Histograms of Area per Species")
         plt.tight_layout()
-        plt.savefig(self.save_dir / "area_log_scaled_histograms.png", dpi=300)
+        plot_path = self.save_dir / "area_log_scaled_histograms.png"
+        plt.savefig(plot_path, dpi=300)
+        log.info(f"[PLOT_SAVED] Area histogram plot saved to {plot_path}")
 
     def species_count(self, df: pd.DataFrame):
-        """Counts the number of annotations per species."""
-        # Plot 1: Bar plot — Count per species
+        """
+        Creates a bar plot showing the number of annotations per species.
+        """
         species_counts = df["species_id"].value_counts().sort_index()
         plt.figure(figsize=(8, 5))
         species_counts.plot(kind="bar")
@@ -113,16 +134,24 @@ class AnnotationPlotter:
         plt.ylabel("Count")
         plt.tight_layout()
         plt.grid(axis="y")
-        plt.savefig(self.save_dir / "species_counts.png", dpi=300)
+        plot_path = self.save_dir / "species_counts.png"
+        plt.savefig(plot_path, dpi=300)
+        log.info(f"[PLOT_SAVED] Species count plot saved to {plot_path}")
 
-    def plot_summary(self):
-        """Generates summary plots for the annotation data."""
+    def plot_summary(self) -> None:
+        """
+        Generates all annotation summary plots including:
+        - Species count
+        - Area histogram
+        - Centroid density
+        """
         df = self.load_annotation_data()
-        
+        if df.empty:
+            log.warning("No annotation data found.")
+            return
+
         self.species_count(df)
-
         self.log_scale_histogram(df)
-
         self.plot_species_centroid_density(df)
 
 class ImageReviewer:
@@ -131,7 +160,6 @@ class ImageReviewer:
         self.batch_id = cfg.batch_id
         self.use_lts_images = cfg.inspection.use_lts_images
         
-
         self.lts_locations = cfg.paths.lts_locations
         self.lts_dir = find_lts_dir(self.batch_id, self.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
         self.lts_dir_name = Path(self.lts_dir).name
@@ -144,15 +172,12 @@ class ImageReviewer:
         self.metadata_dir = Path(cfg.paths.batch_dir) / "metadata"
         self.species_info = self.read_species_info(Path(cfg.paths.species_info))
         
-        # Outputs
-        
+        # Outputs        
         self.inspection_dir = self.lts_batch_dir / "inspection" if self.use_lts_images else Path(cfg.paths.inspection_dir)
         self.csv_file = self.inspection_dir / f"{self.batch_id}_label_inspection.csv"
         self.remapped_sample_dir = self.inspection_dir / "remapped_samples"
         if not self.remapped_sample_dir.exists():
             self.remapped_sample_dir.mkdir(parents=True, exist_ok=True)
-
-        
 
         self.sample_size = 75
         self.images = self._get_image_paths()
@@ -162,23 +187,12 @@ class ImageReviewer:
         self.timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.user = getpass.getuser()
 
-    def _find_multiple_species_images(self):
-        metadata = self.metadata_dir.glob("*.json")
-        multiple_species_images = []
-        for file in metadata:
-            with open(file, 'r') as f:
-                data = json.load(f)
-            cat_class_ids = set()
-            for annotation in data.get("annotations", []):
-                cat_class_ids.add(str(annotation.get("category_class_id", "Unknown")))
-            if len(cat_class_ids) > 1:
-                multiple_species_images.append(data["image_id"])
-        return multiple_species_images
-            
-    def read_species_info(self, path: Path):
-        """Reads species information from a JSON file."""
+    def read_species_info(self, path: Path) -> dict[str, str]:
+        """
+        Reads species info JSON and returns mapping from class ID to common name.
+        """
         if not path.exists():
-            log.error(f"⚠️ Species info file not found: {path}")
+            log.error(f"Species info file not found: {path}")
             return None
         with open(path, 'r') as f:
             species_data = json.load(f)
@@ -188,8 +202,29 @@ class ImageReviewer:
             for species in species_data["species"].values()
         }
         return species_data
+    
+    def _find_multiple_species_images(self) -> list[str]:
+        """
+        Identifies images with multiple species in their annotations.
 
-    def _get_image_paths(self):
+        Returns:
+            List[str]: Image IDs with more than one species.
+        """
+        multiple_species_images = []
+        for file in self.metadata_dir.glob("*.json"):
+            try:
+                with open(file, 'r') as f:
+                    data = json.load(f)
+                class_ids = {str(a.get("category_class_id", "Unknown")) for a in data.get("annotations", [])}
+                if len(class_ids) > 1:
+                    multiple_species_images.append(data["image_id"])
+            except Exception as e:
+                log.error(f"Failed finding multiple species: {file.name}: {e}", exc_info=True)
+        return multiple_species_images
+            
+    
+
+    def _get_image_paths(self) -> list[Path]:
         """Load images and return a sorted list of (a subset of) unlabeled ones."""
         images = sorted(self.image_dir.glob("*.jpg"))
         # Find images with multiple species. These help confirm species group separation is accurate.
@@ -201,7 +236,7 @@ class ImageReviewer:
         data_paths = sorted(random_sample + multi_spec_img_paths)
         return data_paths
 
-    def display_instructions(self):
+    def display_instructions(self) -> None:
         """Prints instructions for user input."""
         print("\n--- Image Quality Assessment ---")
         for key, label in LABEL_OPTIONS.items():
@@ -210,32 +245,32 @@ class ImageReviewer:
             print(f"{bright_key} - {label}")
         print("\n🔄 Please wait while the X11 or X410 forwarding initializes. This may take a few seconds...\n")
 
-    def confirm_save_results(self):
+    def confirm_save_results(self) -> None:
         """Ask the user if they want to save the final CSV. If not, delete the file."""
         while True:
             confirm = input("\n💾 Do you want to save the final inspection results? (y/n): ").strip().lower()
             if confirm == "y":
                 self._save_results()
-                log.info(f"✅ Inspection results saved to {self.csv_file}")
+                log.info(f"Inspection results saved to {self.csv_file}")
                 return self.csv_file
             elif confirm == "n":
                 if self.csv_file.exists():
                     self.csv_file.unlink()
-                    log.info(f"❌ Inspection results discarded. {self.csv_file} removed.")
+                    log.info(f"Inspection results discarded. {self.csv_file} removed.")
                 else:
-                    log.warning("⚠️ No saved CSV file found to delete.")
+                    log.warning("No saved CSV file found to delete.")
                 return None
             else:
                 print("⚠️ Invalid input. Please enter 'y' to save or 'n' to discard.")
 
-    def _load_existing_results(self):
+    def _load_existing_results(self) -> list[list[str]]:
         """Load existing CSV results or return an empty list."""
         if self.csv_file.exists():
-            log.info(f"📄 Loading existing results from {self.csv_file}")
+            log.info(f"Loading existing results from {self.csv_file}")
             return pd.read_csv(self.csv_file).values.tolist()
         return []
 
-    def _save_results(self):
+    def _save_results(self) -> None:
         """Save the labeling results to a CSV file."""
         df = pd.DataFrame(
             self.results,
@@ -247,7 +282,7 @@ class ImageReviewer:
         """Iterate over images and allow the user to label them."""
         sample_images = sorted(list(self.remapped_sample_dir.glob("*.jpg")))
         if not sample_images:
-            log.warning("⚠️ No sample images found for review.")
+            log.warning("No sample images found for review.")
             return None
 
         self.display_instructions()
@@ -288,15 +323,15 @@ class ImageReviewer:
         metadata_path = self.metadata_dir / img_path.with_suffix(".json").name
 
         if not metadata_path.exists():
-            log.error(f"⚠️ Metadata file not found: {metadata_path}")
+            log.error(f"Metadata file not found: {metadata_path}")
             return False
         if not img_path.exists():
-            log.error(f"⚠️ Image file not found: {img_path}")
+            log.error(f"Image file not found: {img_path}")
             return False
 
         image = cv2.imread(str(img_path))
         if image is None:
-            log.error(f"⚠️ Error loading image: {img_path}")
+            log.error(f"Error loading image: {img_path}")
             return False
 
         with open(metadata_path, 'r') as f:
@@ -421,7 +456,7 @@ class ImageReviewer:
 
     def generate_all_sample_images(self):
         """Pre-generates and saves annotated sample images before user review."""
-        log.info("📸 Generating sample images...")
+        log.info("Generating sample images...")
         count = 0        
         for img_path in tqdm(self.images, desc="Generating sample images"):
             save_path = self.remapped_sample_dir / img_path.name
@@ -430,9 +465,9 @@ class ImageReviewer:
                 if success:
                     count += 1
             else:
-                log.debug(f"⚠️ Sample image already exists: {save_path}")
+                log.debug(f"Sample image already exists: {save_path}")
                 continue
-        log.info(f"✅ Generated {count} sample images in {self.remapped_sample_dir}")
+        log.info(f"Generated {count} sample images in {self.remapped_sample_dir}")
         
     def _get_user_input(self):
         """Captures user input for labeling images."""
@@ -498,20 +533,27 @@ class PDFReviewer:
     def extract_pdf_images(self, dpi=250):
         """Extracts pages from a PDF and saves them as images."""
         if len(list(self.output_dir.glob("*.jpg"))) > 10:
-            log.info("⚠️ PDF pages already extracted. Skipping extraction.")
-            return self.output_dir
+            log.info("PDF pages already extracted. Skipping extraction.")
+            return True
         
-        doc = fitz.open(self.ms_pdf_report)
-        for i in range(len(doc)):
-            page = doc.load_page(i)
-            zoom = dpi / 72.0  # 72 is the default resolution
-            mat = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat)
-            output_path = self.output_dir / f"page_{i+1:03d}.jpg"
-            pix.save(str(output_path))
-        print(f"✅ Saved PDF pages to: {self.output_dir}")
-        doc.close()
-        return True
+        if not self.ms_pdf_report.exists():
+            log.error(f"Metashape report not found at: {self.ms_pdf_report}")
+            return False
+        try:
+            doc = fitz.open(self.ms_pdf_report)
+            for i in range(len(doc)):
+                page = doc.load_page(i)
+                zoom = dpi / 72.0  # 72 is the default resolution
+                mat = fitz.Matrix(zoom, zoom)
+                pix = page.get_pixmap(matrix=mat)
+                output_path = self.output_dir / f"page_{i+1:03d}.jpg"
+                pix.save(str(output_path))
+            log.info(f"Saved PDF pages to: {self.output_dir}")
+            doc.close()
+            return True
+        except Exception as e:
+            log.error(f"Failed to extract PDF images: {e}", exc_info=True)
+            return False
 
     def review_pdf(self):
         """Allows a user to review PDF pages as images using a manually set window size,
@@ -525,12 +567,13 @@ class PDFReviewer:
         
         pdf_images = sorted(self.output_dir.glob("*.jpg"))
         if not pdf_images:
-            log.info("No PDF pages found for review.")
+            log.error("No PDF pages found for review.")
             return
 
         index = 0
         log.info(f"Reviewing PDF pages.")
-        print("Press any key for next, 'b' to go back, 'q' to quit.")
+
+        print("🖼️  Press any key to go to next page, 'b' to go back, 'q' to quit.")
         while index < len(pdf_images):
             image = cv2.imread(str(pdf_images[index]))
             if image is None:
@@ -568,6 +611,7 @@ class ReviewSession:
 
     def run(self):
         """Prompt the user to select a review mode and run the corresponding review."""
+        log.info("Starting interactive review session.")
         while True:
             print("\nSelect review mode:")
             print("1 - Image Review")
@@ -575,6 +619,7 @@ class ReviewSession:
             print("3 - Both")
             print("q - Quit")
             choice = input("Your choice: ").strip().lower()
+            log.info(f"Review mode selected: {choice}")
             if choice == "1":
                 self.image_reviewer.review_images()
             elif choice == "2":
@@ -593,22 +638,30 @@ class ReviewSession:
 def main(cfg: DictConfig):
 
     log.info("Creating inspection images...")
-    image_reviewer = ImageReviewer(cfg)
-    image_reviewer.generate_all_sample_images()
+    try:
+        log.info("Starting image review...")
+        image_reviewer = ImageReviewer(cfg)
+        image_reviewer.generate_all_sample_images()
+        log.info("Sample images generated.")
+        
+        log.info("Starting image review...")
+        pdf_reviewer = PDFReviewer(cfg)
+        pdf_reviewer.extract_pdf_images()
+        log.info("PDF pages extracted.")
+
+        log.info("Starting annotation summary plots...")
+        plotter = AnnotationPlotter(cfg)
+        plotter.plot_summary()
+        log.info("Summary plots generated.")
+
+        if cfg.inspection.inspect:
+            log.info("Starting review session...")
+            session = ReviewSession(cfg)
+            session.run()
+            log.info("Review session completed.")
     
-    pdf_reviewer = PDFReviewer(cfg)
-    pdf_reviewer.extract_pdf_images()
-    log.info("Inspection images created.")
-
-    plotter = AnnotationPlotter(cfg)
-    plotter.plot_summary()
-    log.info("Summary plots generated.")
-
-    if cfg.inspection.inspect:
-        log.info("Starting review session...")
-        session = ReviewSession(cfg)
-        session.run()
-        log.info("Review session completed.")
+    except Exception as e:
+        log.exception(f"Inspection failed: {e}")
 
 if __name__ == "__main__":
     main()
