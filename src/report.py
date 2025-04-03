@@ -12,7 +12,7 @@ import pandas as pd
 from omegaconf import DictConfig
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from reportlab.lib.utils import simpleSplit
+from collections import defaultdict
 
 from src.utils.utils import find_lts_dir
 
@@ -303,12 +303,56 @@ class ImageReport:
         c.showPage()  # Start a new page for the three analytical plots
         c.setFont("Helvetica-Bold", 14)
         c.drawString(50, 750, "Analysis Plots: Area, Spatial Density, and Species Counts")
-        # Plot 3: Count per Species
         
-        
+        # Count per Species
         density_plot_path = self.plot_file_base / "species_centroid_density.png"
         if Path(density_plot_path).exists():
             c.drawImage(density_plot_path, 50, 350, width=plot_w * 2, height=plot_h* 2, preserveAspectRatio=True)
+        
+        # Parse module timings
+        module_timings_df = self.log_parser.extract_module_timings()
+        # Sort by start time
+        module_timings_df.sort_values(by='StartTime', inplace=True)
+        if not module_timings_df.empty:
+            c.showPage()  # Start a new page for the three analytical plots
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 750, "Module timing Information:")
+            
+            # Calculate the total duration in seconds and convert to hours and minutes in hh:mm format
+            total_duration = module_timings_df['DurationSeconds'].sum()
+            total_duration_hours = int(total_duration // 3600)
+            total_duration_minutes = int((total_duration % 3600) // 60)
+            total_duration_seconds = int(total_duration % 60)
+            c.setFont("Helvetica", 14)
+            c.drawString(50, 730, f"Total Duration: {total_duration_hours}h {total_duration_minutes}m {total_duration_seconds}s")
+
+            # provide total duration for each module
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(50, 710, "Module Duration:")
+            c.setFont("Helvetica", 10)
+            y_position = 690
+            page_height = 750
+            y = page_height
+            for _, row in module_timings_df.iterrows():
+                module = row['ScriptModule']
+                start_time = row['StartTime']
+                end_time = row['EndTime']
+                duration = row['DurationSeconds']
+                duration_hours = int(duration // 3600)
+                duration_minutes = int((duration % 3600) // 60)
+                duration_seconds = int(duration % 60)
+                if y_position < 50:
+                    c.showPage()
+                    y_position = 750
+                    c.setFont("Helvetica-Bold", 12)
+                    c.drawString(50, y_position, "Continued Module Duration:")
+                    y_position -= 20
+                    c.setFont("Helvetica", 10)
+                c.drawString(25, y_position, f"[{module}] - {start_time} to {end_time} - {duration_hours}h {duration_minutes}m {duration_seconds}s")
+                y_position -= 15
+        else:
+            c.drawString(50, 540, "No module timings found in logs.")
+            
 
         # Parse errors and warnings
         errors_df = self.log_parser.extract_error_blocks()
@@ -338,7 +382,6 @@ class ImageReport:
         else:
             c.drawString(50, 540, "No errors or warnings found in logs.")
 
-        
         # Save the PDF
         c.save()
         log.info(f"PDF report saved to {pdf_output_path}")
@@ -406,6 +449,35 @@ class LogParser:
             "Level": levels,
             "LogSnippet": messages
         })
+
+    def extract_module_timings(self) -> pd.DataFrame:
+        """
+        Calculates total active time for each module using the first and last timestamp.
+
+        Returns:
+            pd.DataFrame: DataFrame with module, first log time, last log time, and duration (in seconds).
+        """
+        module_times = defaultdict(list)
+
+        for line in self.log_lines:
+            match = re.match(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*?\]\[([^\]]+)\]", line)
+            if match:
+                timestamp = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+                module = match.group(2)
+                module_times[module].append(timestamp)
+
+        records = []
+        for module, times in module_times.items():
+            times.sort()
+            duration = (times[-1] - times[0]).total_seconds()
+            records.append({
+                "ScriptModule": module,
+                "StartTime": times[0],
+                "EndTime": times[-1],
+                "DurationSeconds": duration
+            })
+
+        return pd.DataFrame(records)
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
