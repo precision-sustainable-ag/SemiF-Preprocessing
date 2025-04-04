@@ -94,7 +94,6 @@ def _update_exif_worker(args):
             value = ",".join(map(str, value))
         cmd.append(f"-{key}={value}")
     cmd.append(str(file_path))
-    log.info(f"[{file_path.name}] Running: {' '.join(cmd)}")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:

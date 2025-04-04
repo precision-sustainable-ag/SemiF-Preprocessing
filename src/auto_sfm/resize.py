@@ -141,13 +141,11 @@ def resize_photo_diretory(cfg):
         already_copied_images = list(save_dir.glob("*.jpg")) + list(save_dir.glob("*.JPG"))
         num_already_copied_images = len(already_copied_images)
         if num_already_copied_images == num_files:
-            log.info(f"All images ({num_already_copied_images}) have already been resized.")
+            log.debug(f"All images ({num_already_copied_images}) have already been resized.")
             return
         elif num_already_copied_images < num_files:
-            log.info(f"{num_already_copied_images} images have already been resized, {num_files - num_already_copied_images} images remaining.")
+            log.debug(f"{num_already_copied_images} images have already been resized, {num_files - num_already_copied_images} images remaining.")
             files = [file for file in files if file.name not in [img.name for img in already_copied_images]] 
-
-    log.info(f"Processing {num_files} files.")
 
     data = [
         {

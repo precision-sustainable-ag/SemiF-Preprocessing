@@ -82,7 +82,7 @@ class SfM:
         self.doc.chunk.remove(cameras_to_remove)
 
         log.info(f"Unaligned cameras in current chunk: {len(self.get_unaligned_cameras())}")
-        log.info(f"Final number of cameras in current chunk after realignment: {len(self.doc.chunk.cameras)}")
+        log.info(f"Final number of cameras in current chunk after alignment: {len(self.doc.chunk.cameras)}")
 
     def get_camera_stats(self, show=True):
         """Get the number of aligned, unaligned, and duplicate cameras for each chunk."""
@@ -123,8 +123,10 @@ class SfM:
     def get_target_bit(self) -> ms.TargetType:
         if "2024" in self.season and "2025" in self.season:
             markerBit = ms.CircularTarget14bit
+            log.info(f"Using 14 bit circular target")
         else:
             markerBit = ms.CircularTarget12bit
+            log.info(f"Using 12 bit circular target")
             
         return markerBit
     
@@ -132,10 +134,11 @@ class SfM:
 
         if "2024" in self.season and "2025" in self.season:
             crs = "EPSG::4326"
+            log.info(f"Using WGS84 EPSG::4326")
         else:
             crs = "LOCAL"
+            log.info(f"Using local coordinate system")
 
-        log.info(f"CRS: {crs}")
         return crs
         
     
@@ -170,6 +173,7 @@ class SfM:
     def add_photos(self):
         """Adds a directory to the project"""
         photos = [str(x) for x in list(self.down_photos.glob("*.jpg")) + list(self.down_photos.glob("*.JPG"))]
+        log.info(f"Adding {len(photos)} photos to the project")
         if self.doc.chunk is None:
             self.doc.addChunk()
         self.doc.chunk.crs = ms.CoordinateSystem(self.crs)
@@ -188,7 +192,6 @@ class SfM:
         self, chunk: int = 0, progress_callback: Callable = percentage_callback
     ):
         """Detects 12 or 14 bit circular markers"""
-        log.info(f"Detecting markers: {self.markerbit}")
         self.doc.chunks[chunk].detectMarkers(
             target_type=self.markerbit,
             tolerance=50,
@@ -306,7 +309,7 @@ class SfM:
             chunk: int = 0,
             reference_preselection=ms.ReferencePreselectionSource):
         """Matches photos in the specified chunk using the provided settings."""
-        log.info("Matching photos")
+        log.debug("Matching photos")
 
         ms.app.cpu_enable = False
         ms.app.gpu_mask = self.num_gpus
@@ -345,7 +348,7 @@ class SfM:
         
         
         """Aligns photos in the specified chunk and optionally corrects unaligned cameras."""
-        log.info(f"[{self.batch_id}] Aligning photos in chunk {chunk}")
+        log.debug(f"[{self.batch_id}] Aligning photos in chunk {chunk}")
         ms.app.cpu_enable = False
         ms.app.gpu_mask = self.num_gpus
 
