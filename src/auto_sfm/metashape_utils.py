@@ -30,6 +30,7 @@ class SfM:
         self.ortho_path = Path(self.cfg.paths.ortho_path)
         self.pdf_report = Path(self.cfg.paths.pdf_report)
         self.marker_file = Path(self.cfg.paths.marker_file)
+        log.info(f"Using marker file: {self.marker_file.parent.name}/{self.marker_file.name} for batch {self.batch_id}")
 
         # Optimize camera configs
         self.opt_cam_cfg = cfg.asfm.optimize_cameras_cfg
