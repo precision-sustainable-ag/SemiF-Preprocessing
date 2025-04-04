@@ -179,7 +179,13 @@ def process_csv_file(csv_path: Path, output_dir: Path, iou_threshold: float = 0.
 
     # Convert the DataFrame to a list of dictionaries (each representing one bbox)
     bboxes = df.to_dict(orient='records')
+    
+    output_path = output_dir / csv_path.name
+
     if not bboxes:
+        # Create empty DataFrame with expected columns
+        empty_df = pd.DataFrame(columns=required_cols)
+        empty_df.to_csv(output_path, index=False)
         log.warning(f"No valid bounding boxes found in {csv_path.name}")
         return
 
@@ -191,8 +197,7 @@ def process_csv_file(csv_path: Path, output_dir: Path, iou_threshold: float = 0.
     merged_df.insert(0, 'bounding_box_id', range(len(merged_df)))
     
     try:
-        csv_path = output_dir / csv_path.name 
-        merged_df.to_csv(csv_path, index=False)
+        merged_df.to_csv(output_path, index=False)
         log.debug(f"Merged CSV saved: {csv_path}")
     except Exception as e:
         log.error(f"Error writing merged CSV to {csv_path}: {e}")
@@ -212,7 +217,7 @@ def process_all_csvs_in_directory(directory_path: Path, output_dir: Path, iou_th
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Find all CSV files in the directory
-    csv_files = list(directory.rglob("*.csv"))
+    csv_files = sorted(list(directory.rglob("*.csv")))
     log.info(f"Found {len(csv_files)} CSV files in {directory_path}")
 
     # Process each CSV file
