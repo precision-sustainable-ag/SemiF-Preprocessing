@@ -1,18 +1,21 @@
 import logging
 import random
+import re
+import shutil
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-import re
 from typing import List
-import shutil
+
 import hydra
-from hydra.core.hydra_config import HydraConfig
 import matplotlib.pyplot as plt
 import pandas as pd
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from collections import defaultdict
+from reportlab.platypus import Table, TableStyle
 
 from src.utils.utils import find_lts_dir
 
@@ -203,6 +206,9 @@ class ImageReport:
         c.setFont("Helvetica", 12)
         # Set the title of the document
 
+        # ----------------------------------------------------
+        # Page 1: Summary Information
+        # ----------------------------------------------------
         c.drawString(50, 750, f"SemiField BbotV3.1 Collection Report")
         c.drawString(50, 730, f"Batch ID: {batch_id}")
         c.drawString(50, 710, f"Total Raw Images: {total_images}")
@@ -228,15 +234,73 @@ class ImageReport:
         if upload_plot_path.exists():
             c.drawImage(upload_plot_path, 300, 400, width=500//1.6, height=300//1.5)
 
+        
+        # Parse module timings
+        module_timings_df = self.log_parser.extract_module_timings()
+        # Sort by start time
+        module_timings_df.sort_values(by='StartTime', inplace=True)
+        if not module_timings_df.empty:
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 370, "Module timing Information:")
+
+            # Get the value of Duration for the row with ScriptModule == "Total"
+            total_duration = module_timings_df.loc[module_timings_df['ScriptModule'] == 'Total', 'DurationSeconds'].values[0]
+            total_duration_hours = int(total_duration // 3600)
+            total_duration_minutes = int((total_duration % 3600) // 60)
+            total_duration_seconds = int(total_duration % 60)
+            total_duration_str = f"{total_duration_hours}h {total_duration_minutes}m {total_duration_seconds}s"
+            c.setFont("Helvetica", 12)
+            c.drawString(50, 350, f"Total Duration: {total_duration_str}")
+            # Prepare table data
+            table_data = [["Module", "Start Time", "End Time", "Duration (h:m:s)"]]
+            module_timings_df = module_timings_df[module_timings_df['ScriptModule'] != 'Total']
+            for _, row in module_timings_df.iterrows():
+                module = row['ScriptModule']
+                start_time = row['StartTime']
+                end_time = row['EndTime']
+                duration = row['DurationSeconds']
+                duration_hours = int(duration // 3600)
+                duration_minutes = int((duration % 3600) // 60)
+                duration_seconds = int(duration % 60)
+                duration_str = f"{duration_hours}h {duration_minutes}m {duration_seconds}s"
+                table_data.append([module, str(start_time), str(end_time), duration_str])
+
+            # Create the table
+            table = Table(table_data, colWidths=[160, 130, 130, 100])
+
+            # Style the table
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
+            ]))
+
+            # Draw the table
+            table.wrapOn(c, 50, 250)
+            table.drawOn(c, 50, 110)  # Adjust Y value as needed
+            
+        else:
+            c.drawString(50, 540, "No module timings found in logs.")
+            
+        # --------------------------------------------------------
+        # Page 2: Metashape Report Image
+        # --------------------------------------------------------
+        
         c.showPage()  # Start a new page
         # Metashape report page
         metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_001.jpg"
         if metashape_page_1.exists():
             c.drawImage(metashape_page_1, -150, -125, width=850, height=1000, preserveAspectRatio=True)
 
-        # -----------------------------
-        # Add the "Sample images" section at the bottom
-        # -----------------------------
+
+        # --------------------------------------------------------
+        # Page 3: Sample Images
+        # --------------------------------------------------------
+
         # Set heading for sample images
         if self.local_sample_dir.exists() and list(self.local_sample_dir.glob("*.jpg")):
             c.showPage()  # Start a new page
@@ -279,9 +343,10 @@ class ImageReport:
             log.warning("Sample images not available")
             c.drawString(50, 350, "Sample images not available")
 
-         # -----------------------------------------
-        # Add Area, Density, and Count Plot Section
         # -----------------------------------------
+        # Page 4: Add Area and Density
+        # -----------------------------------------
+
         c.showPage()  # Start a new page for the three analytical plots
         c.setFont("Helvetica-Bold", 14)
         c.drawString(50, 750, "Analysis Plots: Species Counts, Area, and Spatial Density")
@@ -290,12 +355,12 @@ class ImageReport:
         plot_w = 250
         plot_h = 200
 
-        # Plot 1: Area Histogram
+        # Plot 1: Count per Species
         count_plot_path = self.plot_file_base / "species_counts.png"
         if Path(count_plot_path).exists():
             c.drawImage(count_plot_path, 50, 350, width=plot_w*2.0, height=plot_h*2.0, preserveAspectRatio=True)
 
-        # Plot 2: Spatial Density
+        # Plot 2: Area
         area_plot_path = self.plot_file_base / "area_log_scaled_histograms.png"
         if Path(area_plot_path).exists():
             c.drawImage(area_plot_path, 50, 0, width=plot_w * 2, height=plot_h * 2, preserveAspectRatio=True)
@@ -304,55 +369,19 @@ class ImageReport:
         c.setFont("Helvetica-Bold", 14)
         c.drawString(50, 750, "Analysis Plots: Area, Spatial Density, and Species Counts")
         
-        # Count per Species
+        #------------------------------------------
+        # Page 5: Species Centroid Density
+        #------------------------------------------
+
+        # Plot 3: Species Centroid Density
         density_plot_path = self.plot_file_base / "species_centroid_density.png"
         if Path(density_plot_path).exists():
             c.drawImage(density_plot_path, 50, 350, width=plot_w * 2, height=plot_h* 2, preserveAspectRatio=True)
         
-        # Parse module timings
-        module_timings_df = self.log_parser.extract_module_timings()
-        # Sort by start time
-        module_timings_df.sort_values(by='StartTime', inplace=True)
-        if not module_timings_df.empty:
-            c.showPage()  # Start a new page for the three analytical plots
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(50, 750, "Module timing Information:")
-            
-            # Calculate the total duration in seconds and convert to hours and minutes in hh:mm format
-            total_duration = module_timings_df['DurationSeconds'].sum()
-            total_duration_hours = int(total_duration // 3600)
-            total_duration_minutes = int((total_duration % 3600) // 60)
-            total_duration_seconds = int(total_duration % 60)
-            c.setFont("Helvetica", 14)
-            c.drawString(50, 730, f"Total Duration: {total_duration_hours}h {total_duration_minutes}m {total_duration_seconds}s")
-
-            # provide total duration for each module
-            c.setFont("Helvetica-Bold", 12)
-            c.drawString(50, 710, "Module Duration:")
-            c.setFont("Helvetica", 10)
-            y_position = 690
-            page_height = 750
-            y = page_height
-            for _, row in module_timings_df.iterrows():
-                module = row['ScriptModule']
-                start_time = row['StartTime']
-                end_time = row['EndTime']
-                duration = row['DurationSeconds']
-                duration_hours = int(duration // 3600)
-                duration_minutes = int((duration % 3600) // 60)
-                duration_seconds = int(duration % 60)
-                if y_position < 50:
-                    c.showPage()
-                    y_position = 750
-                    c.setFont("Helvetica-Bold", 12)
-                    c.drawString(50, y_position, "Continued Module Duration:")
-                    y_position -= 20
-                    c.setFont("Helvetica", 10)
-                c.drawString(25, y_position, f"[{module}] - {start_time} to {end_time} - {duration_hours}h {duration_minutes}m {duration_seconds}s")
-                y_position -= 15
-        else:
-            c.drawString(50, 540, "No module timings found in logs.")
-            
+        
+        #-------------------------------------------
+        # Page 6: Species Counts
+        #-------------------------------------------
 
         # Parse errors and warnings
         errors_df = self.log_parser.extract_error_blocks()
@@ -452,23 +481,36 @@ class LogParser:
 
     def extract_module_timings(self) -> pd.DataFrame:
         """
-        Calculates total active time for each module using the first and last timestamp.
-
+        Calculates total active time for each logical script module using first and last timestamps.
+        Merges entries that map to the same logical module and calculates total active time and boundaries.
+        
         Returns:
-            pd.DataFrame: DataFrame with module, first log time, last log time, and duration (in seconds).
+            pd.DataFrame: DataFrame with ScriptModule, StartTime, EndTime, DurationSeconds.
         """
+        # Normalize module names early
+        def normalize_module(module: str) -> str:
+            if "auto_sfm" in module:
+                return "autosfm"
+            if "filter_bboxes" in module:
+                return "remap_labels"
+            return module
+
         module_times = defaultdict(list)
 
         for line in self.log_lines:
             match = re.match(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*?\]\[([^\]]+)\]", line)
             if match:
                 timestamp = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
-                module = match.group(2)
+                module = normalize_module(match.group(2))
                 module_times[module].append(timestamp)
 
         records = []
+
+        all_timestamps = []
+
         for module, times in module_times.items():
             times.sort()
+            all_timestamps.extend(times)
             duration = (times[-1] - times[0]).total_seconds()
             records.append({
                 "ScriptModule": module,
@@ -477,7 +519,24 @@ class LogParser:
                 "DurationSeconds": duration
             })
 
-        return pd.DataFrame(records)
+        # Add total duration across all modules
+        first_timestamp = min(all_timestamps)
+        last_timestamp = max(all_timestamps)
+        total_duration = (last_timestamp - first_timestamp).total_seconds()
+        records.append({
+            "ScriptModule": "Total",
+            "StartTime": first_timestamp,
+            "EndTime": last_timestamp,
+            "DurationSeconds": total_duration
+        })
+
+        df = pd.DataFrame(records)
+
+        df = df[df["ScriptModule"] != "pyogrio._io"]
+        df = df[df["ScriptModule"] != "src.utils.utils"]
+        df = df[df["ScriptModule"] != "__main__"]
+        df = df[df["ScriptModule"] != "utils.utils"]
+        return df
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
