@@ -15,7 +15,10 @@ sys.path.append(str(Path(__file__).resolve().parent / "src"))
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from hydra.core.hydra_config import HydraConfig
 from hydra.utils import get_method
+
+from utils.slack_message import generate_summary_message, send_slack_notification
 
 # Set up global logger with the standardized format
 log = logging.getLogger(__name__)
@@ -47,7 +50,28 @@ def main(cfg: DictConfig) -> None:
 
         except Exception as e:
             log.exception(f"Task failed: {tsk}")  # Exception includes traceback
-            continue  # Continue running other tasks instead of exiting early
+            log.error(f"Error details: {e}")
+            
+            # Placeholder for Slack notification logic
+            log.info("Exiting due to task failure.")
+            
+            if cfg.slack_report:
+                message = generate_summary_message(f"Task {tsk} failed for {cfg.batch_id}", message_type="Error")
+                log_file = Path(HydraConfig.get().runtime.output_dir) / f"{cfg.batch_id}.log"
+                if tsk != "autosfm":
+                    final_report_file = Path(cfg.paths.inspection_dir) / f"{cfg.batch_id}_asfm_report.pdf"
+                    files = [x for x in [log_file, final_report_file] if x.exists()] # add ASFM report if it exists to provide more context
+                else:
+                    files = [log_file]
+                
+                send_slack_notification(cfg, message, files=[files])
+            sys.exit(1)
+    
+    log.info("All tasks completed successfully.")
+    if cfg.slack_report and "report" in cfg.tasks:
+        message = generate_summary_message(f"All tasks completed successfully for {cfg.batch_id}", message_type="Info")
+        final_report_file = Path(cfg.paths.inspection_dir) / f"{cfg.batch_id}_report.pdf"
+        send_slack_notification(cfg, message, files=[final_report_file])
 
 
 if __name__ == "__main__":
