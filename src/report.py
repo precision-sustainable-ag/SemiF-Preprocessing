@@ -29,7 +29,7 @@ class ImageReport:
         self.upload_directory = Path(self.lts_dir) / "semifield-upload" / self.batch_id
         self.developed_directory = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
 
-        self.output_report_dir = self.developed_directory / "inspection"
+        self.output_report_dir = Path(cfg.paths.inspection_dir)
         self.output_report_dir.mkdir(parents=True, exist_ok=True)
 
         self.plot_file_base = self.output_report_dir / "plots"
@@ -287,7 +287,7 @@ class ImageReport:
             c.drawString(50, 540, "No module timings found in logs.")
             
         # --------------------------------------------------------
-        # Page 2: Metashape Report Image
+        # Page 2: Metashape Report Image Page 1
         # --------------------------------------------------------
         
         c.showPage()  # Start a new page
@@ -296,9 +296,18 @@ class ImageReport:
         if metashape_page_1.exists():
             c.drawImage(metashape_page_1, -150, -125, width=850, height=1000, preserveAspectRatio=True)
 
+        # --------------------------------------------------------
+        # Page 3: Metashape Report Image Page 2
+        # --------------------------------------------------------
+
+        c.showPage()  # Start a new page
+        # Metashape report page 2
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_002.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
 
         # --------------------------------------------------------
-        # Page 3: Sample Images
+        # Page 4: Sample Images
         # --------------------------------------------------------
 
         # Set heading for sample images
@@ -344,7 +353,7 @@ class ImageReport:
             c.drawString(50, 350, "Sample images not available")
 
         # -----------------------------------------
-        # Page 4: Add Area and Density
+        # Page 5: Add Area and Density
         # -----------------------------------------
 
         c.showPage()  # Start a new page for the three analytical plots
@@ -370,7 +379,7 @@ class ImageReport:
         c.drawString(50, 750, "Analysis Plots: Area, Spatial Density, and Species Counts")
         
         #------------------------------------------
-        # Page 5: Species Centroid Density
+        # Page 6: Species Centroid Density
         #------------------------------------------
 
         # Plot 3: Species Centroid Density
@@ -380,7 +389,7 @@ class ImageReport:
         
         
         #-------------------------------------------
-        # Page 6: Species Counts
+        # Page 7: Species Counts
         #-------------------------------------------
 
         # Parse errors and warnings
@@ -550,6 +559,10 @@ def main(cfg: DictConfig):
     image_report.generate_report()
     log.info(f"Report generated for batch: {cfg.batch_id}")
     
+    # Copy report to LTS developed inspection directory
+    report_dst = image_report.developed_directory / "inspection"
+    report_src = str(image_report.output_report_dir / f"{image_report.batch_id}_report.pdf")
+    shutil.copy(report_src, report_dst)
     
 
 if __name__ == "__main__":
