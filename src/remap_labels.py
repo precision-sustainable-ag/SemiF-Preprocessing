@@ -607,6 +607,10 @@ class RemapLabels:
                         "cutout_id": bbox.cutout_id,
                         "geometry": bbox_polygon,
                         "area_sqm": coords.area_sqm,
+                        "category_class_id": bbox.category_class_id,
+                        "is_primary": bbox.is_primary,
+                        "non_target_weed": bbox.non_target_weed,
+                        "non_target_weed_pred_conf": bbox.non_target_weed_pred_conf,
                         "centroid": coords.global_centroid,
                     })
                 except Exception as e:

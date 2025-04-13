@@ -18,7 +18,7 @@ def main(cfg: DictConfig):
     cfg = OmegaConf.create(cfg)
     log.info(f"Starting batch SemiF-Preprocessing pipeline with tasks: {', '.join(cfg.tasks)}")
 
-    batch_ids = cfg.batch_ids
+    batch_ids = sorted(cfg.batch_ids)
     log.info(f"Processings {len(batch_ids)} batches")
     
     tasks = cfg.tasks

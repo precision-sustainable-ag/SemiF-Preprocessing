@@ -61,7 +61,7 @@ def fix_exif_types(exif_dict):
                 # Fix SRational[] for tag 50721
                 if tag == 50721 and isinstance(value, tuple) and all(isinstance(v, tuple) and len(v) == 2 for v in value):
                     fixed[tag] = list(value)
-                    print(f"Fixed tag {tag} (SRational[]): {value} -> {list(value)}")
+                    log.debug(f"Fixed tag {tag} from {value} to {fixed[tag]}")
                     continue
 
                 # Fix Short[] for tag 50728
@@ -71,13 +71,13 @@ def fix_exif_types(exif_dict):
                     ):
                         # Convert SRationals to ints (numerator // denominator)
                         fixed[tag] = [int(v[0] / v[1]) for v in value]
-                        print(f"Fixed tag {tag} (Short[]): {value} -> {fixed[tag]}")
+                        log.debug(f"Fixed tag {tag} from {value} to {fixed[tag]}")
                         continue
 
                 # Fix BlackLevel (SRational single value)
                 if tag == 50714 and isinstance(value, int):
                     fixed[tag] = (value, 1)
-                    print(f"Fixed tag {tag} (BlackLevel): {value} -> {(value, 1)}")
+                    log.debug(f"Fixed tag {tag} from {value} to {fixed[tag]}")
                     continue
 
                 # General valid types
@@ -88,7 +88,7 @@ def fix_exif_types(exif_dict):
                 elif isinstance(value, list) and all(isinstance(v, int) for v in value):
                     fixed[tag] = value
                 else:
-                    print(f"Skipping tag {tag} due to bad type: {type(value)} -> {value}")
+                    log.error(f"Skipping tag {tag} due to bad type: {type(value)} -> {value}")
                     continue
 
             exif_dict[ifd] = fixed
