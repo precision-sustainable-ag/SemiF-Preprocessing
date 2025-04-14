@@ -312,38 +312,41 @@ class ImageReport:
 
         # Set heading for sample images
         if self.local_sample_dir.exists() and list(self.local_sample_dir.glob("*.jpg")):
-            c.showPage()  # Start a new page
-            c.setFont("Helvetica-Bold", 14)
+            sample_images = list(self.local_sample_dir.glob("*.jpg"))
+            num_samples = min(48, len(sample_images))  # Or change to len(sample_images) for all
+            selected_images = sorted(random.sample(sample_images, num_samples))
+
+            images_per_page = 12
+            images_per_row = 3
+
+            spacing_x = 10
+            spacing_y = 1
             page_width, page_height = letter
             left_margin = 25
-            right_margin = 25
-            available_width = page_width - left_margin - right_margin
+            top_margin = 770
+            available_width = page_width - 2 * left_margin
+            image_w = (available_width - (images_per_row - 1) * spacing_x) / images_per_row
+            image_h = image_w  # Square layout
+            c.showPage()
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(left_margin, top_margin, "Sample images")
 
-            sample_heading_y = page_height - 25
-            c.drawString(left_margin, sample_heading_y, "Sample images")
-            
-            # Define grid layout for 3 rows x 3 columns
-            spacing_x = 10  # Reduced horizontal spacing
-            # Calculate image width so that 3 images plus 2 gaps exactly fill the available width
-            image_w = (available_width - 2 * spacing_x) / 3
-            image_h = image_w  # Using a square bounding box; the image itself will preserve its aspect ratio
-            spacing_y = 1  # Vertical spacing between rows
-            start_x = left_margin
-            start_y = sample_heading_y - 175  # Starting y position below the heading
-            
-            # Get up to 10 images from the batch folder (upload_directory)
-            sample_images = list(self.local_sample_dir.glob("*.jpg"))
-            random_sample_of_sample_imags = sorted(random.sample(sample_images, min(12, len(sample_images))))
-            
-            for i, image_path in enumerate(random_sample_of_sample_imags):
-                row = i // 3  # 5 images per row
-                col = i % 3
-                x = start_x + col * (image_w + spacing_x)
-                y = start_y - row * (image_h + spacing_y)
+            for i, image_path in enumerate(selected_images):
+                if i % images_per_page == 0:
+                    if i > 0:
+                        c.showPage()
+                    c.setFont("Helvetica-Bold", 14)
+                    c.drawString(left_margin, top_margin, "Sample images")
+
+                index_on_page = i % images_per_page
+                row = index_on_page // images_per_row
+                col = index_on_page % images_per_row
+
+                x = left_margin + col * (image_w + spacing_x)
+                y = top_margin - 10 - row * (image_h + spacing_y)
                 if image_path.exists():
-                    # Draw the image using the provided bounding box while preserving its aspect ratio
                     c.drawImage(str(image_path),
-                                x, y,
+                                x, y - image_h,
                                 width=image_w,
                                 height=image_h,
                                 preserveAspectRatio=True,
@@ -389,7 +392,7 @@ class ImageReport:
         
         
         #-------------------------------------------
-        # Page 7: Species Counts
+        # Page 7: Log errors
         #-------------------------------------------
 
         # Parse errors and warnings
@@ -418,7 +421,9 @@ class ImageReport:
                 c.drawString(25, y_position, f"[{module}] - {level.upper()} - {message}")
                 y_position -= 15
         else:
-            c.drawString(50, 540, "No errors or warnings found in logs.")
+            c.showPage()  # Start a new page for the three analytical plots
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 750, "Errors and Warnings:")
 
         # Save the PDF
         c.save()
