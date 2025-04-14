@@ -39,7 +39,7 @@ def main(cfg: DictConfig) -> None:
 
         except Exception as e:
             log.exception(f"Failed to check asfm contents. Exiting")
-            exit(1)
+            return
 
     # Resize images and masks
     if cfg.asfm.resize_photos:
@@ -52,7 +52,7 @@ def main(cfg: DictConfig) -> None:
                     resize_masks(cfg)
         except Exception as e:
             log.exception(f"Failed to downsize images. Exiting.")
-            exit(1)
+            return
 
 
     # Initialize pipeline
@@ -68,7 +68,7 @@ def main(cfg: DictConfig) -> None:
                 pipeline.add_masks()
         except Exception as e:
             log.exception(f"Failed to add photos. Exiting.")
-            exit(1)
+            return
 
     # Detect markers
     if cfg.asfm.detect_markers:
@@ -77,7 +77,7 @@ def main(cfg: DictConfig) -> None:
             pipeline.detect_markers()
         except Exception as e:
             log.exception(f"Failed to detect markers. Exiting")
-            exit(1)
+            return
 
     # Import marker locations
     if cfg.asfm.import_references:
@@ -86,7 +86,7 @@ def main(cfg: DictConfig) -> None:
             pipeline.import_reference()
         except Exception as e:
             log.exception(f"Failed to import reference. Exiting")
-            exit(1)
+            return
 
     # Match photos
     if cfg.asfm.match:
@@ -95,7 +95,7 @@ def main(cfg: DictConfig) -> None:
             pipeline.match_photos()
         except Exception as e:
             log.exception(f"Failed to match photos. Exiting")
-            exit(1)
+            return
 
     # Align photos
     if cfg.asfm.align:
@@ -105,7 +105,7 @@ def main(cfg: DictConfig) -> None:
             # pipeline.reset_region()
         except Exception as e:
             log.exception(f"Failed to align photos. Exiting")
-            exit(1)
+            return
 
     # Optimize cameras
     if cfg.asfm.optimize_cameras:
@@ -114,7 +114,7 @@ def main(cfg: DictConfig) -> None:
             pipeline.optimize_cameras()
         except Exception as e:
             log.exception(f"Failed to optimize cameras. Exiting")
-            exit(1)
+            return
 
     # Export data
     if cfg.asfm.export_gcp_camref_err:
@@ -123,20 +123,20 @@ def main(cfg: DictConfig) -> None:
             pipeline.export_gcp_reference()
         except Exception as e:
             log.exception(f"Failed to export GCP reference. Exiting")
-            exit(1)
+            return
         try:
             log.info(f"Exporting camera reference")
             pipeline.export_camera_reference()
         except Exception as e:
             log.exception(f"Failed to export camera reference. Exiting")
-            exit(1)
+            return
 
         try:
             log.info(f"Exporting error stats")
             pipeline.export_stats()
         except Exception as e:
             log.exception(f"Failed to export error stats. Exiting")
-            exit(1)
+            return
 
     # Electives
 
@@ -148,7 +148,7 @@ def main(cfg: DictConfig) -> None:
                 pipeline.build_depth_map()
         except Exception as e:
             log.exception(f"Failed to build depth maps. Exiting")
-            exit(1)
+            return
 
     # Build dense point cloud
     if cfg.asfm.build_dense:
@@ -158,7 +158,7 @@ def main(cfg: DictConfig) -> None:
                 pipeline.build_dense_cloud()
         except Exception as e:
             log.exception(f"Failed to buidl dense point cloud. Exiting")
-            exit(1)
+            return
 
     if cfg.asfm.build_model:
         try:
@@ -167,7 +167,7 @@ def main(cfg: DictConfig) -> None:
                 pipeline.build_model()
         except Exception as e:
             log.exception(f"Failed to model. Exiting")
-            exit(1)
+            return
 
     # Build DEM
     if cfg.asfm.build_dem:
@@ -177,7 +177,7 @@ def main(cfg: DictConfig) -> None:
                 pipeline.build_dem()
         except Exception as e:
             log.exception(f"Failed to build DEM. Exiting")
-            exit(1)
+            return
 
     # Build ortho
     if cfg.asfm.build_ortho:
@@ -187,7 +187,7 @@ def main(cfg: DictConfig) -> None:
                 pipeline.build_ortomosaic()
         except Exception as e:
             log.exception(f"Failed to build orthomosaic. Exiting")
-            exit(1)
+            return
 
     # Export fov data
     if cfg.asfm.export_fov:
@@ -197,7 +197,7 @@ def main(cfg: DictConfig) -> None:
                 pipeline.camera_fov()
         except Exception as e:
             log.exception(f"Failed to export camera FOV information. Exiting")
-            exit(1)
+            return
 
     # Export preview view of ortho
     if cfg.asfm.export_report:
@@ -206,5 +206,5 @@ def main(cfg: DictConfig) -> None:
             pipeline.export_report()
         except Exception as e:
             log.exception(f"Failed to export report. Exiting")
-            exit(1)
+            return
     log.info(f"AutoSfM Complete")
