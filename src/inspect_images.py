@@ -128,12 +128,21 @@ class AnnotationPlotter:
         """
         species_counts = df["species_id"].value_counts().sort_index()
         plt.figure(figsize=(8, 5))
-        species_counts.plot(kind="bar")
+        ax = species_counts.plot(kind="bar")
         plt.title("Number of Annotations per Species")
         plt.xlabel("Species ID")
         plt.ylabel("Count")
         plt.tight_layout()
         plt.grid(axis="y")
+
+        # Add values on top of each bar
+        for p in ax.patches:
+            ax.annotate(
+            str(p.get_height()),
+            (p.get_x() + p.get_width() / 2., p.get_height()),
+            ha='center', va='bottom', fontsize=10
+            )
+
         plot_path = self.save_dir / "species_counts.png"
         plt.savefig(plot_path, dpi=300)
         log.info(f"[PLOT_SAVED] Species count plot saved to {plot_path}")
