@@ -1,25 +1,31 @@
+name: Create Inspection Report Issue
+
+on:
+  repository_dispatch:
+    types: [report-generated]
+
 jobs:
   create-issue:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.x'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-    - name: Install dependencies
-      run: pip install requests
+      - name: Install dependencies
+        run: pip install requests
 
-    - name: Create GitHub Issue
-      env:
-        GH_TOKEN: ${{ secrets.REPORT_BOT_PAT }}
-        BATCH_ID: ${{ github.event.client_payload.batch_id }}
-        ASSIGNEE: ${{ github.event.client_payload.assignee }}
-        REPO: ${{ github.repository }}
-        GLOBUS_PREFIX: https://m-ae9b45.7ce1a.03c0.data.globus.org/rsstu/users/s/screberg/longterm_images2/semifield-developed-images
-      run: |
-        python3 - <<EOF
+      - name: Create GitHub Issue
+        env:
+          GH_TOKEN: ${{ secrets.REPORT_BOT_PAT }}
+          BATCH_ID: ${{ github.event.client_payload.batch_id }}
+          ASSIGNEE: ${{ github.event.client_payload.assignee }}
+          REPO: ${{ github.repository }}
+          GLOBUS_PREFIX: https://m-ae9b45.7ce1a.03c0.data.globus.org/rsstu/users/s/screberg/longterm_images2/semifield-developed-images
+        run: |
+          python3 - <<EOF
 import os
 import requests
 
@@ -32,6 +38,7 @@ globus_prefix = os.environ['GLOBUS_PREFIX']
 globus_link = f"{globus_prefix}/{batch_id}/inspection/{batch_id}_report.pdf"
 
 title = f"📄 Inspection Report Ready: {batch_id}"
+
 body = (
     "### 📋 New Report Available\\n\\n"
     f"The inspection report for batch `{batch_id}` is now available.\\n\\n"
