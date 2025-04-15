@@ -4,6 +4,7 @@ import logging
 import piexif
 import math
 import numpy as np
+import yaml
 
 log = logging.getLogger(__name__)
 
@@ -169,3 +170,11 @@ def add_exif_data(image_path: Path, updated_exif: dict) -> None:
     image = Image.open(image_path)
     image.save(image_path, "jpeg", exif=piexif.dump(exif_dict), quality='keep', subsampling='keep')
     return
+
+def read_yaml(yaml_path):
+    try:
+        with open(yaml_path, "r") as file:
+            data = yaml.safe_load(file)
+        return data
+    except Exception as e:
+        raise FileNotFoundError(f"File does not exist : {yaml_path}")

@@ -186,7 +186,7 @@ def process_csv_file(csv_path: Path, output_dir: Path, iou_threshold: float = 0.
         # Create empty DataFrame with expected columns
         empty_df = pd.DataFrame(columns=required_cols)
         empty_df.to_csv(output_path, index=False)
-        log.warning(f"No valid bounding boxes found in {csv_path.name}")
+        log.debug(f"No valid bounding boxes found in {csv_path.name}")
         return
 
     merged_bboxes = merge_bboxes_with_class(bboxes, iou_threshold=iou_threshold)
