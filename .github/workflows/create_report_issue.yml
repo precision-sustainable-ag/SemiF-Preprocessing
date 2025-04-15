@@ -27,4 +27,4 @@ jobs:
         ASSIGNEE: ${{ github.event.client_payload.assignee }}
         REPO: ${{ github.repository }}
         GLOBUS_PREFIX: https://m-ae9b45.7ce1a.03c0.data.globus.org/rsstu/users/s/screberg/longterm_images2/semifield-developed-images
-      run: python scripts/utils/create_issue.py
+      run: python scripts/create_issue.py
