@@ -8,7 +8,7 @@ repo = os.environ['REPO']
 batch_id = os.environ['BATCH_ID']
 assignee = os.environ['ASSIGNEE']
 globus_prefix = os.environ['GLOBUS_PREFIX']
-
+print(f"Token length: {len(token)}")
 globus_link = f"{globus_prefix}/{batch_id}/inspection/{batch_id}_report.pdf"
 
 title = f"📄 Inspection Report Ready: {batch_id}"
