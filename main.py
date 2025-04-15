@@ -15,10 +15,12 @@ sys.path.append(str(Path(__file__).resolve().parent / "src"))
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from hydra.core.hydra_config import HydraConfig
 from hydra.utils import get_method
 
-from utils.slack_message import generate_summary_message, send_slack_notification
+from utils.utils import read_yaml
+
+import subprocess
+import json
 
 # Set up global logger with the standardized format
 log = logging.getLogger(__name__)
@@ -30,6 +32,13 @@ def main(cfg: DictConfig) -> None:
     """
     cfg = OmegaConf.create(cfg)
     log.info(f"Starting SemiF-Preprocessing pipeline with tasks: {', '.join(cfg.tasks)}")
+
+    keys = read_yaml(cfg.paths.pipeline_keys)
+    state_id = cfg.batch_id.split("_")[0]
+    user_id = getattr(cfg.report.reviewers.github, state_id, cfg.report.reviewers.github.default)
+    globus_link_prefix = keys['globus_link']
+    os.environ["GITHUB_PAT"] = keys['GITHUB_PAT']
+
     
     for tsk in cfg.tasks:
         # Optional CPU affinity settings for performance tuning on specific tasks
@@ -56,22 +65,43 @@ def main(cfg: DictConfig) -> None:
             log.info("Exiting due to task failure.")
             
             if cfg.slack_report:
-                message = generate_summary_message(f"Task {tsk} failed for {cfg.batch_id}", message_type="Error")
-                log_file = Path(HydraConfig.get().runtime.output_dir) / f"{cfg.batch_id}.log"
+                message = f"Task {tsk} failed for {cfg.batch_id}"
+
                 if tsk != "autosfm":
-                    final_report_file = Path(cfg.paths.inspection_dir) / f"{cfg.batch_id}_asfm_report.pdf"
-                    files = [x for x in [log_file, final_report_file] if x.exists()] # add ASFM report if it exists to provide more context
-                else:
-                    files = [log_file]
+                    globus_pdf_link = f"{globus_link_prefix}/{cfg.batch_id}/inspection/{cfg.batch_id}_asfm_report.pdf"
+                    message = f"{message}\nGo to this link to ASfM results: {globus_pdf_link}"
                 
-                send_slack_notification(cfg, message, files=[files])
+                # summ_mesage = generate_summary_message(message, user_id=user_id, message_type="Error")
+                # send_slack_notification(cfg, summ_mesage, files=[])
+        
             sys.exit(1)
     
     log.info("All tasks completed successfully.")
-    if cfg.slack_report and "report" in cfg.tasks:
-        message = generate_summary_message(f"All tasks completed successfully for {cfg.batch_id}", message_type="Info")
-        final_report_file = Path(cfg.paths.inspection_dir) / f"{cfg.batch_id}_report.pdf"
-        send_slack_notification(cfg, message, files=[final_report_file])
+    if cfg.slack_report:        
+        message = f"All tasks completed successfully for {cfg.batch_id}"
+        
+        if "report" in cfg.tasks:
+            # globus_pdf_link = f"{globus_link_prefix}/{cfg.batch_id}/inspection/{cfg.batch_id}_report.pdf"
+            # message = f"{message}\n\nInspect results here and file any issues in the SemiF-Preprocessing repo: {globus_pdf_link}"
+
+            trigger_payload = {
+                "event_type": "report-generated",
+                "client_payload": {
+                    "batch_id": cfg.batch_id,
+                    "assignee": user_id  # from cfg.report.reviewers
+                }
+            }
+
+            subprocess.run([
+                "curl", "-X", "POST", "https://api.github.com/repos/precision-sustainable-ag/SemiF-Preprocessing/dispatches",
+                "-H", f"Authorization: token {os.environ['GITHUB_PAT']}",
+                "-H", "Accept: application/vnd.github.v3+json",
+                "-d", json.dumps(trigger_payload)
+            ], check=True)
+
+
+        # summ_message = generate_summary_message(message, user_id=user_id, message_type="Info")
+        # send_slack_notification(cfg, summ_message, files=[])
 
 
 if __name__ == "__main__":
