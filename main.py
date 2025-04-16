@@ -17,10 +17,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import get_method
 
-from utils.utils import read_yaml
-
-import subprocess
-import json
+from utils.utils import read_yaml, save_log_to_lts, create_issue
 
 # Set up global logger with the standardized format
 log = logging.getLogger(__name__)
@@ -34,9 +31,9 @@ def main(cfg: DictConfig) -> None:
     log.info(f"Starting SemiF-Preprocessing pipeline with tasks: {', '.join(cfg.tasks)}")
 
     keys = read_yaml(cfg.paths.pipeline_keys)
-    state_id = cfg.batch_id.split("_")[0]
+    batch_id = cfg.batch_id
+    state_id = batch_id.split("_")[0]
     user_id = getattr(cfg.report.reviewers.github, state_id, cfg.report.reviewers.github.default)
-    globus_link_prefix = keys['globus_link']
     os.environ["GITHUB_PAT"] = keys['GITHUB_PAT']
 
     
@@ -58,51 +55,23 @@ def main(cfg: DictConfig) -> None:
             log.info(f"Task completed successfully: {tsk}")
 
         except Exception as e:
-            log.exception(f"Task failed: {tsk}")  # Exception includes traceback
+            log.exception(f"Task failed: {tsk}")
             log.error(f"Error details: {e}")
-            
-            # Placeholder for Slack notification logic
-            log.info("Exiting due to task failure.")
-            
-            if cfg.slack_report:
-                message = f"Task {tsk} failed for {cfg.batch_id}"
 
-                if tsk != "autosfm":
-                    globus_pdf_link = f"{globus_link_prefix}/{cfg.batch_id}/inspection/{cfg.batch_id}_asfm_report.pdf"
-                    message = f"{message}\nGo to this link to ASfM results: {globus_pdf_link}"
-                
-                # summ_mesage = generate_summary_message(message, user_id=user_id, message_type="Error")
-                # send_slack_notification(cfg, summ_mesage, files=[])
-        
+            if cfg.create_issue:
+                save_log_to_lts(cfg)
+                log.info("Creating GitHub issue for task failure.")
+                # Trigger GitHub issue on failure
+                create_issue(batch_id, user_id, issue_type="failure", tsk=tsk, error_msg=str(e))
+
+            log.info("Exiting due to task failure.")
             sys.exit(1)
     
     log.info("All tasks completed successfully.")
-    if cfg.slack_report:        
-        message = f"All tasks completed successfully for {cfg.batch_id}"
-        
+    if cfg.create_issue:        
+        log.info("Creating GitHub issue for successful run.")
         if "report" in cfg.tasks:
-            # globus_pdf_link = f"{globus_link_prefix}/{cfg.batch_id}/inspection/{cfg.batch_id}_report.pdf"
-            # message = f"{message}\n\nInspect results here and file any issues in the SemiF-Preprocessing repo: {globus_pdf_link}"
-
-            trigger_payload = {
-                "event_type": "report-generated",
-                "client_payload": {
-                    "batch_id": cfg.batch_id,
-                    "assignee": user_id  # from cfg.report.reviewers
-                }
-            }
-
-            subprocess.run([
-                "curl", "-X", "POST", "https://api.github.com/repos/precision-sustainable-ag/SemiF-Preprocessing/dispatches",
-                "-H", f"Authorization: token {os.environ['GITHUB_PAT']}",
-                "-H", "Accept: application/vnd.github.v3+json",
-                "-d", json.dumps(trigger_payload)
-            ], check=True)
-
-
-        # summ_message = generate_summary_message(message, user_id=user_id, message_type="Info")
-        # send_slack_notification(cfg, summ_message, files=[])
-
+            create_issue(batch_id, user_id, issue_type="report")
 
 if __name__ == "__main__":
     main()

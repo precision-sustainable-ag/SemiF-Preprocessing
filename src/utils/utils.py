@@ -5,7 +5,11 @@ import piexif
 import math
 import numpy as np
 import yaml
-
+import shutil
+from hydra.core.hydra_config import HydraConfig
+import subprocess
+import json
+import os
 log = logging.getLogger(__name__)
 
 
@@ -178,3 +182,41 @@ def read_yaml(yaml_path):
         return data
     except Exception as e:
         raise FileNotFoundError(f"File does not exist : {yaml_path}")
+
+def save_log_to_lts(cfg):
+    try:
+        batch_id = cfg.batch_id
+        log_src_path = Path(HydraConfig.get().runtime.output_dir) / f"{batch_id}.log"
+        log_dst_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations)) / "semifield-developed-images" / batch_id / "inspection"
+        log_dst_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy(log_src_path, log_dst_dir)
+    except Exception as e:
+        log.error(f"Failed to save log file: {e}")
+
+def create_issue(batch_id, user_id, issue_type, tsk: str = None, error_msg: str = None):
+    
+    if issue_type == "report":
+        trigger_payload = {
+                "event_type": "report-generated",
+                "client_payload": {
+                    "batch_id": batch_id,
+                    "assignee": user_id  # from cfg.report.reviewers
+                }
+            }
+        
+    elif issue_type == "failure":
+        trigger_payload = {
+                "event_type": "failure-reported",
+                "client_payload": {
+                    "batch_id": batch_id,
+                    "assignee": user_id,
+                    "task_name": tsk,
+                    "error_msg": error_msg
+                }
+            }
+    subprocess.run([
+                "curl", "-X", "POST", "https://api.github.com/repos/precision-sustainable-ag/SemiF-Preprocessing/dispatches",
+                "-H", f"Authorization: token {os.environ['GITHUB_PAT']}",
+                "-H", "Accept: application/vnd.github.v3+json",
+                "-d", json.dumps(trigger_payload)
+            ], check=True)
