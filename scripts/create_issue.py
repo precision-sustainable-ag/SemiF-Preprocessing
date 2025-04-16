@@ -12,7 +12,7 @@ print(f"Token length: {len(token)}")
 print(f"Token starts with: {token[:4]}")
 globus_link = f"{globus_prefix}/{batch_id}/inspection/{batch_id}_report.pdf"
 
-title = f"{batch_id}:Inspection Report"
+title = f"{batch_id}: Inspection Report"
 body = (
     "### New Report Available\n\n"
     f"The inspection report for batch `{batch_id}` is now available.\n\n"
