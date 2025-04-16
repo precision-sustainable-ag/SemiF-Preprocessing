@@ -17,9 +17,32 @@ title = f"{batch_id}: Inspection Report"
 body = (
     "### New Report Available\n\n"
     f"The inspection report for batch `{batch_id}` is now available.\n\n"
+    
     f"[Click here to view the report]({globus_pdf_report})\n\n"
     f"[Click here to view the log]({globus_log})\n\n"
     f"_Assigned to @{assignee}_"
+)
+body = (
+    "### New Inspection Report Available\n\n"
+    f"The inspection report for batch `{batch_id}` is ready for review.\n\n"
+    f"[View Report PDF]({globus_pdf_report})\n"
+    f"[View Log File]({globus_log})\n\n"
+    f"_Assigned to @{assignee}_\n\n"
+    "---\n"
+    "#### Manual Review Instructions\n"
+    "Please inspect the report PDF and comment on any issues found, using the categories below. "
+    "Please include additional comments or screenshots as needed.\n\n"
+    "#### 🔍 Review Categories\n"
+    "| Type | Description |\n"
+    "|------|-------------|\n"
+    "| Preprocessing Quality | Artifacts, exposure, or color correction issues |\n"
+    "| Potting Area Cleanliness | Messy, cluttered, or excessive residue in the potting area |\n"
+    "| Non-Target Weeds | Presence of unintended weeds in pots or on landscape fabric |\n"
+    "| Plant Spacing | Plants are too close or overlapping |\n"
+    "| Species Labeling | Incorrect species label or bounding box |\n"
+    "| Area (cm²) | Area estimate appears inaccurate |\n"
+    "| Reconstruction Issues | Reconstructed scene looks incorrect or distorted |\n"
+    "| Other | Any other issue not covered above |\n"
 )
 
 headers = {
