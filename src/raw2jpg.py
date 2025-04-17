@@ -198,11 +198,18 @@ class Raw2Jpg:
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
-    """Main entry point for RAW to JPG conversion."""
-    log.info(f"Starting RAW to JPG conversion for batch: {cfg.batch_id}")
-    converter = Raw2Jpg(cfg)
-    converter.process_files()
-    log.info("RAW to JPG conversion completed.")
+    try:
+        """Main entry point for RAW to JPG conversion."""
+        log.info(f"Starting RAW to JPG conversion for batch: {cfg.batch_id}")
+        converter = Raw2Jpg(cfg)
+        converter.process_files()
+        log.info("RAW to JPG conversion completed.")
+    except Exception as e:
+        log.exception(f"An error occurred during the conversion process: {e}")
+        raise
+
+    log.info(f"Conversion process completed for batch: {cfg.batch_id}")
+    return
 
 
 if __name__ == "__main__":

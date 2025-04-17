@@ -147,6 +147,7 @@ def main(cfg: DictConfig):
         log.info("Species assignment completed successfully.")
     except Exception as e:
         log.exception(f"SpeciesAssigner failed with error: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

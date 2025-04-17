@@ -123,9 +123,13 @@ class CleanUpLocalTemp:
 def main(cfg: DictConfig):
     log.info("Starting cleanup of local temp directories.")
     batch_id = cfg.batch_id
-    cleaner = CleanUpLocalTemp(cfg, batch_id)
-    cleaner.cleanup_temp()
-    log.info("Finished cleanup of local temp directories.")
+    try:
+        cleaner = CleanUpLocalTemp(cfg, batch_id)
+        cleaner.cleanup_temp()
+        log.info("Finished cleanup of local temp directories.")
+    except Exception as e:
+        log.error(f"Error during cleanup: {e}", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     main()

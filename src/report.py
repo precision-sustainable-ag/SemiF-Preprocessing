@@ -560,14 +560,23 @@ def main(cfg: DictConfig):
     Args:
         cfg (DictConfig): Hydra config with paths and batch settings.
     """
-    image_report = ImageReport(cfg)
-    image_report.generate_report()
-    log.info(f"Report generated for batch: {cfg.batch_id}")
+    try:
+        image_report = ImageReport(cfg)
+        image_report.generate_report()
+        log.info(f"Report generated for batch: {cfg.batch_id}")
+    except Exception as e:
+        log.error(f"Error generating report: {e}")
+        raise
     
-    # Copy report to LTS developed inspection directory
-    report_dst = image_report.developed_directory / "inspection"
-    report_src = str(image_report.output_report_dir / f"{image_report.batch_id}_report.pdf")
-    shutil.copy(report_src, report_dst)
+    try:
+        # Copy report to LTS developed inspection directory
+        report_dst = image_report.developed_directory / "inspection"
+        report_src = str(image_report.output_report_dir / f"{image_report.batch_id}_report.pdf")
+        shutil.copy(report_src, report_dst)
+        log.info(f"Report copied to LTS directory: {report_dst}")
+    except Exception as e:
+        log.error(f"Error copying report to LTS directory: {e}")
+        raise
     
 
 if __name__ == "__main__":

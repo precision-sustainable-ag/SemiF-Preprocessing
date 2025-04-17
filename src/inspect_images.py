@@ -671,6 +671,7 @@ def main(cfg: DictConfig):
     
     except Exception as e:
         log.exception(f"Inspection failed: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

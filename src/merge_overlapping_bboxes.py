@@ -231,9 +231,13 @@ def main(cfg: DictConfig) -> None:
     output_dir = csv_directory / "merged"  # Directory for saving merged CSVs
     iou_threshold = 0.5  # Default IoU threshold for merging
     log.info(f"Starting CSV merging in: {csv_directory}")
-    # Process all CSVs in the specified directory
-    process_all_csvs_in_directory(csv_directory,output_dir, iou_threshold)
-    log.info("Finished merging CSVs.")
+    try:
+        # Process all CSVs in the specified directory
+        process_all_csvs_in_directory(csv_directory,output_dir, iou_threshold)
+        log.info("Finished merging CSVs.")
+    except Exception as e:
+        log.error(f"Error during CSV processing: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

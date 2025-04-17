@@ -682,14 +682,14 @@ def main(cfg: DictConfig) -> None:
         log.info(f"Merged metadata: {merged_df.shape[0]} rows.")
     except Exception as e:
         log.exception("Metadata merging failed.")
-        return
+        raise
 
     try:
         remapper = RemapLabels(cfg)
         images = remapper.remap()
     except Exception as e:
         log.exception("Remapping metadata failed.")
-        return
+        raise
 
     try:
         bbox_filter = BBoxFilter(cfg, images)
@@ -697,7 +697,7 @@ def main(cfg: DictConfig) -> None:
         log.info("Bounding box deduplication completed.")
     except Exception as e:
         log.exception("Bounding box filtering failed.")
-        return
+        raise
 
     try:
         imgs = bbox_filter.images
@@ -707,7 +707,7 @@ def main(cfg: DictConfig) -> None:
         log.info(f"Successfully saved metadata for {len(imgs)} images.")
     except Exception as e:
         log.exception("Saving output files failed.")
-        return
+        raise
 
     end = time.time()
     log.info(f"RemapLabels pipeline completed in {end - start:.2f} seconds.")

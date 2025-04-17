@@ -115,11 +115,11 @@ def main(cfg: DictConfig):
     
     if not source.exists():
         log.error(f"Source path {source} does not exist.")
-        return
+        raise FileNotFoundError(f"Source path {source} does not exist.")
     
     if not model_path.exists():
         log.error(f"Model path {model_path} does not exist.")
-        return
+        raise FileNotFoundError(f"Model path {model_path} does not exist.")
     
     save_dir = Path(cfg.paths.batch_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -135,6 +135,7 @@ def main(cfg: DictConfig):
         log.info("Detection completed.")
     except Exception as e:
         log.error(f"An error occurred during detection: {e}", exc_info=True)
+        raise 
     
     return
     
