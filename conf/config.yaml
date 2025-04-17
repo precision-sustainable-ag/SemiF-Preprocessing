@@ -22,7 +22,7 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 batch_id: NC_2025-03-19
 season: cool_season_covers_2024_2025_NCpos2
-slack_report: false
+create_issue: false
 ############################################
 
 tasks:
@@ -64,3 +64,10 @@ raw2jpg:
 max_workers: 16
 
 slack_channel: "#semif-datareports"
+
+report:
+  reviewers:
+    github:
+      MD: mkutu #map0425 # Nick N of MD
+      NC: mkutu #nnotaba # Nick N of MD
+      default: mkutu # Matt K
