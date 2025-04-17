@@ -17,7 +17,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import get_method
 
-from utils.utils import read_yaml, save_log_to_lts, create_issue
+from utils.utils import read_yaml, save_log_to_lts, create_issue, retry_nfs_access
 
 # Set up global logger with the standardized format
 log = logging.getLogger(__name__)
@@ -36,8 +36,10 @@ def main(cfg: DictConfig) -> None:
     user_id = getattr(cfg.report.reviewers.github, state_id, cfg.report.reviewers.github.default)
     os.environ["GITHUB_PAT"] = keys['GITHUB_PAT']
 
+    lts_path  = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images"
     
     for tsk in cfg.tasks:
+        retry_nfs_access(lts_path, mode="read", retries=10)
         # Optional CPU affinity settings for performance tuning on specific tasks
         if tsk == "autosfm":
             try:

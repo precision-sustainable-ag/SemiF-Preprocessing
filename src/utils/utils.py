@@ -10,6 +10,8 @@ from hydra.core.hydra_config import HydraConfig
 import subprocess
 import json
 import os
+import time
+
 log = logging.getLogger(__name__)
 
 
@@ -220,3 +222,50 @@ def create_issue(batch_id, user_id, issue_type, tsk: str = None, error_msg: str 
                 "-H", "Accept: application/vnd.github.v3+json",
                 "-d", json.dumps(trigger_payload)
             ], check=True)
+
+
+def retry_nfs_access(path: Path, 
+                     mode: str = "read", 
+                     retries: int = 5, 
+                     delay: float = 2.0,
+                     backoff: float = 1.5) -> bool:
+    """
+    Retry access to a Path (NFS) multiple times if PermissionError or OSError occurs.
+
+    Args:
+        path (Path): Path object pointing to a file or directory.
+        mode (str): "read" (check existence/readability) or "write" (try writing a temp file).
+        retries (int): Max number of retries.
+        delay (float): Initial delay between retries in seconds.
+        backoff (float): Backoff multiplier to increase delay.
+
+    Returns:
+        bool: True if access eventually succeeds, False otherwise.
+    """
+    assert mode in ["read", "write"], "mode must be 'read' or 'write'"
+
+    for attempt in range(retries):
+        try:
+            if mode == "read":
+                if not path.exists():
+                    raise FileNotFoundError(f"{path} does not exist")
+                if path.is_dir():
+                    _ = list(path.iterdir())  # trigger PermissionError if any
+                else:
+                    _ = path.read_bytes()[:1]  # just try to read a byte
+
+            elif mode == "write":
+                test_file = path / ".nfs_test"
+                test_file.write_text("test")
+                test_file.unlink()
+
+            log.info(f"NFS access succeeded on attempt {attempt+1}: {path}")
+            return True
+
+        except (PermissionError, OSError) as e:
+            log.warning(f"Attempt {attempt+1} failed to access {path}: {e}")
+            time.sleep(delay)
+            delay *= backoff
+
+    log.error(f"NFS access failed after {retries} attempts: {path}")
+    return False
