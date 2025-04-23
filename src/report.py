@@ -43,6 +43,8 @@ class ImageReport:
 
         self.log_parser = LogParser(cfg, self.output_report_dir)
 
+        self.sample_size = cfg.report.sample_size
+
     def calculate_total_images(self) -> int:
         return len(self.raw_image_files)
 
@@ -313,7 +315,7 @@ class ImageReport:
         # Set heading for sample images
         if self.local_sample_dir.exists() and list(self.local_sample_dir.glob("*.jpg")):
             sample_images = list(self.local_sample_dir.glob("*.jpg"))
-            num_samples = min(48, len(sample_images))  # Or change to len(sample_images) for all
+            num_samples = min(self.sample_size, len(sample_images))  # Or change to len(sample_images) for all
             selected_images = sorted(random.sample(sample_images, num_samples))
 
             images_per_page = 12

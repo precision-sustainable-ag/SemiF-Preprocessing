@@ -20,8 +20,8 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 # Main configuration for the current batch
 ############################################
-batch_id: NC_2025-03-19
-season: cool_season_covers_2024_2025_NCpos2
+batch_id:
+season: cool_season_covers_2024_2025
 create_issue: false
 ############################################
 
@@ -66,6 +66,7 @@ max_workers: 16
 slack_channel: "#semif-datareports"
 
 report:
+  sample_images: 96 # best if this is a multiple of 12
   reviewers:
     github:
       MD: mkutu #map0425 # Nick N of MD
