@@ -65,7 +65,7 @@ def config_gcp_path(cfg):
     gcp_reference_path = None
 
     season_csvs = [str(x) for x in Path(gcp_dir).glob("*.csv")]
-    gcp_reference_path = [x for x in season_csvs if state_id in x][0]
+    gcp_reference_path = [x for x in season_csvs if state_id in Path(x).stem][0]
     cfg.paths.marker_file = gcp_reference_path
     print(f"Using GCP reference file: {gcp_reference_path}")
 
