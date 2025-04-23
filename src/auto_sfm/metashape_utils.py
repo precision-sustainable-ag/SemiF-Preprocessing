@@ -514,6 +514,7 @@ class SfM:
 
     def build_dem(self, progress_callback: Callable = percentage_callback):
         if self.doc.chunk.point_cloud is None:
+            log.warning(f"Building dense cloud because it does not exist.")
             self.build_dense_cloud()
 
         self.doc.chunk.buildDem(
@@ -569,6 +570,8 @@ class SfM:
             self.save_project()
 
         if self.ortho_cfg.export.enabled:
+            relative_path = Path(self.ortho_path).relative_to(Path(self.cfg.paths.workdir))
+            log.info(f"Exporting orthomosaic to {relative_path}")
             image_compression = ms.ImageCompression()
             image_compression.tiff_big = True
 

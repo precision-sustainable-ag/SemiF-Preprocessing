@@ -130,7 +130,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"capture_time_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Capture time plot saved to {file_path}")
+        log.info(f"Capture time plot saved to {file_path.relative_to(Path.cwd())}")
 
     def generate_modified_line_plot(self) -> None:
         """
@@ -153,7 +153,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"upload_time_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Upload time plot saved to {file_path}")
+        log.info(f"Upload time plot saved to {file_path.relative_to(Path.cwd())}")
     
     def generate_average_upload_time_plot(self) -> None:
         """
@@ -176,7 +176,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"upload_time_difference_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Upload time difference plot saved to {file_path}")
+        log.info(f"Upload time difference plot saved to {file_path.relative_to(Path.cwd())}")
 
     def calculate_average_upload_time(self) -> float:
         """
@@ -203,8 +203,8 @@ class ImageReport:
         first_upload, last_upload = self.get_first_and_last_upload()
         partial_uploads = self.count_partial_uploads()
 
-        pdf_output_path = str(self.output_report_dir / f"{batch_id}_report.pdf")
-        c = canvas.Canvas(pdf_output_path, pagesize=letter)
+        pdf_output_path = self.output_report_dir / f"{batch_id}_report.pdf"
+        c = canvas.Canvas(str(pdf_output_path), pagesize=letter)
         c.setFont("Helvetica", 12)
         # Set the title of the document
 
@@ -429,7 +429,7 @@ class ImageReport:
 
         # Save the PDF
         c.save()
-        log.info(f"PDF report saved to {pdf_output_path}")
+        log.info(f"PDF report saved to {pdf_output_path.relative_to(Path.cwd())}")
 
     def generate_report(self) -> None:
         """
@@ -465,7 +465,7 @@ class LogParser:
         Copies the log file to the output report directory.
         """
         shutil.copy(self.log_path, self.output_report_dir)
-        log.info(f"Log file copied to {self.output_report_dir}")
+        log.info(f"Log file copied to {self.output_report_dir.relative_to(Path.cwd())}")
 
     def extract_error_blocks(self) -> pd.DataFrame:
         """

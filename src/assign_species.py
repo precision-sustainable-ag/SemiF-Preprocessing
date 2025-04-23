@@ -25,7 +25,7 @@ class SpeciesAssigner:
         self.closest_distance_thresh = 2  # meters
 
         log.info(f"Initialized SpeciesAssigner for batch: {self.batch_id}, season: {self.season}")
-        log.info(f"Loaded shapefile from: {self.shapefile_path}")
+        log.info(f"Loaded shapefile from: {self.shapefile_path.relative_to(Path.cwd())}")
 
     def read_json(self, filepath: Path):
         with open(filepath) as f:
