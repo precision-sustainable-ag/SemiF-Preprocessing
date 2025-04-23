@@ -4,14 +4,16 @@ import os
 from math import ceil
 from multiprocessing import Pool
 from pathlib import Path
-import piexif
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import cv2
 import numpy as np
+import piexif
 from PIL import Image, ImageFile
 from skimage.color import rgb2hsv
 from skimage.morphology import binary_closing, square
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from src.utils.utils import retry_nfs_access
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -94,23 +96,28 @@ def fix_exif_types(exif_dict):
             exif_dict[ifd] = fixed
     return exif_dict
 
-def resize_and_save(data):
-    image_src = data["image_src"]
-    image_dst = data["image_dst"]
-    scale = data["scale"]
-    masks = data["masks"]
-
+def resize_image(image_src, scale, masks):
+    """Resize an image based on the given scale."""
     assert 0.0 < scale <= 1.0, "scale should be between (0, 1]."
 
     try:
-        image = Image.open(image_src)
-        width, height = image.size
-        scaled_width, scaled_height = int(ceil(width * scale)), int(ceil(height * scale))
-        kwargs = {}
+        with Image.open(image_src) as image:
+            width, height = image.size
+            scaled_width = int(ceil(width * scale))
+            scaled_height = int(ceil(height * scale))
+            resized_image = image.resize((scaled_width, scaled_height))
+            return resized_image, image.copy()
+    except (IOError, SyntaxError) as e:
+        log.error(f"Bad file: {image_src}. Error: {e}")
+        return None, None
+
+
+def save_resized_image(resized_image, image, image_dst, masks):
+    """Save the resized image to the destination path."""
+    kwargs = {}
+    try:
         if masks:
             resized_image.save(image_dst, quality=95, **kwargs)
-            resized_image.save(image_dst, **kwargs)
-        
         else:
             try:
                 exif_data = piexif.load(image.info["exif"])
@@ -120,12 +127,36 @@ def resize_and_save(data):
             except KeyError:
                 log.warning("EXIF data not found, resizing without EXIF data.")
 
-            resized_image = image.resize((scaled_width, scaled_height))
             resized_image.save(image_dst, quality=95, **kwargs)
+    except Exception as e:
+        log.error(f"Error saving file: {image_dst}. Error: {e}")
 
-    except (IOError, SyntaxError) as e:
-        log.error(f"Bad file: {image_src}. Error: {e}")
-    
+def resize_and_save(data):
+    """Resize and save an image with a single retry via retry_nfs_access on PermissionError."""
+    image_src = Path(data["image_src"])
+    image_dst = Path(data["image_dst"])
+    scale = data["scale"]
+    masks = data["masks"]
+
+    try:
+        resized_image, image = resize_image(image_src, scale, masks)
+    except PermissionError as e:
+        log.warning(f"Permission denied on {image_src}. Attempting NFS retry.")
+        success = retry_nfs_access(image_src, mode="read")
+        if not success:
+            log.error(f"NFS access failed after retries for {image_src}. Skipping.")
+            return
+        try:
+            resized_image, image = resize_image(image_src, scale, masks)
+        except Exception as e:
+            log.error(f"Second attempt failed for {image_src}. Error: {e}")
+            return
+    except Exception as e:
+        log.error(f"Error resizing image {image_src}. Error: {e}")
+        return
+
+    if resized_image and image:
+        save_resized_image(resized_image, image, image_dst, masks)
 
 def resize_photo_diretory(cfg):
     # base_path = Path(cfg.paths.images)
