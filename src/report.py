@@ -209,7 +209,7 @@ class ImageReport:
         # Set the title of the document
 
         # ----------------------------------------------------
-        # Page 1: Summary Information
+        # Section 1: Summary Information
         # ----------------------------------------------------
         c.drawString(50, 750, f"SemiField BbotV3.1 Collection Report")
         c.drawString(50, 730, f"Batch ID: {batch_id}")
@@ -289,7 +289,7 @@ class ImageReport:
             c.drawString(50, 540, "No module timings found in logs.")
             
         # --------------------------------------------------------
-        # Page 2: Metashape Report Image Page 1
+        # Section 2: Metashape Report Image Page 1
         # --------------------------------------------------------
         
         c.showPage()  # Start a new page
@@ -299,7 +299,7 @@ class ImageReport:
             c.drawImage(metashape_page_1, -150, -125, width=850, height=1000, preserveAspectRatio=True)
 
         # --------------------------------------------------------
-        # Page 3: Metashape Report Image Page 2
+        # Section 3: Metashape Report Image Page 2
         # --------------------------------------------------------
 
         c.showPage()  # Start a new page
@@ -309,7 +309,17 @@ class ImageReport:
             c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
 
         # --------------------------------------------------------
-        # Page 4: Sample Images
+        # Section 4: Metashape Report Image Page 4
+        # --------------------------------------------------------
+
+        c.showPage()  # Start a new page
+        # Metashape report page 2
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_004.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
+
+        # --------------------------------------------------------
+        # Section 5: Sample Images
         # --------------------------------------------------------
 
         # Set heading for sample images
@@ -358,12 +368,12 @@ class ImageReport:
             c.drawString(50, 350, "Sample images not available")
 
         # -----------------------------------------
-        # Page 5: Add Area and Density
+        # Section 6: Add Area and Density
         # -----------------------------------------
 
         c.showPage()  # Start a new page for the three analytical plots
         c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 750, "Analysis Plots: Species Counts, Area, and Spatial Density")
+        c.drawString(50, 750, "Analysis Plots: Species Counts and Area Distribution")
 
         # Define positions and sizes
         plot_w = 250
@@ -379,22 +389,21 @@ class ImageReport:
         if Path(area_plot_path).exists():
             c.drawImage(area_plot_path, 50, 0, width=plot_w * 2, height=plot_h * 2, preserveAspectRatio=True)
 
+        #------------------------------------------
+        # Section 7: Species Centroid Density
+        #------------------------------------------
+        
         c.showPage()  # Start a new page for the three analytical plots
         c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 750, "Analysis Plots: Area, Spatial Density, and Species Counts")
-        
-        #------------------------------------------
-        # Page 6: Species Centroid Density
-        #------------------------------------------
+        c.drawString(50, 750, "Analysis Plots: Spatial Density")
 
         # Plot 3: Species Centroid Density
         density_plot_path = self.plot_file_base / "species_centroid_density.png"
         if Path(density_plot_path).exists():
             c.drawImage(density_plot_path, 50, 350, width=plot_w * 2, height=plot_h* 2, preserveAspectRatio=True)
         
-        
         #-------------------------------------------
-        # Page 7: Log errors
+        # Section 8: Log errors
         #-------------------------------------------
 
         # Parse errors and warnings
