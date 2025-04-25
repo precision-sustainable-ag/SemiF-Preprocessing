@@ -29,14 +29,24 @@ def add_label(issue_number, label):
     if resp.status_code not in [200, 201]:
         print(f"Could not add label '{label}':", resp.text)
 
-def find_existing_issue(batch_id):
-    query = f"repo:{REPO} in:title {batch_id}"
-    url = f"{GITHUB_API}/search/issues?q={query}"
-    resp = requests.get(url, headers=HEADERS)
-    resp.raise_for_status()
-    for item in resp.json().get("items", []):
-        if batch_id in item["title"]:
-            return item["number"]
+def find_existing_issue(batch_id, exact_title):
+    url = f"{GITHUB_API}/repos/{REPO}/issues"
+    page = 1
+
+    while True:
+        resp = requests.get(f"{url}?state=open&per_page=100&page={page}", headers=HEADERS)
+        resp.raise_for_status()
+        issues = resp.json()
+
+        if not issues:
+            break
+
+        for issue in issues:
+            if issue.get("title") == exact_title:
+                return issue["number"]
+
+        page += 1
+
     return None
 
 def comment_on_issue(issue_number, message):
@@ -90,9 +100,10 @@ def build_success_body():
     )
 
 def main():
-    issue_number = find_existing_issue(BATCH_ID)
+    
     body = build_success_body() if IS_SUCCESS else build_failure_body()
-    title = f"{BATCH_ID}: Preprocessing Report"
+    title = f"{BATCH_ID}: Preprocessing Status"
+    issue_number = find_existing_issue(BATCH_ID, title)
 
     if issue_number:
         comment_on_issue(issue_number, body)
@@ -106,8 +117,10 @@ def main():
     else:
         create_issue(title, body, ASSIGNEE)
         issue_number = find_existing_issue(BATCH_ID)  # Needed to get issue number for label ops
-        if not IS_SUCCESS:
-            add_label(issue_number, "bug")
+        if IS_SUCCESS:
+            add_label(issue_number, "success")
+        else:
+            add_label(issue_number, "thisistest")
 
 
 if __name__ == "__main__":
