@@ -118,9 +118,9 @@ def main():
         create_issue(title, body, ASSIGNEE)
         issue_number = find_existing_issue(BATCH_ID, title)  # Needed to get issue number for label ops
         if IS_SUCCESS:
-            add_label(issue_number, "success")
+            add_label(issue_number, "completed")
         else:
-            add_label(issue_number, "thisistest")
+            add_label(issue_number, "bug")
 
 
 if __name__ == "__main__":
