@@ -20,7 +20,7 @@ jobs:
     - name: Install dependencies
       run: pip install requests
 
-    - name: Create GitHub Issue
+    - name: Update or Create Failure Issue
       env:
         GH_TOKEN: ${{ secrets.REPORT_BOT_PAT }}
         BATCH_ID: ${{ github.event.client_payload.batch_id }}
@@ -29,4 +29,5 @@ jobs:
         GLOBUS_PREFIX: https://m-ae9b45.7ce1a.03c0.data.globus.org/rsstu/users/s/screberg/longterm_images2/semifield-developed-images
         TASK_NAME: ${{ github.event.client_payload.task_name }}
         ERROR_MSG: ${{ github.event.client_payload.error_msg }}
-      run: python scripts/create_failure_issue.py
+        IS_SUCCESS: "false"
+      run: python scripts/update_or_create_issue.py
