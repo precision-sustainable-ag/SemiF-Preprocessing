@@ -17,6 +17,18 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json"
 }
 
+def remove_label(issue_number, label):
+    url = f"{GITHUB_API}/repos/{REPO}/issues/{issue_number}/labels/{label}"
+    resp = requests.delete(url, headers=HEADERS)
+    if resp.status_code != 204:
+        print(f"Could not remove label '{label}':", resp.text)
+
+def add_label(issue_number, label):
+    url = f"{GITHUB_API}/repos/{REPO}/issues/{issue_number}/labels"
+    resp = requests.post(url, json={"labels": [label]}, headers=HEADERS)
+    if resp.status_code not in [200, 201]:
+        print(f"Could not add label '{label}':", resp.text)
+
 def find_existing_issue(batch_id):
     query = f"repo:{REPO} in:title {batch_id}"
     url = f"{GITHUB_API}/search/issues?q={query}"
@@ -32,7 +44,7 @@ def comment_on_issue(issue_number, message):
     payload = {"body": message}
     resp = requests.post(url, json=payload, headers=HEADERS)
     resp.raise_for_status()
-    print(f"💬 Commented on issue #{issue_number}")
+    print(f"Commented on issue #{issue_number}")
 
 def create_issue(title, body, assignee):
     url = f"{GITHUB_API}/repos/{REPO}/issues"
@@ -43,7 +55,7 @@ def create_issue(title, body, assignee):
     }
     resp = requests.post(url, headers=HEADERS, json=payload)
     resp.raise_for_status()
-    print("🆕 Created issue:", resp.json()["html_url"])
+    print("Created issue:", resp.json()["html_url"])
 
 def build_failure_body():
     globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.log"
@@ -80,12 +92,25 @@ def build_success_body():
 def main():
     issue_number = find_existing_issue(BATCH_ID)
     body = build_success_body() if IS_SUCCESS else build_failure_body()
-    title = f"{BATCH_ID}: Inspection Report" if IS_SUCCESS else f"{BATCH_ID}: Task Failed - {TASK_NAME}"
+    title = f"{BATCH_ID}: Preprocessing Report"
 
     if issue_number:
         comment_on_issue(issue_number, body)
+    
+        # Modify labels based on status
+        if IS_SUCCESS:
+            remove_label(issue_number, "bug")
+            add_label(issue_number, "fixed")
+        else:
+            add_label(issue_number, "bug")
     else:
         create_issue(title, body, ASSIGNEE)
+        issue_number = find_existing_issue(BATCH_ID)  # Needed to get issue number for label ops
+        if IS_SUCCESS:
+            add_label(issue_number, "fixed")
+        else:
+            add_label(issue_number, "bug")
+
 
 if __name__ == "__main__":
     main()
