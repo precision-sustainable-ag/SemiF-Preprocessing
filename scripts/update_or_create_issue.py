@@ -106,9 +106,7 @@ def main():
     else:
         create_issue(title, body, ASSIGNEE)
         issue_number = find_existing_issue(BATCH_ID)  # Needed to get issue number for label ops
-        if IS_SUCCESS:
-            add_label(issue_number, "fixed")
-        else:
+        if not IS_SUCCESS:
             add_label(issue_number, "bug")
 
 
