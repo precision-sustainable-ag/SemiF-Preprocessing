@@ -25,14 +25,15 @@ export_report: True
 # Electives
 downscale:
   enabled: True
-  factor: 0.5 # between (0, 1] 1 is highest accuracy. By default 0.5
+  factor: 0.75 # between (0, 1] 1 is highest accuracy. By default 0.5
 
 align_photos:
-  downscale: 2 # Accuracy parameter, lower means higher accuracy [0, 1, 2, 4, or 8]. By default 1
+  downscale: 4 # Accuracy parameter, lower means higher accuracy [0, 1, 2, 4, or 8]. By default 1
   autosave: True
   generic_preselection: False # broad filtering method based on general attributes of the images, faster but less accurate
   reference_preselection: False # more targeted approach that utilizes existing 3D data to improve the efficiency of image matching, slower but more accurate
   filter_stationary_points: False
+  adaptive_fitting: False
 
 optimize_cameras_cfg:
   fit_f: True
@@ -52,7 +53,7 @@ optimize_cameras_cfg:
 
 depth_map:
   enabled: True
-  downscale: 2 # Depth map quality, lower means higher accuracy [1, 2, 4, 8, or 16]. By default 4
+  downscale: 4 # Depth map quality, lower means higher accuracy [1, 2, 4, 8, or 16]. By default 4
   autosave: True
 
 dense_cloud:
@@ -71,12 +72,12 @@ dem:
   enabled: True
   autosave: True
   export: 
-    enabled: True
+    enabled: False
 
 orthomosaic:
   enabled: True
   export: 
-    enabled: True
+    enabled: False
   autosave: True
 
 camera_fov:

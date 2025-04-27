@@ -4,14 +4,16 @@ import os
 from math import ceil
 from multiprocessing import Pool
 from pathlib import Path
-import piexif
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import cv2
 import numpy as np
+import piexif
 from PIL import Image, ImageFile
 from skimage.color import rgb2hsv
 from skimage.morphology import binary_closing, square
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from src.utils.utils import retry_nfs_access
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -61,7 +63,7 @@ def fix_exif_types(exif_dict):
                 # Fix SRational[] for tag 50721
                 if tag == 50721 and isinstance(value, tuple) and all(isinstance(v, tuple) and len(v) == 2 for v in value):
                     fixed[tag] = list(value)
-                    print(f"Fixed tag {tag} (SRational[]): {value} -> {list(value)}")
+                    log.debug(f"Fixed tag {tag} from {value} to {fixed[tag]}")
                     continue
 
                 # Fix Short[] for tag 50728
@@ -71,13 +73,13 @@ def fix_exif_types(exif_dict):
                     ):
                         # Convert SRationals to ints (numerator // denominator)
                         fixed[tag] = [int(v[0] / v[1]) for v in value]
-                        print(f"Fixed tag {tag} (Short[]): {value} -> {fixed[tag]}")
+                        log.debug(f"Fixed tag {tag} from {value} to {fixed[tag]}")
                         continue
 
                 # Fix BlackLevel (SRational single value)
                 if tag == 50714 and isinstance(value, int):
                     fixed[tag] = (value, 1)
-                    print(f"Fixed tag {tag} (BlackLevel): {value} -> {(value, 1)}")
+                    log.debug(f"Fixed tag {tag} from {value} to {fixed[tag]}")
                     continue
 
                 # General valid types
@@ -88,29 +90,34 @@ def fix_exif_types(exif_dict):
                 elif isinstance(value, list) and all(isinstance(v, int) for v in value):
                     fixed[tag] = value
                 else:
-                    print(f"Skipping tag {tag} due to bad type: {type(value)} -> {value}")
+                    log.error(f"Skipping tag {tag} due to bad type: {type(value)} -> {value}")
                     continue
 
             exif_dict[ifd] = fixed
     return exif_dict
 
-def resize_and_save(data):
-    image_src = data["image_src"]
-    image_dst = data["image_dst"]
-    scale = data["scale"]
-    masks = data["masks"]
-
+def resize_image(image_src, scale, masks):
+    """Resize an image based on the given scale."""
     assert 0.0 < scale <= 1.0, "scale should be between (0, 1]."
 
     try:
-        image = Image.open(image_src)
-        width, height = image.size
-        scaled_width, scaled_height = int(ceil(width * scale)), int(ceil(height * scale))
-        kwargs = {}
+        with Image.open(image_src) as image:
+            width, height = image.size
+            scaled_width = int(ceil(width * scale))
+            scaled_height = int(ceil(height * scale))
+            resized_image = image.resize((scaled_width, scaled_height))
+            return resized_image, image.copy()
+    except (IOError, SyntaxError) as e:
+        log.error(f"Bad file: {image_src}. Error: {e}")
+        return None, None
+
+
+def save_resized_image(resized_image, image, image_dst, masks):
+    """Save the resized image to the destination path."""
+    kwargs = {}
+    try:
         if masks:
             resized_image.save(image_dst, quality=95, **kwargs)
-            resized_image.save(image_dst, **kwargs)
-        
         else:
             try:
                 exif_data = piexif.load(image.info["exif"])
@@ -120,12 +127,36 @@ def resize_and_save(data):
             except KeyError:
                 log.warning("EXIF data not found, resizing without EXIF data.")
 
-            resized_image = image.resize((scaled_width, scaled_height))
             resized_image.save(image_dst, quality=95, **kwargs)
+    except Exception as e:
+        log.error(f"Error saving file: {image_dst}. Error: {e}")
 
-    except (IOError, SyntaxError) as e:
-        log.error(f"Bad file: {image_src}. Error: {e}")
-    
+def resize_and_save(data):
+    """Resize and save an image with a single retry via retry_nfs_access on PermissionError."""
+    image_src = Path(data["image_src"])
+    image_dst = Path(data["image_dst"])
+    scale = data["scale"]
+    masks = data["masks"]
+
+    try:
+        resized_image, image = resize_image(image_src, scale, masks)
+    except PermissionError as e:
+        log.warning(f"Permission denied on {image_src}. Attempting NFS retry.")
+        success = retry_nfs_access(image_src, mode="read")
+        if not success:
+            log.error(f"NFS access failed after retries for {image_src}. Skipping.")
+            return
+        try:
+            resized_image, image = resize_image(image_src, scale, masks)
+        except Exception as e:
+            log.error(f"Second attempt failed for {image_src}. Error: {e}")
+            return
+    except Exception as e:
+        log.error(f"Error resizing image {image_src}. Error: {e}")
+        return
+
+    if resized_image and image:
+        save_resized_image(resized_image, image, image_dst, masks)
 
 def resize_photo_diretory(cfg):
     # base_path = Path(cfg.paths.images)
@@ -141,13 +172,11 @@ def resize_photo_diretory(cfg):
         already_copied_images = list(save_dir.glob("*.jpg")) + list(save_dir.glob("*.JPG"))
         num_already_copied_images = len(already_copied_images)
         if num_already_copied_images == num_files:
-            log.info(f"All images ({num_already_copied_images}) have already been resized.")
+            log.debug(f"All images ({num_already_copied_images}) have already been resized.")
             return
         elif num_already_copied_images < num_files:
-            log.info(f"{num_already_copied_images} images have already been resized, {num_files - num_already_copied_images} images remaining.")
+            log.debug(f"{num_already_copied_images} images have already been resized, {num_files - num_already_copied_images} images remaining.")
             files = [file for file in files if file.name not in [img.name for img in already_copied_images]] 
-
-    log.info(f"Processing {num_files} files.")
 
     data = [
         {

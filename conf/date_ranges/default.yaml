@@ -24,10 +24,10 @@ MD:
     end: "2024-09-08"
     bbot_version: v3.0
   cover crops 2024/2025:
-    start: "2024-10-05"
-    end: "2025-03-14"
-    bbot_version: v3.0
-
+    start: "2025-04-16"
+    end: "2025-05-15"
+    bbot_version: v3.1
+  
 NC:
   weeds 2022:
     start: "2022-03-04"

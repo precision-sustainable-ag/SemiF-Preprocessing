@@ -42,7 +42,7 @@ fov_shapefiles: ${paths.inspection_dir}/fov_shapefiles
 # Config save paths
 log_folder: ${paths.autosfm}
 
-pipeline_keys: ./.keys/pipeline_keys.yaml
+pipeline_keys: ${paths.workdir}/.keys/pipeline_keys.yaml
 metashape_key:
 
 # Detection model

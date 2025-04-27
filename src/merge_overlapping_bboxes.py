@@ -179,8 +179,14 @@ def process_csv_file(csv_path: Path, output_dir: Path, iou_threshold: float = 0.
 
     # Convert the DataFrame to a list of dictionaries (each representing one bbox)
     bboxes = df.to_dict(orient='records')
+    
+    output_path = output_dir / csv_path.name
+
     if not bboxes:
-        log.warning(f"No valid bounding boxes found in {csv_path.name}")
+        # Create empty DataFrame with expected columns
+        empty_df = pd.DataFrame(columns=required_cols)
+        empty_df.to_csv(output_path, index=False)
+        log.debug(f"No valid bounding boxes found in {csv_path.name}")
         return
 
     merged_bboxes = merge_bboxes_with_class(bboxes, iou_threshold=iou_threshold)
@@ -191,8 +197,7 @@ def process_csv_file(csv_path: Path, output_dir: Path, iou_threshold: float = 0.
     merged_df.insert(0, 'bounding_box_id', range(len(merged_df)))
     
     try:
-        csv_path = output_dir / csv_path.name 
-        merged_df.to_csv(csv_path, index=False)
+        merged_df.to_csv(output_path, index=False)
         log.debug(f"Merged CSV saved: {csv_path}")
     except Exception as e:
         log.error(f"Error writing merged CSV to {csv_path}: {e}")
@@ -212,8 +217,8 @@ def process_all_csvs_in_directory(directory_path: Path, output_dir: Path, iou_th
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Find all CSV files in the directory
-    csv_files = list(directory.rglob("*.csv"))
-    log.info(f"Found {len(csv_files)} CSV files in {directory_path}")
+    csv_files = sorted(list(directory.rglob("*.csv")))
+    log.info(f"Found {len(csv_files)} CSV files in {directory_path.relative_to(Path.cwd())}")
 
     # Process each CSV file
     for csv_file in csv_files:
@@ -225,10 +230,14 @@ def main(cfg: DictConfig) -> None:
     csv_directory = Path(cfg.paths.batch_dir) / "plant-detections"  # Directory containing CSV files
     output_dir = csv_directory / "merged"  # Directory for saving merged CSVs
     iou_threshold = 0.5  # Default IoU threshold for merging
-    log.info(f"Starting CSV merging in: {csv_directory}")
-    # Process all CSVs in the specified directory
-    process_all_csvs_in_directory(csv_directory,output_dir, iou_threshold)
-    log.info("Finished merging CSVs.")
+    log.info(f"Starting CSV merging in: {csv_directory.relative_to(Path.cwd())}")
+    try:
+        # Process all CSVs in the specified directory
+        process_all_csvs_in_directory(csv_directory,output_dir, iou_threshold)
+        log.info("Finished merging CSVs.")
+    except Exception as e:
+        log.error(f"Error during CSV processing: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

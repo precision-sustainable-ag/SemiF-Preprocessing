@@ -1,18 +1,21 @@
 import logging
 import random
+import re
+import shutil
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-import re
 from typing import List
-import shutil
+
 import hydra
-from hydra.core.hydra_config import HydraConfig
 import matplotlib.pyplot as plt
 import pandas as pd
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from reportlab.lib.utils import simpleSplit
+from reportlab.platypus import Table, TableStyle
 
 from src.utils.utils import find_lts_dir
 
@@ -26,7 +29,7 @@ class ImageReport:
         self.upload_directory = Path(self.lts_dir) / "semifield-upload" / self.batch_id
         self.developed_directory = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
 
-        self.output_report_dir = self.developed_directory / "inspection"
+        self.output_report_dir = Path(cfg.paths.inspection_dir)
         self.output_report_dir.mkdir(parents=True, exist_ok=True)
 
         self.plot_file_base = self.output_report_dir / "plots"
@@ -39,6 +42,8 @@ class ImageReport:
         self.local_sample_dir = self.output_report_dir / "remapped_samples"
 
         self.log_parser = LogParser(cfg, self.output_report_dir)
+
+        self.sample_size = cfg.report.sample_size
 
     def calculate_total_images(self) -> int:
         return len(self.raw_image_files)
@@ -125,7 +130,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"capture_time_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Capture time plot saved to {file_path}")
+        log.info(f"Capture time plot saved to {file_path.relative_to(Path.cwd())}")
 
     def generate_modified_line_plot(self) -> None:
         """
@@ -148,7 +153,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"upload_time_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Upload time plot saved to {file_path}")
+        log.info(f"Upload time plot saved to {file_path.relative_to(Path.cwd())}")
     
     def generate_average_upload_time_plot(self) -> None:
         """
@@ -171,7 +176,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"upload_time_difference_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Upload time difference plot saved to {file_path}")
+        log.info(f"Upload time difference plot saved to {file_path.relative_to(Path.cwd())}")
 
     def calculate_average_upload_time(self) -> float:
         """
@@ -198,11 +203,14 @@ class ImageReport:
         first_upload, last_upload = self.get_first_and_last_upload()
         partial_uploads = self.count_partial_uploads()
 
-        pdf_output_path = str(self.output_report_dir / f"{batch_id}_report.pdf")
-        c = canvas.Canvas(pdf_output_path, pagesize=letter)
+        pdf_output_path = self.output_report_dir / f"{batch_id}_report.pdf"
+        c = canvas.Canvas(str(pdf_output_path), pagesize=letter)
         c.setFont("Helvetica", 12)
         # Set the title of the document
 
+        # ----------------------------------------------------
+        # Section 1: Summary Information
+        # ----------------------------------------------------
         c.drawString(50, 750, f"SemiField BbotV3.1 Collection Report")
         c.drawString(50, 730, f"Batch ID: {batch_id}")
         c.drawString(50, 710, f"Total Raw Images: {total_images}")
@@ -228,49 +236,151 @@ class ImageReport:
         if upload_plot_path.exists():
             c.drawImage(upload_plot_path, 300, 400, width=500//1.6, height=300//1.5)
 
+        
+        # Parse module timings
+        module_timings_df = self.log_parser.extract_module_timings()
+        # Sort by start time
+        module_timings_df.sort_values(by='StartTime', inplace=True)
+        if not module_timings_df.empty:
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 370, "Module timing Information:")
+
+            # Get the value of Duration for the row with ScriptModule == "Total"
+            total_duration = module_timings_df.loc[module_timings_df['ScriptModule'] == 'Total', 'DurationSeconds'].values[0]
+            total_duration_hours = int(total_duration // 3600)
+            total_duration_minutes = int((total_duration % 3600) // 60)
+            total_duration_seconds = int(total_duration % 60)
+            total_duration_str = f"{total_duration_hours}h {total_duration_minutes}m {total_duration_seconds}s"
+            c.setFont("Helvetica", 12)
+            c.drawString(50, 350, f"Total Duration: {total_duration_str}")
+            # Prepare table data
+            table_data = [["Module", "Start Time", "End Time", "Duration (h:m:s)"]]
+            module_timings_df = module_timings_df[module_timings_df['ScriptModule'] != 'Total']
+            for _, row in module_timings_df.iterrows():
+                module = row['ScriptModule']
+                start_time = row['StartTime']
+                end_time = row['EndTime']
+                duration = row['DurationSeconds']
+                duration_hours = int(duration // 3600)
+                duration_minutes = int((duration % 3600) // 60)
+                duration_seconds = int(duration % 60)
+                duration_str = f"{duration_hours}h {duration_minutes}m {duration_seconds}s"
+                table_data.append([module, str(start_time), str(end_time), duration_str])
+
+            # Create the table
+            table = Table(table_data, colWidths=[160, 130, 130, 100])
+
+            # Style the table
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
+            ]))
+
+            # Draw the table
+            table.wrapOn(c, 50, 250)
+            table.drawOn(c, 50, 110)  # Adjust Y value as needed
+            
+        else:
+            c.drawString(50, 540, "No module timings found in logs.")
+            
+        # --------------------------------------------------------
+        # Section 2: Metashape Report Image Page 1
+        # --------------------------------------------------------
+        
         c.showPage()  # Start a new page
         # Metashape report page
         metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_001.jpg"
         if metashape_page_1.exists():
             c.drawImage(metashape_page_1, -150, -125, width=850, height=1000, preserveAspectRatio=True)
 
-        # -----------------------------
-        # Add the "Sample images" section at the bottom
-        # -----------------------------
+        # --------------------------------------------------------
+        # Section 3: Metashape Report Image Page 2
+        # --------------------------------------------------------
+
+        c.showPage()  # Start a new page
+        # Metashape report page 2
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_002.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
+
+        # --------------------------------------------------------
+        # Section 4: Metashape Report Image Page 3
+        # --------------------------------------------------------
+
+        c.showPage()  # Start a new page
+        # Metashape report page 3
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_003.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
+
+        # --------------------------------------------------------
+        # Section 5: Metashape Report Image Page 4
+        # --------------------------------------------------------
+        c.showPage()  # Start a new page
+        # Metashape report page 4
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_004.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
+        
+        # c = canvas.Canvas(str(Path(pdf_output_path.parent, pdf_output_path.stem + ".test.pdf")), pagesize=letter)
+        c.showPage()  # Start a new page
+        # Metashape report page 9
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_009.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -10, -75, width=675, height=1000, preserveAspectRatio=True)
+
+        c.showPage()  # Start a new page
+        # Metashape report page 10
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_010.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -10, -125, width=650, height=1000, preserveAspectRatio=True)
+
+        # --------------------------------------------------------
+        # Section 5: Sample Images
+        # --------------------------------------------------------
+
         # Set heading for sample images
         if self.local_sample_dir.exists() and list(self.local_sample_dir.glob("*.jpg")):
-            c.showPage()  # Start a new page
-            c.setFont("Helvetica-Bold", 14)
+            sample_images = list(self.local_sample_dir.glob("*.jpg"))
+            num_samples = min(self.sample_size, len(sample_images))  # Or change to len(sample_images) for all
+            selected_images = sorted(random.sample(sample_images, num_samples))
+
+            images_per_page = 12
+            images_per_row = 3
+
+            spacing_x = 10
+            spacing_y = 1
             page_width, page_height = letter
             left_margin = 25
-            right_margin = 25
-            available_width = page_width - left_margin - right_margin
+            top_margin = 770
+            available_width = page_width - 2 * left_margin
+            image_w = (available_width - (images_per_row - 1) * spacing_x) / images_per_row
+            image_h = image_w  # Square layout
+            c.showPage()
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(left_margin, top_margin, "Sample images")
 
-            sample_heading_y = page_height - 25
-            c.drawString(left_margin, sample_heading_y, "Sample images")
-            
-            # Define grid layout for 3 rows x 3 columns
-            spacing_x = 10  # Reduced horizontal spacing
-            # Calculate image width so that 3 images plus 2 gaps exactly fill the available width
-            image_w = (available_width - 2 * spacing_x) / 3
-            image_h = image_w  # Using a square bounding box; the image itself will preserve its aspect ratio
-            spacing_y = 1  # Vertical spacing between rows
-            start_x = left_margin
-            start_y = sample_heading_y - 175  # Starting y position below the heading
-            
-            # Get up to 10 images from the batch folder (upload_directory)
-            sample_images = list(self.local_sample_dir.glob("*.jpg"))
-            random_sample_of_sample_imags = sorted(random.sample(sample_images, min(12, len(sample_images))))
-            
-            for i, image_path in enumerate(random_sample_of_sample_imags):
-                row = i // 3  # 5 images per row
-                col = i % 3
-                x = start_x + col * (image_w + spacing_x)
-                y = start_y - row * (image_h + spacing_y)
+            for i, image_path in enumerate(selected_images):
+                if i % images_per_page == 0:
+                    if i > 0:
+                        c.showPage()
+                    c.setFont("Helvetica-Bold", 14)
+                    c.drawString(left_margin, top_margin, "Sample images")
+
+                index_on_page = i % images_per_page
+                row = index_on_page // images_per_row
+                col = index_on_page % images_per_row
+
+                x = left_margin + col * (image_w + spacing_x)
+                y = top_margin - 10 - row * (image_h + spacing_y)
                 if image_path.exists():
-                    # Draw the image using the provided bounding box while preserving its aspect ratio
                     c.drawImage(str(image_path),
-                                x, y,
+                                x, y - image_h,
                                 width=image_w,
                                 height=image_h,
                                 preserveAspectRatio=True,
@@ -279,36 +389,44 @@ class ImageReport:
             log.warning("Sample images not available")
             c.drawString(50, 350, "Sample images not available")
 
-         # -----------------------------------------
-        # Add Area, Density, and Count Plot Section
         # -----------------------------------------
+        # Section 6: Add Area and Density
+        # -----------------------------------------
+
         c.showPage()  # Start a new page for the three analytical plots
         c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 750, "Analysis Plots: Species Counts, Area, and Spatial Density")
+        c.drawString(50, 750, "Analysis Plots: Species Counts and Area Distribution")
 
         # Define positions and sizes
         plot_w = 250
         plot_h = 200
 
-        # Plot 1: Area Histogram
+        # Plot 1: Count per Species
         count_plot_path = self.plot_file_base / "species_counts.png"
         if Path(count_plot_path).exists():
             c.drawImage(count_plot_path, 50, 350, width=plot_w*2.0, height=plot_h*2.0, preserveAspectRatio=True)
 
-        # Plot 2: Spatial Density
+        # Plot 2: Area
         area_plot_path = self.plot_file_base / "area_log_scaled_histograms.png"
         if Path(area_plot_path).exists():
             c.drawImage(area_plot_path, 50, 0, width=plot_w * 2, height=plot_h * 2, preserveAspectRatio=True)
 
+        #------------------------------------------
+        # Section 7: Species Centroid Density
+        #------------------------------------------
+        
         c.showPage()  # Start a new page for the three analytical plots
         c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 750, "Analysis Plots: Area, Spatial Density, and Species Counts")
-        # Plot 3: Count per Species
-        
-        
+        c.drawString(50, 750, "Analysis Plots: Spatial Density")
+
+        # Plot 3: Species Centroid Density
         density_plot_path = self.plot_file_base / "species_centroid_density.png"
         if Path(density_plot_path).exists():
             c.drawImage(density_plot_path, 50, 350, width=plot_w * 2, height=plot_h* 2, preserveAspectRatio=True)
+        
+        #-------------------------------------------
+        # Section 8: Log errors
+        #-------------------------------------------
 
         # Parse errors and warnings
         errors_df = self.log_parser.extract_error_blocks()
@@ -336,12 +454,13 @@ class ImageReport:
                 c.drawString(25, y_position, f"[{module}] - {level.upper()} - {message}")
                 y_position -= 15
         else:
-            c.drawString(50, 540, "No errors or warnings found in logs.")
+            c.showPage()  # Start a new page for the three analytical plots
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 750, "Errors and Warnings:")
 
-        
         # Save the PDF
         c.save()
-        log.info(f"PDF report saved to {pdf_output_path}")
+        log.info(f"PDF report saved to {pdf_output_path.relative_to(Path.cwd())}")
 
     def generate_report(self) -> None:
         """
@@ -377,7 +496,7 @@ class LogParser:
         Copies the log file to the output report directory.
         """
         shutil.copy(self.log_path, self.output_report_dir)
-        log.info(f"Log file copied to {self.output_report_dir}")
+        log.info(f"Log file copied to {self.output_report_dir.relative_to(Path.cwd())}")
 
     def extract_error_blocks(self) -> pd.DataFrame:
         """
@@ -407,6 +526,65 @@ class LogParser:
             "LogSnippet": messages
         })
 
+    def extract_module_timings(self) -> pd.DataFrame:
+        """
+        Calculates total active time for each logical script module using first and last timestamps.
+        Merges entries that map to the same logical module and calculates total active time and boundaries.
+        
+        Returns:
+            pd.DataFrame: DataFrame with ScriptModule, StartTime, EndTime, DurationSeconds.
+        """
+        # Normalize module names early
+        def normalize_module(module: str) -> str:
+            if "auto_sfm" in module:
+                return "autosfm"
+            if "filter_bboxes" in module:
+                return "remap_labels"
+            return module
+
+        module_times = defaultdict(list)
+
+        for line in self.log_lines:
+            match = re.match(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*?\]\[([^\]]+)\]", line)
+            if match:
+                timestamp = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+                module = normalize_module(match.group(2))
+                module_times[module].append(timestamp)
+
+        records = []
+
+        all_timestamps = []
+
+        for module, times in module_times.items():
+            times.sort()
+            all_timestamps.extend(times)
+            duration = (times[-1] - times[0]).total_seconds()
+            records.append({
+                "ScriptModule": module,
+                "StartTime": times[0],
+                "EndTime": times[-1],
+                "DurationSeconds": duration
+            })
+
+        # Add total duration across all modules
+        first_timestamp = min(all_timestamps)
+        last_timestamp = max(all_timestamps)
+        total_duration = (last_timestamp - first_timestamp).total_seconds()
+        records.append({
+            "ScriptModule": "Total",
+            "StartTime": first_timestamp,
+            "EndTime": last_timestamp,
+            "DurationSeconds": total_duration
+        })
+
+        df = pd.DataFrame(records)
+
+        df = df[df["ScriptModule"] != "pyogrio._io"]
+        df = df[df["ScriptModule"] != "src.utils.utils"]
+        df = df[df["ScriptModule"] != "__main__"]
+        df = df[df["ScriptModule"] != "utils.utils"]
+        return df
+
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
     """
@@ -415,11 +593,25 @@ def main(cfg: DictConfig):
     Args:
         cfg (DictConfig): Hydra config with paths and batch settings.
     """
-    image_report = ImageReport(cfg)
-    image_report.generate_report()
-    log.info(f"Report generated for batch: {cfg.batch_id}")
+    try:
+        image_report = ImageReport(cfg)
+        image_report.generate_report()
+        log.info(f"Report generated for batch: {cfg.batch_id}")
+    except Exception as e:
+        log.error(f"Error generating report: {e}")
+        raise
     
-    
+    if cfg.report.save2lts:
+        try:
+            # Copy report to LTS developed inspection directory
+            report_dst = image_report.developed_directory / "inspection"
+            report_src = str(image_report.output_report_dir / f"{image_report.batch_id}_report.pdf")
+            shutil.copy(report_src, report_dst)
+            log.info(f"Report copied to LTS directory: {report_dst}")
+        except Exception as e:
+            log.error(f"Error copying report to LTS directory: {e}")
+            raise
+        
 
 if __name__ == "__main__":
     main()

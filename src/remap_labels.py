@@ -118,7 +118,7 @@ class BBoxMapper:
         """Class to map bounding box coordinates from image cordinates
         to global coordinates
         """
-        self.project_path = project_path
+        self.project_path = Path(project_path)
         self.images = images
         self.doc = Metashape.Document()
         self.doc.open(str(project_path), ignore_lock=True)
@@ -134,7 +134,7 @@ class BBoxMapper:
             List[ImageMetadata]: Updated image list with global coordinates for each bounding box.
         """
         # Create a list of chunks for each image_id
-        log.info(f"Starting bounding box mapping for {len(self.images)} images using Metashape project: {self.project_path}")
+        log.info(f"Starting bounding box mapping for {len(self.images)} images using Metashape project: {self.project_path.relative_to(Path.cwd())}")
         image_id_map = {img.image_id: [] for img in self.images}
         chunk = self._select_chunk(image_id_map)
         surface = chunk.model
@@ -607,6 +607,10 @@ class RemapLabels:
                         "cutout_id": bbox.cutout_id,
                         "geometry": bbox_polygon,
                         "area_sqm": coords.area_sqm,
+                        "category_class_id": bbox.category_class_id,
+                        "is_primary": bbox.is_primary,
+                        "non_target_weed": bbox.non_target_weed,
+                        "non_target_weed_pred_conf": bbox.non_target_weed_pred_conf,
                         "centroid": coords.global_centroid,
                     })
                 except Exception as e:
@@ -651,7 +655,7 @@ class RemapLabels:
         try:
             gdf = gpd.GeoDataFrame(records, crs="EPSG:4326")
             gdf.to_file(output_path, driver='ESRI Shapefile')
-            log.info(f"Saved shapefile: {output_path} with {len(records)} features.")
+            log.info(f"Saved shapefile: {output_path.relative_to(Path.cwd())} with {len(records)} features.")
         except Exception as e:
             log.exception(f"Failed to write shapefile: {output_path}")
             raise
@@ -678,14 +682,14 @@ def main(cfg: DictConfig) -> None:
         log.info(f"Merged metadata: {merged_df.shape[0]} rows.")
     except Exception as e:
         log.exception("Metadata merging failed.")
-        return
+        raise
 
     try:
         remapper = RemapLabels(cfg)
         images = remapper.remap()
     except Exception as e:
         log.exception("Remapping metadata failed.")
-        return
+        raise
 
     try:
         bbox_filter = BBoxFilter(cfg, images)
@@ -693,7 +697,7 @@ def main(cfg: DictConfig) -> None:
         log.info("Bounding box deduplication completed.")
     except Exception as e:
         log.exception("Bounding box filtering failed.")
-        return
+        raise
 
     try:
         imgs = bbox_filter.images
@@ -703,7 +707,7 @@ def main(cfg: DictConfig) -> None:
         log.info(f"Successfully saved metadata for {len(imgs)} images.")
     except Exception as e:
         log.exception("Saving output files failed.")
-        return
+        raise
 
     end = time.time()
     log.info(f"RemapLabels pipeline completed in {end - start:.2f} seconds.")

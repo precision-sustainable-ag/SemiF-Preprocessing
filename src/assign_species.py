@@ -25,7 +25,7 @@ class SpeciesAssigner:
         self.closest_distance_thresh = 2  # meters
 
         log.info(f"Initialized SpeciesAssigner for batch: {self.batch_id}, season: {self.season}")
-        log.info(f"Loaded shapefile from: {self.shapefile_path}")
+        log.info(f"Loaded shapefile from: {self.shapefile_path.relative_to(Path.cwd())}")
 
     def read_json(self, filepath: Path):
         with open(filepath) as f:
@@ -147,6 +147,7 @@ def main(cfg: DictConfig):
         log.info("Species assignment completed successfully.")
     except Exception as e:
         log.exception(f"SpeciesAssigner failed with error: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

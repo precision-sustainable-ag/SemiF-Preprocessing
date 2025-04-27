@@ -68,25 +68,31 @@ def main(cfg: DictConfig) -> None:
             "remote": Path(cfg.paths.lts_species_info),
         }
     }
+    try:
+        for name, paths in model_files.items():
+            local = paths["local"]
+            remote = paths["remote"]
 
-    for name, paths in model_files.items():
-        local = paths["local"]
-        remote = paths["remote"]
-
-        if not remote.exists():
-            log.error(f"Remote file {remote} does not exist, skipping.")
-            continue
-        
-        if not local.exists():
-            log.warning(f"Local file {local} does not exist. Downloading...")
-            update_file(local, remote)
-            continue
-        
-        if files_are_identical(local, remote):
-            log.info(f"{name}: Local file is up-to-date.")
-        else:
-            log.warning(f"Local {name} is outdated or different from the remote version. Updating...")
-            update_file(local, remote)
+            if not remote.exists():
+                log.error(f"Remote file {remote} does not exist, skipping.")
+                continue
+            
+            if not local.exists():
+                log.warning(f"Local file {local} does not exist. Downloading...")
+                update_file(local, remote)
+                continue
+            
+            if files_are_identical(local, remote):
+                log.info(f"{name}: Local file is up-to-date.")
+            else:
+                log.warning(f"Local {name} is outdated or different from the remote version. Updating...")
+                update_file(local, remote)
+    except Exception as e:
+        log.error(f"An error occurred while syncing files: {e}")
+        raise
+    
+    log.info("File synchronization complete.")
+    return
 
 if __name__ == "__main__":
     main()

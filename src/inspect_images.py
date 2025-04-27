@@ -105,7 +105,7 @@ class AnnotationPlotter:
         plt.tight_layout(rect=[0, 0, 0.9, 1])  # Leave space for colorbar
         plot_path = self.save_dir / "species_centroid_density.png"
         plt.savefig(plot_path, dpi=300)
-        log.info(f"Centroid density plot saved to {plot_path}")
+        log.info(f"[PLOT_SAVED] Centroid density plot saved to {plot_path.relative_to(Path.cwd())}")
 
     def log_scale_histogram(self, df: pd.DataFrame, bins: int = 30):
         """
@@ -120,7 +120,7 @@ class AnnotationPlotter:
         plt.tight_layout()
         plot_path = self.save_dir / "area_log_scaled_histograms.png"
         plt.savefig(plot_path, dpi=300)
-        log.info(f"[PLOT_SAVED] Area histogram plot saved to {plot_path}")
+        log.info(f"[PLOT_SAVED] Area histogram plot saved to {plot_path.relative_to(Path.cwd())}")
 
     def species_count(self, df: pd.DataFrame):
         """
@@ -128,15 +128,24 @@ class AnnotationPlotter:
         """
         species_counts = df["species_id"].value_counts().sort_index()
         plt.figure(figsize=(8, 5))
-        species_counts.plot(kind="bar")
+        ax = species_counts.plot(kind="bar")
         plt.title("Number of Annotations per Species")
         plt.xlabel("Species ID")
         plt.ylabel("Count")
         plt.tight_layout()
         plt.grid(axis="y")
+
+        # Add values on top of each bar
+        for p in ax.patches:
+            ax.annotate(
+            str(p.get_height()),
+            (p.get_x() + p.get_width() / 2., p.get_height()),
+            ha='center', va='bottom', fontsize=10
+            )
+
         plot_path = self.save_dir / "species_counts.png"
         plt.savefig(plot_path, dpi=300)
-        log.info(f"[PLOT_SAVED] Species count plot saved to {plot_path}")
+        log.info(f"[PLOT_SAVED] Species count plot saved to {plot_path.relative_to(Path.cwd())}")
 
     def plot_summary(self) -> None:
         """
@@ -467,7 +476,7 @@ class ImageReviewer:
             else:
                 log.debug(f"Sample image already exists: {save_path}")
                 continue
-        log.info(f"Generated {count} sample images in {self.remapped_sample_dir}")
+        log.info(f"Generated {count} sample images in {self.remapped_sample_dir.relative_to(Path.cwd())}")
         
     def _get_user_input(self):
         """Captures user input for labeling images."""
@@ -548,7 +557,7 @@ class PDFReviewer:
                 pix = page.get_pixmap(matrix=mat)
                 output_path = self.output_dir / f"page_{i+1:03d}.jpg"
                 pix.save(str(output_path))
-            log.info(f"Saved PDF pages to: {self.output_dir}")
+            log.info(f"Saved PDF pages to: {self.output_dir.relative_to(Path.cwd())}")
             doc.close()
             return True
         except Exception as e:
@@ -662,6 +671,7 @@ def main(cfg: DictConfig):
     
     except Exception as e:
         log.exception(f"Inspection failed: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

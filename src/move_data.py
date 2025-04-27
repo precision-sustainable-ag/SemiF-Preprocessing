@@ -4,6 +4,7 @@ from pathlib import Path
 import hydra
 from omegaconf import DictConfig
 from utils.utils import find_lts_dir
+from hydra.core.hydra_config import HydraConfig
 
 log = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class CleanUpLocalTemp:
         # Source paths
         self.src_metadata = self.local_batch_dir / "metadata"
         self.src_cam_references = Path(self.cfg.paths.refs)
+        self.src_log_path = Path(HydraConfig.get().runtime.output_dir) / f"{self.cfg.batch_id}.log"
         self.src_inspection_dir = Path(self.cfg.paths.inspection_dir)
         
         # Destination paths
@@ -37,23 +39,26 @@ class CleanUpLocalTemp:
         # Move metadata
         if self.src_metadata.exists():
             shutil.copytree(str(self.src_metadata), str(self.dst_metadata), dirs_exist_ok=True)
-            log.info(f"Copied {self.src_metadata} to {self.dst_metadata}")
+            log.info(f"Copied {self.src_metadata.relative_to(Path.cwd())} to {self.dst_metadata}")
         else:
-            log.warning(f"Metadata directory {self.src_metadata} does not exist. Skipping move.")
+            log.warning(f"Metadata directory {self.src_metadata.relative_to(Path.cwd())} does not exist. Skipping move.")
 
         # Move camera references
         if self.src_cam_references.exists():
             shutil.copytree(str(self.src_cam_references), str(self.dst_cam_references), dirs_exist_ok=True)
-            log.info(f"Copied {self.src_cam_references} to {self.dst_cam_references}")
+            log.info(f"Copied {self.src_cam_references.relative_to(Path.cwd())} to {self.dst_cam_references}")
         else:
-            log.warning(f"Camera references directory {self.src_cam_references} does not exist. Skipping move.")
+            log.warning(f"Camera references directory {self.src_cam_references.relative_to(Path.cwd())} does not exist. Skipping move.")
 
         # Move inspection results
         if self.src_inspection_dir.exists():
+            # Copy the log file to the inspection directory first
+            shutil.copy(str(self.src_log_path), str(self.src_inspection_dir))
+            # Copy the inspection directory to the LTS directory
             shutil.copytree(str(self.src_inspection_dir), str(self.dst_inspection_dir), dirs_exist_ok=True)
-            log.info(f"Copied {self.src_inspection_dir} to {self.dst_inspection_dir}")
+            log.info(f"Copied {self.src_inspection_dir.relative_to(Path.cwd())} to {self.dst_inspection_dir}")
         else:
-            log.warning(f"Inspection results file {self.src_inspection_dir} does not exist. Skipping move.")
+            log.warning(f"Inspection results file {self.src_inspection_dir.relative_to(Path.cwd())} does not exist. Skipping move.")
         
 
     def can_remove_local_dir(self):
@@ -74,7 +79,7 @@ class CleanUpLocalTemp:
                 log.error(f"Camera references not found in LTS directory: {self.dst_cam_references}")
             if not lts_inspection_results_exists:
                 log.error(f"Inspection results not found in LTS directory: {self.dst_inspection_dir}")
-            log.error(f"Local batch directory {self.local_batch_dir} cannot be removed.")
+            log.error(f"Local batch directory {self.local_batch_dir.relative_to(Path.cwd())} cannot be removed.")
             can_remove_local_dir = False
         else:
             log.info(f"All files in temp directories are in the LTS directories for batch {self.batch_id}.")
@@ -95,9 +100,21 @@ class CleanUpLocalTemp:
             return
         else:
             try:
-                # Remove the local batch directory
-                shutil.rmtree(self.local_batch_dir)
-                log.info(f"Removed local batch directory {self.local_batch_dir}.")
+                # Remove all the subfoolders and their contents except the inspection folder
+                local_batch_dir_contents = self.local_batch_dir.glob("*")
+                for item in local_batch_dir_contents:
+                    if item.is_dir() and item.name != "inspection":
+                        shutil.rmtree(item)
+                        log.info(f"Removed {item.relative_to(Path.cwd())}.")
+                    elif item.is_file():
+                        item.unlink()
+                        log.info(f"Removed {item.relative_to(Path.cwd())}.")
+                
+                # Remove only the prediction images folder in the inspection directory
+                prediction_images = self.local_batch_dir / "inspection" / "prediction_images"
+                shutil.rmtree(prediction_images)
+                log.info(f"Removed {prediction_images.relative_to(Path.cwd())}.")
+                
             except Exception as e:
                 log.error(f"Failed to remove temp directories for batch {self.batch_id}: {e}")
                 return
@@ -106,9 +123,13 @@ class CleanUpLocalTemp:
 def main(cfg: DictConfig):
     log.info("Starting cleanup of local temp directories.")
     batch_id = cfg.batch_id
-    cleaner = CleanUpLocalTemp(cfg, batch_id)
-    cleaner.cleanup_temp()
-    log.info("Finished cleanup of local temp directories.")
+    try:
+        cleaner = CleanUpLocalTemp(cfg, batch_id)
+        cleaner.cleanup_temp()
+        log.info("Finished cleanup of local temp directories.")
+    except Exception as e:
+        log.error(f"Error during cleanup: {e}", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     main()

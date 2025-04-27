@@ -26,13 +26,15 @@ class Raw2Jpg:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
         self.batch_id = self.cfg.batch_id
-        self._initialize_paths()
+        
 
         # Sampling and cleanup settings
         self.sample_count = cfg.raw2jpg.jpg_samples
         self.sample_resize_factor = cfg.raw2jpg.resize_factor
         self.remove_dngs = cfg.raw2jpg.remove_dngs
         self.max_workers = cfg.max_workers
+
+        self._initialize_paths()
     
     def _initialize_paths(self):
         """Initialize and create all necessary directory paths and files."""
@@ -48,7 +50,7 @@ class Raw2Jpg:
         self.lts_jpg_dst.mkdir(parents=True, exist_ok=True)
         # Local JPG sample directory
         self.lts_sample_dir = self.lts_dir / "semifield-developed-images" / self.batch_id / "preprocessing_samples"
-        self.lts_sample_dir.mkdir(parents=True, exist_ok=True)
+        self.lts_sample_dir.mkdir(parents=True, exist_ok=True) if self.sample_count > 0 else None
         # File masks
         self.file_masks = self.cfg.file_masks
         # Image Development paths (.pp3)
@@ -148,7 +150,7 @@ class Raw2Jpg:
             
             # Save a low-quality sample for inspection
             if is_converted:
-                log.info(f"Converted DNG to JPG: {dng_file.name} -> {jpg_output_path.name}")
+                log.info(f"Converted RAW to JPG: {raw_file.name} -> {jpg_output_path.name}")
                 if to_inspect:
                     lts_sample_path = self.lts_sample_dir / f"{dng_file.stem}.jpg"
                     self.save_lts_sample(str(jpg_output_path), str(lts_sample_path))
@@ -196,11 +198,18 @@ class Raw2Jpg:
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
-    """Main entry point for RAW to JPG conversion."""
-    log.info(f"Starting RAW to JPG conversion for batch: {cfg.batch_id}")
-    converter = Raw2Jpg(cfg)
-    converter.process_files()
-    log.info("RAW to JPG conversion completed.")
+    try:
+        """Main entry point for RAW to JPG conversion."""
+        log.info(f"Starting RAW to JPG conversion for batch: {cfg.batch_id}")
+        converter = Raw2Jpg(cfg)
+        converter.process_files()
+        log.info("RAW to JPG conversion completed.")
+    except Exception as e:
+        log.exception(f"An error occurred during the conversion process: {e}")
+        raise
+
+    log.info(f"Conversion process completed for batch: {cfg.batch_id}")
+    return
 
 
 if __name__ == "__main__":

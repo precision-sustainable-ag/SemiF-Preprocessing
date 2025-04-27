@@ -111,19 +111,34 @@ def main(cfg: DictConfig):
     source = cfg.paths.down_photos
     batch_name = cfg.batch_id
     source = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images" / batch_name / "images"
+    model_path = Path(cfg.paths.local_detection_model)
+    
+    if not source.exists():
+        log.error(f"Source path {source} does not exist.")
+        raise FileNotFoundError(f"Source path {source} does not exist.")
+    
+    if not model_path.exists():
+        log.error(f"Model path {model_path} does not exist.")
+        raise FileNotFoundError(f"Model path {model_path} does not exist.")
+    
     save_dir = Path(cfg.paths.batch_dir)
-    log.info(f"Source: {source}")
-    log.info(f"Save directory: {save_dir}")
-    log.info(f"Using model: {cfg.paths.local_detection_model}")
     save_dir.mkdir(parents=True, exist_ok=True)
-    opt = {
-        "model_path": cfg.paths.local_detection_model,
-        "source": source,
-        "batch_name": batch_name,
-        "save_dir": save_dir    }
+    
+    try:
+        opt = {
+            "model_path": str(model_path),
+            "source": source,
+            "batch_name": batch_name,
+            "save_dir": save_dir}
 
-    predict(opt)
-    log.info("Detection completed.")
+        predict(opt)
+        log.info("Detection completed.")
+    except Exception as e:
+        log.error(f"An error occurred during detection: {e}", exc_info=True)
+        raise 
+    
+    return
+    
     
 if __name__ == "__main__":
     main()

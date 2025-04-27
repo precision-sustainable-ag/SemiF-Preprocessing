@@ -20,5 +20,6 @@ dependencies:
     - tensorboard
     - shapely
     - exifread
+    - slack_sdk
     # TODO: add torch and torchvision and explicit Metashape install instructions
     # torch and torchvision

@@ -94,7 +94,6 @@ def _update_exif_worker(args):
             value = ",".join(map(str, value))
         cmd.append(f"-{key}={value}")
     cmd.append(str(file_path))
-    log.info(f"[{file_path.name}] Running: {' '.join(cmd)}")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
@@ -157,21 +156,38 @@ def main(cfg: DictConfig):
     
     log.info("Running EXIF tag update pipeline...")
     batch_id = cfg.batch_id
-
-    # Ensure exiftool is ready
-    setup_script = Path(cfg.paths.workdir) / "scripts" / "setup_exiftool.sh"
-    ensure_exiftool_installed(setup_script)
-
-    # Find image directory
-    lts_dir = find_lts_dir(batch_id, cfg.paths.lts_locations, local=False, developed=True, jpgs=True)
-    image_directory = Path(lts_dir) / "semifield-developed-images" / batch_id / "images"
-    if not image_directory.exists():
-        log.error(f"Image directory not found: {image_directory}")
-        return
+    try:
+        log.info("Checking for exiftool installation...")
+        # Ensure exiftool is ready
+        setup_script = Path(cfg.paths.workdir) / "scripts" / "setup_exiftool.sh"
+        ensure_exiftool_installed(setup_script)
+    except Exception as e:
+        log.error(f"ExifTool setup failed: {e}")
+        raise
     
-    # Update EXIF tags
-    batch_update(cfg, image_directory)
-    log.info("Finished updating EXIF tags.")
+    try:
+        log.info(f"Finding image directory for batch ID: {batch_id}")
+        # Find image directory
+        lts_dir = find_lts_dir(batch_id, cfg.paths.lts_locations, local=False, developed=True, jpgs=True)
+        image_directory = Path(lts_dir) / "semifield-developed-images" / batch_id / "images"
+        if not image_directory.exists():
+            log.error(f"Image directory not found: {image_directory}")
+            return
+    except Exception as e:
+        log.error(f"Failed to find image directory: {e}")
+        raise
+    
+    try:
+        log.info(f"Updating EXIF tags in directory: {image_directory}")
+        # Update EXIF tags
+        batch_update(cfg, image_directory)
+        log.info("Finished updating EXIF tags.")
+    except Exception as e:
+        log.error(f"Failed to update EXIF tags: {e}")
+        raise
+    
+    log.info("EXIF update process completed successfully.")
+    return
 
 if __name__ == "__main__":
     main()

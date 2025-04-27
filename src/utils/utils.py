@@ -4,6 +4,13 @@ import logging
 import piexif
 import math
 import numpy as np
+import yaml
+import shutil
+from hydra.core.hydra_config import HydraConfig
+import subprocess
+import json
+import os
+import time
 
 log = logging.getLogger(__name__)
 
@@ -169,3 +176,96 @@ def add_exif_data(image_path: Path, updated_exif: dict) -> None:
     image = Image.open(image_path)
     image.save(image_path, "jpeg", exif=piexif.dump(exif_dict), quality='keep', subsampling='keep')
     return
+
+def read_yaml(yaml_path):
+    try:
+        with open(yaml_path, "r") as file:
+            data = yaml.safe_load(file)
+        return data
+    except Exception as e:
+        raise FileNotFoundError(f"File does not exist : {yaml_path}")
+
+def save_log_to_lts(cfg):
+    try:
+        batch_id = cfg.batch_id
+        log_src_path = Path(HydraConfig.get().runtime.output_dir) / f"{batch_id}.log"
+        log_dst_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations)) / "semifield-developed-images" / batch_id / "inspection"
+        log_dst_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy(log_src_path, log_dst_dir)
+    except Exception as e:
+        log.error(f"Failed to save log file: {e}")
+
+def create_issue(batch_id, user_id, issue_type, tsk: str = None, error_msg: str = None):
+    
+    if issue_type == "report":
+        trigger_payload = {
+                "event_type": "report-generated",
+                "client_payload": {
+                    "batch_id": batch_id,
+                    "assignee": user_id  # from cfg.report.reviewers
+                }
+            }
+        
+    elif issue_type == "failure":
+        trigger_payload = {
+                "event_type": "failure-reported",
+                "client_payload": {
+                    "batch_id": batch_id,
+                    "assignee": user_id,
+                    "task_name": tsk,
+                    "error_msg": error_msg
+                }
+            }
+    subprocess.run([
+                "curl", "-X", "POST", "https://api.github.com/repos/precision-sustainable-ag/SemiF-Preprocessing/dispatches",
+                "-H", f"Authorization: token {os.environ['GITHUB_PAT']}",
+                "-H", "Accept: application/vnd.github.v3+json",
+                "-d", json.dumps(trigger_payload)
+            ], check=True)
+
+
+def retry_nfs_access(path: Path, 
+                     mode: str = "read", 
+                     retries: int = 5, 
+                     delay: float = 2.0,
+                     backoff: float = 1.5) -> bool:
+    """
+    Retry access to a Path (NFS) multiple times if PermissionError or OSError occurs.
+
+    Args:
+        path (Path): Path object pointing to a file or directory.
+        mode (str): "read" (check existence/readability) or "write" (try writing a temp file).
+        retries (int): Max number of retries.
+        delay (float): Initial delay between retries in seconds.
+        backoff (float): Backoff multiplier to increase delay.
+
+    Returns:
+        bool: True if access eventually succeeds, False otherwise.
+    """
+    assert mode in ["read", "write"], "mode must be 'read' or 'write'"
+
+    for attempt in range(retries):
+        try:
+            if mode == "read":
+                if not path.exists():
+                    raise FileNotFoundError(f"{path} does not exist")
+                if path.is_dir():
+                    _ = list(path.iterdir())  # trigger PermissionError if any
+                else:
+                    _ = path.read_bytes()[:1]  # just try to read a byte
+
+            elif mode == "write":
+                test_file = path / ".nfs_test"
+                test_file.write_text("test")
+                test_file.unlink()
+
+            log.info(f"NFS access succeeded on attempt {attempt+1}: {path}")
+            return True
+
+        except (PermissionError, OSError) as e:
+            log.warning(f"Attempt {attempt+1} failed to access {path}: {e}")
+            time.sleep(delay)
+            delay *= backoff
+
+    log.error(f"NFS access failed after {retries} attempts: {path}")
+    return False
