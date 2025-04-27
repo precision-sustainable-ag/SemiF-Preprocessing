@@ -309,14 +309,36 @@ class ImageReport:
             c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
 
         # --------------------------------------------------------
-        # Section 4: Metashape Report Image Page 4
+        # Section 4: Metashape Report Image Page 3
         # --------------------------------------------------------
 
         c.showPage()  # Start a new page
-        # Metashape report page 2
+        # Metashape report page 3
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_003.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
+
+        # --------------------------------------------------------
+        # Section 5: Metashape Report Image Page 4
+        # --------------------------------------------------------
+        c.showPage()  # Start a new page
+        # Metashape report page 4
         metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_004.jpg"
         if metashape_page_1.exists():
             c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
+        
+        # c = canvas.Canvas(str(Path(pdf_output_path.parent, pdf_output_path.stem + ".test.pdf")), pagesize=letter)
+        c.showPage()  # Start a new page
+        # Metashape report page 9
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_009.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -10, -75, width=675, height=1000, preserveAspectRatio=True)
+
+        c.showPage()  # Start a new page
+        # Metashape report page 10
+        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_010.jpg"
+        if metashape_page_1.exists():
+            c.drawImage(metashape_page_1, -10, -125, width=650, height=1000, preserveAspectRatio=True)
 
         # --------------------------------------------------------
         # Section 5: Sample Images
@@ -579,16 +601,17 @@ def main(cfg: DictConfig):
         log.error(f"Error generating report: {e}")
         raise
     
-    try:
-        # Copy report to LTS developed inspection directory
-        report_dst = image_report.developed_directory / "inspection"
-        report_src = str(image_report.output_report_dir / f"{image_report.batch_id}_report.pdf")
-        shutil.copy(report_src, report_dst)
-        log.info(f"Report copied to LTS directory: {report_dst}")
-    except Exception as e:
-        log.error(f"Error copying report to LTS directory: {e}")
-        raise
-    
+    if cfg.report.save2lts:
+        try:
+            # Copy report to LTS developed inspection directory
+            report_dst = image_report.developed_directory / "inspection"
+            report_src = str(image_report.output_report_dir / f"{image_report.batch_id}_report.pdf")
+            shutil.copy(report_src, report_dst)
+            log.info(f"Report copied to LTS directory: {report_dst}")
+        except Exception as e:
+            log.error(f"Error copying report to LTS directory: {e}")
+            raise
+        
 
 if __name__ == "__main__":
     main()
