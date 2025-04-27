@@ -356,7 +356,7 @@ class SfM:
         self.doc.chunks[chunk].alignCameras(
             cameras=self.doc.chunks[chunk].cameras,
             min_image=2,
-            adaptive_fitting=False,
+            adaptive_fitting=self.align_photos_cfg.adaptive_fitting,
             reset_alignment=True,
             subdivide_task=True,
             progress=progress_callback,
@@ -427,7 +427,12 @@ class SfM:
         new_chunk = self.doc.addChunk()
         photos = [camera.photo.path for camera in unaligned_cameras]
 
-        new_chunk.addPhotos(photos)
+        try:
+            new_chunk.addPhotos(photos)
+        except Exception as e:
+            log.error(f"Failed to add photos to new chunk: {e}")
+            log.error(f"Photos: {photos}")
+            raise
 
         if self.detect_markers_cfg:
             self.detect_markers(chunk=len(self.doc.chunks) - 1)
@@ -519,7 +524,7 @@ class SfM:
 
         self.doc.chunk.buildDem(
             source_data=ms.PointCloudData,
-            interpolation=ms.EnabledInterpolation,
+            interpolation=ms.Extrapolated,
             flip_x=False,
             flip_y=False,
             flip_z=False,
@@ -640,12 +645,8 @@ class SfM:
             self.doc.chunk.shapes = ms.Shapes()
             self.doc.chunk.shapes.crs = self.doc.chunk.crs
         
-        # Check if the chunk has a model or point cloud
-        surface = (
-            self.doc.chunk.model or
-            self.doc.chunk.point_cloud or
-            self.doc.chunk.tie_points
-        )
+        # Always use the model for FOV calculation
+        surface = self.doc.chunk.model
         
         # Get the transformation matrix
         transform = self.doc.chunk.transform.matrix
