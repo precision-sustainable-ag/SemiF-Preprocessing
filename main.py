@@ -72,8 +72,7 @@ def main(cfg: DictConfig) -> None:
     log.info("All tasks completed successfully.")
     if cfg.create_issue:        
         log.info("Creating GitHub issue for successful run.")
-        if "report" in cfg.tasks:
-            create_issue(batch_id, user_id, issue_type="report")
+        create_issue(batch_id, user_id, issue_type="report")
 
 if __name__ == "__main__":
     main()
