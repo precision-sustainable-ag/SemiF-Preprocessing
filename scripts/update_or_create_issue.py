@@ -76,7 +76,18 @@ def build_failure_body():
         f"_Assigned to @{ASSIGNEE}_"
     )
 
-def build_success_body():
+def build_non_first_success_body():
+    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_report.pdf"
+    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.log"
+    return (
+        "### New Inspection Report Available\n\n"
+        f"The inspection report for batch `{BATCH_ID}` is ready for review.\n\n"
+        f"[View Report PDF]({globus_pdf})\n"
+        f"[View Log File]({globus_log})\n\n"
+        f"_Assigned to @{ASSIGNEE}_\n\n"
+    )
+
+def build_first_success_body():
     globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_report.pdf"
     globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.log"
     return (
@@ -101,11 +112,12 @@ def build_success_body():
 
 def main():
     
-    body = build_success_body() if IS_SUCCESS else build_failure_body()
+    body = build_first_success_body() if IS_SUCCESS else build_failure_body()
     title = f"{BATCH_ID}: Preprocessing Status"
     issue_number = find_existing_issue(BATCH_ID, title)
 
     if issue_number:
+        body = build_non_first_success_body() if IS_SUCCESS else body
         comment_on_issue(issue_number, body)
     
         # Modify labels based on status
