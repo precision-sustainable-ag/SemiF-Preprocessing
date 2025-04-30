@@ -524,7 +524,7 @@ class SfM:
 
         self.doc.chunk.buildDem(
             source_data=ms.PointCloudData,
-            interpolation=ms.Extrapolated,
+            interpolation=ms.EnabledInterpolation,
             flip_x=False,
             flip_y=False,
             flip_z=False,
