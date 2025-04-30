@@ -86,20 +86,19 @@ class Raw2Jpg:
             raise FileNotFoundError(
                 f"RawTherapee CLI validation script not found: {self.validate_rt_cli_script.name}")
 
-    def filter_files_by_timestamp(self, files: list[str], timestamp: str) -> list[Path]:
+    def filter_files_by_timestamp(self, files: list[tuple[Path, bool]], timestamp: str) -> list[tuple[Path, bool]]:
         """
-        Filter files based on a input timestamp and file name timestamps which are in epoch and formatted like MD_1746025934.RAW.
+        Filter files based on an input timestamp and file name timestamps which are in epoch and formatted like MD_1746025934.RAW.
         """
         filtered_files = []
-        for file in files:
-            file = Path(file[0])
+        for path, flag in files:
             # Extract the timestamp from the file name
-            file_timestamp = file.stem.split("_")[-1]
+            file_timestamp = path.stem.split("_")[-1]
             # Check if the timestamp is in the file name
             if len(file_timestamp) == 10 and file_timestamp.isdigit():
                 # Compare with the input timestamp
                 if int(file_timestamp) >= int(timestamp):
-                    filtered_files.append(str(file))
+                    filtered_files.append((path, flag))
         return filtered_files
     
     def get_raw_files(self) -> list[tuple[Path, bool]]:
