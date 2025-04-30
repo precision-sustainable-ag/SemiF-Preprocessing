@@ -1,5 +1,5 @@
 # workdir: ${hydra:runtime.cwd}  # where the code is executed
-workdir: /home/mkutuga/SemiField-Preprocessing
+workdir: /home/mkutuga/SemiF-Preprocessing
 
 log_dir: ${paths.workdir}/.logs/
 data_dir: ${paths.workdir}/data/
