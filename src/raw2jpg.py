@@ -114,9 +114,9 @@ class Raw2Jpg:
         raw_files = [(file, file in sampled_files) for file in raw_files]
         log.info(f"Found {len(raw_files)} RAW files.")
         # Filter files based on timestamp
-        if self.cfg.raw2jpg.timestamp:
-            raw_files = self.filter_files_by_timestamp(raw_files, self.cfg.raw2jpg.timestamp)
-            log.info(f"Filtered {len(raw_files)} RAW files based on timestamp: {self.cfg.raw2jpg.timestamp}")
+        if self.cfg.timestamp:
+            raw_files = self.filter_files_by_timestamp(raw_files, self.cfg.timestamp)
+            log.info(f"Filtered {len(raw_files)} RAW files based on timestamp: {self.cfg.timestamp}")
         return raw_files
     
     def remove_local_dng(self, dng_file: Path) -> None:

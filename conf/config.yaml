@@ -20,9 +20,10 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 # Main configuration for the current batch
 ############################################
-batch_id:
+batch_id: MD_2025-04-30
 season: cool_season_covers_2024_2025
-create_issue: false
+create_issue: true
+timestamp: 1746025934 # timestamp for raw2jpg
 ############################################
 
 tasks:
