@@ -1,0 +1,25 @@
+name: Run SemiF-Preprocessing Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  run-pipeline:
+    runs-on: [self-hosted]  # or your configured runner label
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Conda environment
+        run: |
+          source ~/miniconda3/etc/profile.d/conda.sh
+          conda activate semifpre
+
+      - name: Run SemiF-Preprocessing pipeline
+        env:
+          GITHUB_PAT: ${{ secrets.REPORT_BOT_PAT }}
+        run: |
+          python main.py

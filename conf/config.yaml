@@ -61,7 +61,6 @@ raw2jpg:
   jpg_samples: 0
   resize_factor: 0.25
   remove_dngs: true
-  timestamp: 1746025934
 
 max_workers: 16
 
