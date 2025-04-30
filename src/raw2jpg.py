@@ -86,6 +86,21 @@ class Raw2Jpg:
             raise FileNotFoundError(
                 f"RawTherapee CLI validation script not found: {self.validate_rt_cli_script.name}")
 
+    def filter_files_by_timestamp(self, files: list[tuple[Path, bool]], timestamp: str) -> list[tuple[Path, bool]]:
+        """
+        Filter files based on an input timestamp and file name timestamps which are in epoch and formatted like MD_1746025934.RAW.
+        """
+        filtered_files = []
+        for path, flag in files:
+            # Extract the timestamp from the file name
+            file_timestamp = path.stem.split("_")[-1]
+            # Check if the timestamp is in the file name
+            if len(file_timestamp) == 10 and file_timestamp.isdigit():
+                # Compare with the input timestamp
+                if int(file_timestamp) >= int(timestamp):
+                    filtered_files.append((path, flag))
+        return filtered_files
+    
     def get_raw_files(self) -> list[tuple[Path, bool]]:
         """
         Retrieve all raw image files for the batch and sample a subset for quality check.
@@ -98,6 +113,10 @@ class Raw2Jpg:
         sampled_files = set(random.sample(raw_files, min(len(raw_files), self.sample_count)))
         raw_files = [(file, file in sampled_files) for file in raw_files]
         log.info(f"Found {len(raw_files)} RAW files.")
+        # Filter files based on timestamp
+        if self.cfg.raw2jpg.timestamp:
+            raw_files = self.filter_files_by_timestamp(raw_files, self.cfg.raw2jpg.timestamp)
+            log.info(f"Filtered {len(raw_files)} RAW files based on timestamp: {self.cfg.raw2jpg.timestamp}")
         return raw_files
     
     def remove_local_dng(self, dng_file: Path) -> None:
