@@ -4,43 +4,40 @@ This project automates the *preprocessing* of **RAW agricultural images**, parti
 It takes raw image data, converts it to standard formats (**JPG**), reconstructs a **3D scene** using Structure from Motion (SfM), detects plants (**YOLO**), refines their locations (**bounding boxes**), assigns species labels, generates quality control **reports**, and automatically tracks progress and issues on **GitHub**.
 The entire workflow is orchestrated as a pipeline, managed by configuration files for flexibility.
 
-
 ```mermaid
 flowchart TD
-    A0["Pipeline Execution & Orchestration
-"]
-    A1["Configuration Management (Hydra)
-"]
-    A2["RAW Image Processing & Conversion (RAW -> DNG -> JPG)
-"]
-    A3["Structure from Motion (SfM) Pipeline
-"]
-    A4["Plant Detection
-"]
-    A5["Bounding Box Processing & Labeling
-"]
-    A6["Reporting & Quality Control (QC)
-"]
-    A7["Automated Issue Tracking (GitHub)
-"]
-    A8["Data Synchronization & Movement
-"]
-    A0 -- "Reads configuration from" --> A1
-    A0 -- "Executes RAW processing" --> A2
-    A0 -- "Executes SfM pipeline" --> A3
-    A0 -- "Executes plant detection" --> A4
-    A0 -- "Executes BBox processing" --> A5
-    A0 -- "Executes report generation" --> A6
-    A0 -- "Triggers issue creation/update" --> A7
-    A0 -- "Executes data synchronization" --> A8
-    A1 -- "Provides SfM parameters" --> A3
-    A1 -- "Provides BBox parameters" --> A5
-    A2 -- "Provides JPGs for 3D model" --> A3
-    A2 -- "Provides JPGs for detection" --> A4
-    A3 -- "Provides 3D map for remapping" --> A5
-    A4 -- "Provides initial bounding b..." --> A5
-    A5 -- "Provides processed boxes fo..." --> A6
-    A8 -- "Stages RAW/model files" --> A2
+    A0["Pipeline Execution & Orchestration"]
+    A1["Configuration Management (Hydra)"]
+    A2["RAW Image Processing & Conversion (RAW to DNG to JPG)"]
+    A3["Structure from Motion (SfM) Pipeline"]
+    A4["Plant Detection"]
+    A5["Bounding Box Processing and Labeling"]
+    A6["Reporting and Quality Control (QC)"]
+    A7["Automated Issue Tracking (GitHub)"]
+    A8["Data Synchronization and Movement"]
+
+    A0 -->|Reads configuration| A1
+    A0 -->|Executes RAW processing| A2
+    A0 -->|Executes SfM pipeline| A3
+    A0 -->|Executes plant detection| A4
+    A0 -->|Executes BBox processing| A5
+    A0 -->|Executes report generation| A6
+    A0 -->|Triggers issue creation/update| A7
+    A0 -->|Executes data synchronization| A8
+
+    A1 -->|Provides RAW processing config| A2
+    A1 -->|Provides SfM parameters| A3
+    A1 -->|Provides detection settings| A4
+    A1 -->|Provides BBox parameters| A5
+    A1 -->|Provides QC/reporting config| A6
+    A1 -->|Provides sync rules| A8
+
+    A2 -->|Provides JPGs for 3D model| A3
+    A2 -->|Provides JPGs for detection| A4
+    A3 -->|Provides 3D map for remapping| A5
+    A4 -->|Provides initial bounding boxes| A5
+    A5 -->|Provides processed boxes for reports| A6
+    A8 -->|Stages RAW and model files| A2
 ```
 
 ## Chapters
