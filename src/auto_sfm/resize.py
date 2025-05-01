@@ -90,7 +90,7 @@ def fix_exif_types(exif_dict):
                 elif isinstance(value, list) and all(isinstance(v, int) for v in value):
                     fixed[tag] = value
                 else:
-                    log.error(f"Skipping tag {tag} due to bad type: {type(value)} -> {value}")
+                    log.debug(f"Skipping tag {tag} due to bad type: {type(value)} -> {value}")
                     continue
 
             exif_dict[ifd] = fixed

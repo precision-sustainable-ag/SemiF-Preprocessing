@@ -23,4 +23,4 @@ jobs:
         env:
           GITHUB_PAT: ${{ secrets.REPORT_BOT_PAT }}
         run: |
-          python main.py
+          taskset -c 2-31 python main.py
