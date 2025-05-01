@@ -20,16 +20,17 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 # Main configuration for the current batch
 ############################################
-batch_id: MD_2025-04-30
-season: cool_season_covers_2024_2025
+batch_id: TX_2024-08-17
+# season: cool_season_covers_2024_2025
+season: summer_weeds_2024
 create_issue: true
 timestamp: 1746025934 # timestamp for raw2jpg
 ############################################
 
 tasks:
-  - sync_from_remote
-  - raw2jpg # raw2jpg does raw2dng + dng2jpg
-  - update_exif
+  # - sync_from_remote
+  # - raw2jpg # raw2jpg does raw2dng + dng2jpg
+  # - update_exif
   - autosfm
   - detect_plants
   - merge_overlapping_bboxes
