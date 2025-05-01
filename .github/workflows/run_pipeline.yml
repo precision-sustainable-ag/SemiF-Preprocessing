@@ -7,7 +7,8 @@ on:
 
 jobs:
   run-pipeline:
-    runs-on: [self-hosted]  # or your configured runner label
+    runs-on: [self-hosted]
+    timeout-minutes: 1440  # 24 hours
     
     steps:
       - name: Checkout repository

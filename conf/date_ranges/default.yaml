@@ -23,6 +23,10 @@ MD:
     start: "2024-07-08"
     end: "2024-09-08"
     bbot_version: v3.0
+  cover crops 2024/2025_MDbbotv3.0:
+    start: "2024-10-16"
+    end: "2025-04-15"
+    bbot_version: v3.0
   cover crops 2024/2025:
     start: "2025-04-16"
     end: "2025-05-15"
