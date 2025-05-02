@@ -134,7 +134,7 @@ class BBoxMapper:
             List[ImageMetadata]: Updated image list with global coordinates for each bounding box.
         """
         # Create a list of chunks for each image_id
-        log.info(f"Starting bounding box mapping for {len(self.images)} images using Metashape project: {self.project_path.relative_to(Path.cwd())}")
+        log.info(f"Starting bounding box mapping for {len(self.images)} images using Metashape project: {self.project_path}")
         image_id_map = {img.image_id: [] for img in self.images}
         chunk = self._select_chunk(image_id_map)
         surface = chunk.model
@@ -655,7 +655,7 @@ class RemapLabels:
         try:
             gdf = gpd.GeoDataFrame(records, crs="EPSG:4326")
             gdf.to_file(output_path, driver='ESRI Shapefile')
-            log.info(f"Saved shapefile: {output_path.relative_to(Path.cwd())} with {len(records)} features.")
+            log.info(f"Saved shapefile: {output_path} with {len(records)} features.")
         except Exception as e:
             log.exception(f"Failed to write shapefile: {output_path}")
             raise
