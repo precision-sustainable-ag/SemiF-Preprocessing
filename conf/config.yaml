@@ -20,27 +20,28 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 # Main configuration for the current batch
 ############################################
-batch_id: TX_2024-08-17
-bbot_version: 2.0
-season: summer_weeds_2024
+batch_id:
+bbot_version:
+season:
 create_issue: true
 timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be ignored in the batch
+run_mode: batch # single or batch
 modes:
   # - sync
   # - correct
-  - asfm
+  # - asfm
   - label
   - deliver
 ############################################
 
 tasks: # task for each mode
   sync:
-    - sync_from_remote
+    - sync_from_remote # not implemented # TODO: create task list for sync
   correct:
     - raw2jpg # raw2jpg does raw2dng + dng2jpg
     - update_exif
   asfm:
-    - autosfm
+    - autosfm # not implemented # TODO: create task list for autosfm
   label:
     - detect_plants
     - merge_overlapping_bboxes
@@ -85,3 +86,59 @@ report:
       MD: mkutu #map0425 # Nick N of MD
       NC: mkutu #nnotaba # Nick N of MD
       default: mkutu # Matt K
+
+batch_list:
+- batch_id: TX_2024-06-10
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-06-06
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-05-28
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-05-24
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-05-20
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-05-17
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-05-14
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-05-10
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-05-07
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-05-04
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-04-22
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-04-15
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-04-12
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-04-08
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-04-04
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-04-02
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-03-28
+  season: summer_weeds_2024
+  bbot_version: v2.0
+- batch_id: TX_2024-03-26
+  season: summer_weeds_2024
+  bbot_version: v2.0
