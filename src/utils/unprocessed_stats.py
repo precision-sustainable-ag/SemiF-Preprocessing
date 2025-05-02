@@ -1,12 +1,13 @@
 from tqdm import tqdm
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 import pandas as pd
 import hydra
 import re
 from omegaconf import DictConfig
 import logging
 from datetime import datetime
+import yaml
 
 log = logging.getLogger(__name__)
 
@@ -107,21 +108,64 @@ class BatchStatusChecker:
 
         return pd.DataFrame(batch_records.values())
 
-def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def preprocess_dataframe(df: pd.DataFrame, season_mapping: Dict[str, list]) -> pd.DataFrame:
     # Create a date column from batch_id
     df['date'] = pd.to_datetime(df['batch_id'].str.split('_').str[1], format='%Y-%m-%d')
     df['month'] = df['date'].dt.month
     df['year'] = df['date'].dt.year
     df['state'] = df['batch_id'].str.split('_').str[0]
-    # Replace "cover crops 2024/2025MDbbotv3.0" with "cover crops 2024/2025" in season column that already exists
+
+    # Clean weird suffixes
     df['season'] = df['season'].str.replace('_MDbbotv3.0', '', regex=False)
-    # Create a general season column
+
+    # Create general season category
     df['general_season'] = df['season'].apply(
         lambda x: 'cover' if 'cover' in str(x).lower() else 
                   'weeds' if 'weeds' in str(x).lower() else 
                   'cash' if 'cash' in str(x).lower() else None
     )
-    return df.sort_values(by=["batch_id"])
+
+    # Build alias -> canonical season map
+    alias_to_canonical = {
+        alias: canonical
+        for canonical, aliases in season_mapping.items()
+        for alias in aliases
+    }
+
+    # Map aliases to canonical seasons
+    df['canonical_season'] = df['season'].apply(lambda x: alias_to_canonical.get(x, x))
+
+    return df.sort_values(by=["batch_id"], ascending=False)
+
+
+
+def generate_batch_list_yaml(df: pd.DataFrame) -> str:
+    """
+    Generate a YAML-formatted batch_list from a DataFrame.
+
+    Args:
+        df (pd.DataFrame): A DataFrame with at least 'batch_id', 'season', and 'bbot_version' columns.
+
+    Returns:
+        str: YAML-formatted string with batch_list.
+    """
+    required_cols = {"batch_id", "season", "bbot_version"}
+    missing = required_cols - set(df.columns)
+    
+    if missing:
+        raise ValueError(f"DataFrame is missing required columns: {missing}")
+    
+    batch_list = [
+        {
+            "batch_id": row["batch_id"],
+            "season": str(row["canonical_season"]),
+            "bbot_version": str(row["bbot_version"])
+        }
+        for _, row in df.iterrows()
+    ]
+
+    return yaml.dump({"batch_list": batch_list}, sort_keys=False, default_flow_style=False)
+
 
 @hydra.main(version_base="1.3", config_path="../../conf", config_name="config.yaml")
 def main(cfg: DictConfig):
@@ -134,15 +178,15 @@ def main(cfg: DictConfig):
     unprocessed_df = analyzer.get_unprocessed_batches()
 
     # Preprocess the DataFrame
-    cleaned_unprocessed_df = preprocess_dataframe(unprocessed_df)
+    cleaned_unprocessed_df = preprocess_dataframe(unprocessed_df, cfg.date_ranges.season_mappings)
     
     # Group by state, general_season, and year
     cleaned_unprocessed_df = cleaned_unprocessed_df[cleaned_unprocessed_df['preprocessed'] == False]
-    summary_df = cleaned_unprocessed_df.groupby(['state','general_season','year']).agg(
+    summary_df = cleaned_unprocessed_df.groupby(['state','canonical_season','year']).agg(
         {
         'batch_id': 'count'
         }
-        ).reset_index().sort_values(['state','year','general_season'])
+        ).reset_index().sort_values(['state','year','canonical_season'])
     
     # Save unprocessed batches and the grouped by summary
     unprocessed_stats_dir = Path(cfg.paths.unprocessed_stats_dir)
@@ -150,6 +194,11 @@ def main(cfg: DictConfig):
     cleaned_unprocessed_df.to_csv(unprocessed_stats_dir / "unprocessed_batches.csv", index=False)
     summary_df.to_csv(unprocessed_stats_dir / "unprocessed_batches_summary.csv", index=False)
     analyzer.df.to_csv(unprocessed_stats_dir / "all_batches.csv", index=False)
+
+    # cleaned_unprocessed_df = pd.read_csv("data/unprocessed_stats/unprocessed_batches.csv")
+    yaml_output = generate_batch_list_yaml(cleaned_unprocessed_df)
+    with open(unprocessed_stats_dir / "batch_list.yaml", "w") as f:
+        f.write(yaml_output)
 
 if __name__ == "__main__":
     main()
