@@ -25,17 +25,17 @@ class ImageReport:
     def __init__(self, cfg: DictConfig):
         self.batch_id = cfg.batch_id
         
-        self.lts_dir = find_lts_dir(self.batch_id, cfg.paths.lts_locations)
+        self.bbot_version = str(cfg.bbot_version)
+        self.lts_dir = find_lts_dir(self.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
         self.upload_directory = Path(self.lts_dir) / "semifield-upload" / self.batch_id
         self.developed_directory = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
-
         self.output_report_dir = Path(cfg.paths.inspection_dir)
         self.output_report_dir.mkdir(parents=True, exist_ok=True)
 
         self.plot_file_base = self.output_report_dir / "plots"
         self.plot_file_base.mkdir(parents=True, exist_ok=True)
 
-        self.raw_image_files = list(self.upload_directory.glob("*.RAW"))  # Adjust extension if necessary
+        self.raw_image_files = self.find_raw_image_files()
         self.developed_image_files = list(Path(self.developed_directory, "images").glob("*.jpg"))
         self.image_data = []
 
@@ -45,6 +45,20 @@ class ImageReport:
 
         self.sample_size = cfg.report.sample_size
 
+    def find_raw_image_files(self) -> List[Path]:
+        if self.bbot_version in ["V3.1","3.1"]:
+            extension = "*.RAW"
+        else:
+            # Check if 'SONY' directory exists in the upload directory
+            if (self.upload_directory / "SONY").exists():
+                extension = "SONY/*.ARW"
+            else:
+                # If 'SONY' directory does not exist, use the default extension
+                extension = "*.ARW"
+        raw_image_files = sorted(self.upload_directory.glob(extension))
+        log.debug(f"Found {len(raw_image_files)} raw image files in {self.upload_directory}")
+        return raw_image_files
+        
     def calculate_total_images(self) -> int:
         return len(self.raw_image_files)
 
@@ -71,11 +85,30 @@ class ImageReport:
         max_size = self.find_max_image_size()
         return sum(1 for image in self.raw_image_files if image.stat().st_size < max_size)
 
+    def matches_stem_pattern(self, stem: str) -> bool:
+        """
+        Check if the file stem matches the expected pattern which is <state>_<epoch>. State should either be MD,NC, or TX.
+        """
+        pattern = re.compile(r"^(MD|NC|TX)_(\d+)$")
+        return bool(pattern.match(stem))
+    
     def extract_image_metadata(self) -> None:
+        stem_match_flag = True
         for image in self.raw_image_files:
             try:
-                name = image.stem
-                state, epoch = name.split("_")
+                stem = image.stem
+                if not self.matches_stem_pattern(stem):
+                    stem_match_flag = False
+                    if not stem_match_flag:
+                        log.warning(f"Filename {stem} does not match the expected regex pattern ('^(.*)_(\d+)$').")
+                
+                state, epoch = stem.split("_")[0], stem.split("_")[1]
+
+                # check if epoch is a valid integer
+                if not epoch.isdigit():
+                    log.warning(f"Epoch {epoch} in filename {stem} is not a valid integer.")
+                    continue
+
                 file_size = image.stat().st_size
                 file_mtime = datetime.fromtimestamp(image.stat().st_mtime)
                 capture_datetime = datetime.fromtimestamp(int(epoch))
@@ -130,7 +163,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"capture_time_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Capture time plot saved to {file_path.relative_to(Path.cwd())}")
+        log.info(f"Capture time plot saved to {file_path}")
 
     def generate_modified_line_plot(self) -> None:
         """
@@ -153,7 +186,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"upload_time_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Upload time plot saved to {file_path.relative_to(Path.cwd())}")
+        log.info(f"Upload time plot saved to {file_path}")
     
     def generate_average_upload_time_plot(self) -> None:
         """
@@ -176,7 +209,7 @@ class ImageReport:
         file_path = self.plot_file_base / f"upload_time_difference_plot_{self.batch_id}.png"
         plt.savefig(file_path)
         plt.close()
-        log.info(f"Upload time difference plot saved to {file_path.relative_to(Path.cwd())}")
+        log.info(f"Upload time difference plot saved to {file_path}")
 
     def calculate_average_upload_time(self) -> float:
         """
@@ -211,7 +244,7 @@ class ImageReport:
         # ----------------------------------------------------
         # Section 1: Summary Information
         # ----------------------------------------------------
-        c.drawString(50, 750, f"SemiField BbotV3.1 Collection Report")
+        c.drawString(50, 750, f"SemiField Bbot V{self.bbot_version} Collection Report")
         c.drawString(50, 730, f"Batch ID: {batch_id}")
         c.drawString(50, 710, f"Total Raw Images: {total_images}")
         c.drawString(50, 690, f"Total Raw Size: {total_size / (1024 ** 3):.2f} GiB")
@@ -460,7 +493,7 @@ class ImageReport:
 
         # Save the PDF
         c.save()
-        log.info(f"PDF report saved to {pdf_output_path.relative_to(Path.cwd())}")
+        log.info(f"PDF report saved to {pdf_output_path}")
 
     def generate_report(self) -> None:
         """
@@ -496,7 +529,7 @@ class LogParser:
         Copies the log file to the output report directory.
         """
         shutil.copy(self.log_path, self.output_report_dir)
-        log.info(f"Log file copied to {self.output_report_dir.relative_to(Path.cwd())}")
+        log.info(f"Log file copied to {self.output_report_dir}")
 
     def extract_error_blocks(self) -> pd.DataFrame:
         """
