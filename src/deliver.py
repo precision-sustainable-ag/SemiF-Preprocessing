@@ -24,25 +24,19 @@ def main(cfg: DictConfig) -> None:
     
     task_dict = cfg.tasks.deliver
 
-    for task, enabled in task_dict.items():
+    for task in task_dict:
 
-        if enabled:
+        if task in TASK_REGISTRY:
             log.info(f"Running task {task}")
+            try:
+                TASK_REGISTRY[task](cfg)
+            except Exception as e:
+                log.error(f"Error running task {task}: {e}")
+                raise
 
-            if task in TASK_REGISTRY:
-                log.info(f"Running task {task}")
-                try:
-                    TASK_REGISTRY[task](cfg)
-                except Exception as e:
-                    log.error(f"Error running task {task}: {e}")
-                    raise
-
-            else:
-                log.error(f"Task {task} not found in delvier task registry")
-                raise ValueError(f"Task {task} not found in deliver task registry")
         else:
-            log.info(f"Skipping task {task}. Enabled: {enabled}")
-    
+            log.error(f"Task {task} not found in delvier task registry")
+            raise ValueError(f"Task {task} not found in deliver task registry")
     
     log.info("Moving data and reporting complete.")
     return

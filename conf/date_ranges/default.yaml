@@ -87,3 +87,12 @@ TX:
     start: "2024-03-26"
     end: "2024-09-08"
     bbot_version: v2.0
+
+
+season_mappings:
+  summer_weeds_2024:
+    - "weeds 2024"
+    - "weeds_2024"
+    - "summer_weeds_2024"
+    - "summer weeds 2024"
+  # TODO: add more season mappings
