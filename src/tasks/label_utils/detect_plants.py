@@ -1,10 +1,9 @@
 # Ultralytics YOLO 🚀, GPL-3.0 license
 import torch
 
-from ultralytics.yolo.engine.predictor import BasePredictor
-from ultralytics.yolo.engine.results import Results
-from ultralytics.yolo.utils import DEFAULT_CFG, ROOT, ops
-from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
+from src.tasks.label_utils.ultralytics.yolo.engine.predictor import BasePredictor
+from src.tasks.label_utils.ultralytics.yolo.utils import DEFAULT_CFG
+from src.tasks.label_utils.ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
 import hydra
 from omegaconf import DictConfig
 import logging

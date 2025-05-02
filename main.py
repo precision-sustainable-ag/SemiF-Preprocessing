@@ -44,8 +44,8 @@ def main(cfg: DictConfig) -> None:
     Main entry point for running SemiF-Preprocesing pipeline.
     """
     cfg = OmegaConf.create(cfg)
-    mode = cfg.mode
-    log.info(f"Starting SemiF-Preprocessing pipeline in {mode} mode.")
+    modes = cfg.modes
+    log.info(f"Starting SemiF-Preprocessing pipeline in {",".join(modes)} mode.")
 
     keys = read_yaml(cfg.paths.pipeline_keys)
     
@@ -56,25 +56,26 @@ def main(cfg: DictConfig) -> None:
 
     lts_path  = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images"
     
-    if mode not in TASK_REGISTRY:
-        log.error(f"Task {mode} not found in task registry")
-        return
-    
-    try:
-        retry_nfs_access(lts_path, mode="read", retries=10)
-        set_cpu_affinity()
-        TASK_REGISTRY[mode](cfg)
-    except Exception as e:
-        log.exception(f"Error running {mode}")
-        if cfg.create_issue:
-            save_log_to_lts(cfg)
-            log.info("Creating GitHub issue for mode failure.")
-            # Trigger GitHub issue on failure
-            create_issue(batch_id, user_id, issue_type="failure", tsk=mode, error_msg=str(e))
+    for mode in modes:
+        if mode not in TASK_REGISTRY:
+            log.error(f"Task {mode} not found in task registry")
+            raise ValueError(f"Task {mode} not found in task registry")
         
-        log.info("Exiting due to task failure.")
-        return
-    
+        try:
+            retry_nfs_access(lts_path, mode="read", retries=10)
+            set_cpu_affinity()
+            TASK_REGISTRY[mode](cfg)
+        except Exception as e:
+            log.exception(f"Error running {mode}")
+            if cfg.create_issue:
+                save_log_to_lts(cfg)
+                log.info("Creating GitHub issue for mode failure.")
+                # Trigger GitHub issue on failure
+                create_issue(batch_id, user_id, issue_type="failure", tsk=mode, error_msg=str(e))
+            
+            log.info("Exiting due to task failure.")
+            raise
+        
     log.info("All tasks completed successfully.")
     if cfg.create_issue:        
         log.info("Creating GitHub issue for successful run.")

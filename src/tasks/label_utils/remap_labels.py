@@ -18,8 +18,8 @@ from shapely.geometry import Polygon
 from tqdm import tqdm
 
 import Metashape
-from filter_bboxes import BBoxFilter
-from utils.datasets import (
+from src.tasks.label_utils.filter_bboxes import BBoxFilter
+from src.utils.datasets import (
     BBoxCoordinates,
     BoundingBox,
     CameraCoefficients,
