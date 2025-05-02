@@ -3,9 +3,9 @@ import signal
 import sys
 from omegaconf import DictConfig
 
-from auto_sfm.config_utils import autosfm_present, create_config
-from auto_sfm.metashape_utils import SfM
-from auto_sfm.resize import (resize_masks,
+from src.tasks.auto_sfm.config_utils import autosfm_present, create_config
+from src.tasks.auto_sfm.metashape_utils import SfM
+from src.tasks.auto_sfm.resize import (resize_masks,
                                      resize_photo_diretory)
 
 # Set the logger

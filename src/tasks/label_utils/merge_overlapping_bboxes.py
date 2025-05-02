@@ -5,7 +5,7 @@ It merges overlapping or nested boxes based on IoU, and preserves the class labe
 
 import logging
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 import pandas as pd
 import networkx as nx

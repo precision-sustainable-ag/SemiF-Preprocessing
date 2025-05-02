@@ -25,20 +25,31 @@ bbot_version: 2.0
 season: summer_weeds_2024
 create_issue: true
 timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be ignored in the batch
+modes:
+  # - sync
+  # - correct
+  - asfm
+  - label
+  - deliver
 ############################################
 
-tasks:
-  # - sync_from_remote
-  # - raw2jpg # raw2jpg does raw2dng + dng2jpg
-  # - update_exif
-  - autosfm
-  - detect_plants
-  - merge_overlapping_bboxes
-  - remap_labels
-  - assign_species
-  - inspect_images
-  - move_data
-  - report
+tasks: # task for each mode
+  sync:
+    - sync_from_remote
+  correct:
+    - raw2jpg # raw2jpg does raw2dng + dng2jpg
+    - update_exif
+  asfm:
+    - autosfm
+  label:
+    - detect_plants
+    - merge_overlapping_bboxes
+    - remap_labels
+    - assign_species
+  deliver:
+    - inspect_images # deliver
+    - move_data # deliver
+    - report  # deliver
 
 inspection:
   inspect: false

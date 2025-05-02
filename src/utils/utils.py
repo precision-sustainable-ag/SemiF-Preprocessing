@@ -14,6 +14,14 @@ import time
 
 log = logging.getLogger(__name__)
 
+def set_cpu_affinity() -> None:
+    try:
+        os.sched_setaffinity(0, set(range(2, 32)))
+        log.info("Set CPU affinity to cores 2-31")
+    except AttributeError:
+        log.warning("CPU affinity setting not supported on this platform.")
+    except Exception as e:
+        log.warning(f"Failed to set CPU affinity: {e}")
 
 def find_raw_dir(local_data_dir: Path, batch_id: str,
                  lts_dir: Path) -> Path | None:

@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 import hydra
 from omegaconf import DictConfig
-from utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir
 from hydra.core.hydra_config import HydraConfig
 
 log = logging.getLogger(__name__)

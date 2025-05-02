@@ -16,8 +16,8 @@ import cv2
 import hydra
 from omegaconf import DictConfig
 
-from src.dng2jpg import DNGToJpgConverter
-from src.raw2dng import RawToDNGConverter
+from src.tasks.correct_utils.dng2jpg import DNGToJpgConverter
+from src.tasks.correct_utils.raw2dng import RawToDNGConverter
 from src.utils.utils import find_lts_dir, find_raw_dir
 
 log = logging.getLogger(__name__)
