@@ -39,16 +39,16 @@ class CleanUpLocalTemp:
         # Move metadata
         if self.src_metadata.exists():
             shutil.copytree(str(self.src_metadata), str(self.dst_metadata), dirs_exist_ok=True)
-            log.info(f"Copied {self.src_metadata.relative_to(Path.cwd())} to {self.dst_metadata}")
+            log.info(f"Copied {self.src_metadata} to {self.dst_metadata}")
         else:
-            log.warning(f"Metadata directory {self.src_metadata.relative_to(Path.cwd())} does not exist. Skipping move.")
+            log.warning(f"Metadata directory {self.src_metadata} does not exist. Skipping move.")
 
         # Move camera references
         if self.src_cam_references.exists():
             shutil.copytree(str(self.src_cam_references), str(self.dst_cam_references), dirs_exist_ok=True)
-            log.info(f"Copied {self.src_cam_references.relative_to(Path.cwd())} to {self.dst_cam_references}")
+            log.info(f"Copied {self.src_cam_references} to {self.dst_cam_references}")
         else:
-            log.warning(f"Camera references directory {self.src_cam_references.relative_to(Path.cwd())} does not exist. Skipping move.")
+            log.warning(f"Camera references directory {self.src_cam_references} does not exist. Skipping move.")
 
         # Move inspection results
         if self.src_inspection_dir.exists():
@@ -56,9 +56,9 @@ class CleanUpLocalTemp:
             shutil.copy(str(self.src_log_path), str(self.src_inspection_dir))
             # Copy the inspection directory to the LTS directory
             shutil.copytree(str(self.src_inspection_dir), str(self.dst_inspection_dir), dirs_exist_ok=True)
-            log.info(f"Copied {self.src_inspection_dir.relative_to(Path.cwd())} to {self.dst_inspection_dir}")
+            log.info(f"Copied {self.src_inspection_dir} to {self.dst_inspection_dir}")
         else:
-            log.warning(f"Inspection results file {self.src_inspection_dir.relative_to(Path.cwd())} does not exist. Skipping move.")
+            log.warning(f"Inspection results file {self.src_inspection_dir} does not exist. Skipping move.")
         
 
     def can_remove_local_dir(self):
@@ -79,7 +79,7 @@ class CleanUpLocalTemp:
                 log.error(f"Camera references not found in LTS directory: {self.dst_cam_references}")
             if not lts_inspection_results_exists:
                 log.error(f"Inspection results not found in LTS directory: {self.dst_inspection_dir}")
-            log.error(f"Local batch directory {self.local_batch_dir.relative_to(Path.cwd())} cannot be removed.")
+            log.error(f"Local batch directory {self.local_batch_dir} cannot be removed.")
             can_remove_local_dir = False
         else:
             log.info(f"All files in temp directories are in the LTS directories for batch {self.batch_id}.")
@@ -105,15 +105,15 @@ class CleanUpLocalTemp:
                 for item in local_batch_dir_contents:
                     if item.is_dir() and item.name != "inspection":
                         shutil.rmtree(item)
-                        log.info(f"Removed {item.relative_to(Path.cwd())}.")
+                        log.info(f"Removed {item}.")
                     elif item.is_file():
                         item.unlink()
-                        log.info(f"Removed {item.relative_to(Path.cwd())}.")
+                        log.info(f"Removed {item}.")
                 
                 # Remove only the prediction images folder in the inspection directory
                 prediction_images = self.local_batch_dir / "inspection" / "prediction_images"
                 shutil.rmtree(prediction_images)
-                log.info(f"Removed {prediction_images.relative_to(Path.cwd())}.")
+                log.info(f"Removed {prediction_images}.")
                 
             except Exception as e:
                 log.error(f"Failed to remove temp directories for batch {self.batch_id}: {e}")

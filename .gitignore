@@ -2,6 +2,9 @@
 temp_data
 outputs
 
+# Notebooks
+notebooks/
+
 # Script logs
 *.logs
 

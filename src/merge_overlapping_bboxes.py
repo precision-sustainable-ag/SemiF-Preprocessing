@@ -218,7 +218,7 @@ def process_all_csvs_in_directory(directory_path: Path, output_dir: Path, iou_th
 
     # Find all CSV files in the directory
     csv_files = sorted(list(directory.rglob("*.csv")))
-    log.info(f"Found {len(csv_files)} CSV files in {directory_path.relative_to(Path.cwd())}")
+    log.info(f"Found {len(csv_files)} CSV files in {directory_path}")
 
     # Process each CSV file
     for csv_file in csv_files:
@@ -230,7 +230,7 @@ def main(cfg: DictConfig) -> None:
     csv_directory = Path(cfg.paths.batch_dir) / "plant-detections"  # Directory containing CSV files
     output_dir = csv_directory / "merged"  # Directory for saving merged CSVs
     iou_threshold = 0.5  # Default IoU threshold for merging
-    log.info(f"Starting CSV merging in: {csv_directory.relative_to(Path.cwd())}")
+    log.info(f"Starting CSV merging in: {csv_directory}")
     try:
         # Process all CSVs in the specified directory
         process_all_csvs_in_directory(csv_directory,output_dir, iou_threshold)

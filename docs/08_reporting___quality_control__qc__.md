@@ -295,7 +295,7 @@ class ImageReport:
 
         # --- Save the final PDF ---
         c.save()
-        log.info(f"PDF report saved to {pdf_output_path.relative_to(Path.cwd())}")
+        log.info(f"PDF report saved to {pdf_output_path}")
 
     def generate_report(self):
         """Generates plots and the main PDF report."""

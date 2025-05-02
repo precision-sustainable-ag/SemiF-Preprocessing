@@ -59,3 +59,7 @@ marker_file:
 
 # Main batch inspection directory
 inspection_dir: ${paths.batch_dir}/inspection
+
+# Temp stats directories
+season_stats_dir: ${paths.data_dir}/season_stats
+unprocessed_stats_dir: ${paths.data_dir}/unprocessed_stats

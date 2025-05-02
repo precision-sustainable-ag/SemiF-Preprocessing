@@ -21,27 +21,10 @@ class BatchAnalyzer:
     def standardize_columns(self):
         self.df.columns = self.df.columns.str.strip().str.lower()
 
-    def summarize(self) -> dict:
-        summary = {
-            "total_batches": len(self.df),
-            "unprocessed_batches": (~self.df['processed']).sum(),
-            "batches_with_all_components": self.df[self.required_columns].all(axis=1).sum(),
-            "unprocessed_with_all_components": self.df[(~self.df['processed']) & self.df[self.required_columns].all(axis=1)].shape[0],
-            "unprocessed_with_images": self.df[(~self.df['processed']) & (self.df['has_images'])].shape[0],
-        }
-        return summary
-
-    def count_missing_components(self) -> dict:
-        unprocessed = self.df[~self.df['processed']]
-        return {
-            "missing_metadata": (~unprocessed['has_metadata']).sum(),
-            "missing_meta_masks": (~unprocessed['has_meta_masks']).sum(),
-            "missing_reference": (~unprocessed['has_reference']).sum(),
-        }
-
-    def get_almost_ready_batches(self) -> pd.DataFrame:
+    def get_unprocessed_batches(self) -> pd.DataFrame:
         unprocessed = self.df[~self.df['processed']].copy()
         unprocessed['missing_components'] = (~unprocessed[self.required_columns[1:]]).sum(axis=1)
+        unprocessed['preprocessed'] = unprocessed['has_metadata'] & unprocessed['has_reference']
         return unprocessed[
             (unprocessed['has_images']) & 
             (unprocessed['missing_components'] != 0)
@@ -124,7 +107,7 @@ class BatchStatusChecker:
 
         return pd.DataFrame(batch_records.values())
 
-def preprocess_dataframe(df):
+def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # Create a date column from batch_id
     df['date'] = pd.to_datetime(df['batch_id'].str.split('_').str[1], format='%Y-%m-%d')
     df['month'] = df['date'].dt.month
@@ -138,7 +121,7 @@ def preprocess_dataframe(df):
                   'weeds' if 'weeds' in str(x).lower() else 
                   'cash' if 'cash' in str(x).lower() else None
     )
-    return df
+    return df.sort_values(by=["batch_id"])
 
 @hydra.main(version_base="1.3", config_path="../../conf", config_name="config.yaml")
 def main(cfg: DictConfig):
@@ -148,25 +131,25 @@ def main(cfg: DictConfig):
 
     # Instantiate and use the analyzer
     analyzer = BatchAnalyzer(df)
-    summary = analyzer.summarize()
-    almost_ready = analyzer.get_almost_ready_batches()
-    print("Summary:", summary)
+    unprocessed_df = analyzer.get_unprocessed_batches()
 
     # Preprocess the DataFrame
-    almost_ready = preprocess_dataframe(almost_ready)
-    almost_ready = almost_ready.sort_values(by=["batch_id"])
-    almost_ready = almost_ready[almost_ready["bbot_version"] != "bbotv3.1"]
+    cleaned_unprocessed_df = preprocess_dataframe(unprocessed_df)
     
     # Group by state, general_season, and year
-    grouped_df = almost_ready.groupby(['state','general_season','year']).agg(
+    cleaned_unprocessed_df = cleaned_unprocessed_df[cleaned_unprocessed_df['preprocessed'] == False]
+    summary_df = cleaned_unprocessed_df.groupby(['state','general_season','year']).agg(
         {
         'batch_id': 'count'
         }
         ).reset_index().sort_values(['state','year','general_season'])
     
     # Save unprocessed batches and the grouped by summary
-    almost_ready.to_csv("almost_ready_batches.csv", index=False)
-    grouped_df.to_csv("grouped_batches.csv", index=False)
+    unprocessed_stats_dir = Path(cfg.paths.unprocessed_stats_dir)
+    unprocessed_stats_dir.mkdir(parents=True, exist_ok=True)
+    cleaned_unprocessed_df.to_csv(unprocessed_stats_dir / "unprocessed_batches.csv", index=False)
+    summary_df.to_csv(unprocessed_stats_dir / "unprocessed_batches_summary.csv", index=False)
+    analyzer.df.to_csv(unprocessed_stats_dir / "all_batches.csv", index=False)
 
 if __name__ == "__main__":
     main()

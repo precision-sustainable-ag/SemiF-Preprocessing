@@ -5,6 +5,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
+from omegaconf import DictConfig
+import hydra
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -23,20 +26,27 @@ from reportlab.platypus import (
     TableStyle
 )
 from tqdm import tqdm
+import logging
+
+log = logging.getLogger(__name__)
 
 
 class SeasonStatsCollector:
-    def __init__(self, root_dir: Path, output_dir: Path, species_json_path: Path):
-        self.root_dir = root_dir
-        self.output_dir = output_dir
-        self.species_json_path = species_json_path
+    VALID_BATCH_REGEX = re.compile(r"^(TX|NC|MD)_\d{4}-\d{2}-\d{2}$")
+
+    def __init__(self, cfg: DictConfig, season: str, state_id: str):
+        
+        self.lts_locations: List[str] = cfg.paths.lts_locations
+        
+        self.output_dir = Path(cfg.paths.season_stats_dir) / state_id / season
+        self.species_json_path = cfg.paths.species_info
         self.class_id_to_name = self.load_species_mapping()
 
     @staticmethod
-    def parse_date_state_from_batch(batch_name: str):
+    def parse_state_date_from_batch(batch_name: str):
         try:
             parts = batch_name.split("_")
-            return datetime.strptime(parts[-1], "%Y-%m-%d"), parts[0]
+            return parts[0], datetime.strptime(parts[-1], "%Y-%m-%d")
         except Exception:
             return None, None
 
@@ -51,18 +61,20 @@ class SeasonStatsCollector:
                 class_id_to_name[class_id] = name
         return class_id_to_name
 
-    def filter_by_date(self, batch_dirs, start_date=None, end_date=None):
-        filtered_dirs = []
-        for batch_dir in batch_dirs:
-            batch_date, _ = self.parse_date_state_from_batch(batch_dir.name)
+    def filter_by_date(self, batch_names, state_id, start_date=None, end_date=None):
+        filtered_batch_names = []
+        for batch_name in batch_names:
+            state, batch_date = self.parse_state_date_from_batch(batch_name)
+            if state != state_id:
+                continue
             if not batch_date:
                 continue
             if start_date and batch_date < start_date:
                 continue
             if end_date and batch_date > end_date:
                 continue
-            filtered_dirs.append(batch_dir)
-        return filtered_dirs
+            filtered_batch_names.append(batch_name)
+        return filtered_batch_names
 
     def get_season_from_metadata(self, metadata_dir: Path):
         metadata_files = sorted(metadata_dir.glob("*.json"))
@@ -90,9 +102,12 @@ class SeasonStatsCollector:
                 binned_area.append({"species": species, "area_sqcm": area, "area_bin": str(log_bin)})
         return binned_area
 
-    def collect(self, start_date: datetime = None, end_date: datetime = None):
-        batch_dirs = [d for d in self.root_dir.iterdir() if d.is_dir()]
-        batch_dirs = self.filter_by_date(batch_dirs, start_date, end_date)
+    def get_all_batches(self, path: Path) -> set:
+        if not path.exists():
+            return set()
+        return {d.name for d in path.iterdir() if d.is_dir() and self.VALID_BATCH_REGEX.match(d.name)}
+    
+    def collect(self, state_id: str, start_date: datetime = None, end_date: datetime = None):
 
         batch_dates = []
         batch_summary = []
@@ -104,54 +119,66 @@ class SeasonStatsCollector:
         area_by_primary_species = defaultdict(list)
         bbox_species_per_batch = defaultdict(Counter)
 
-        for batch_dir in tqdm(batch_dirs, desc="Processing batches"):
-            batch_date, state = self.parse_date_state_from_batch(batch_dir.name)
-            images_dir = batch_dir / "images"
-            metadata_dir = batch_dir / "metadata"
-            if not images_dir.exists() or not metadata_dir.exists():
-                continue        
+        lts_dirs = [Path(lts) for lts in self.lts_locations]
+        for lts in tqdm(lts_dirs, desc="LTS Locations"):
 
-            jpgs = list(images_dir.glob("*.jpg"))
-            num_images = len(jpgs)
-            total_size = sum(f.stat().st_size for f in jpgs)
+            developed_dir = lts / "semifield-developed-images"
+            batches = self.get_all_batches(developed_dir)
+            filtered_batches = self.filter_by_date(batches, state_id, start_date, end_date)
 
-            image_counts.append(num_images)
-            image_sizes.append(total_size)
-            batch_dates.append(batch_date)
+            log.info(f"Processing {len(filtered_batches)} batches in {lts.name}")
 
-            batch_bboxes = 0
-            metadata_files = sorted(metadata_dir.glob("*.json"))
-            for meta_file in tqdm(metadata_files, desc="Processing metadata files", leave=False):
-                with open(meta_file, "r") as f:
-                    data = json.load(f)
-                annotations = data.get("annotations", [])
-                batch_bboxes += len(annotations)
-                for ann in annotations:
-                    class_id = ann.get("category_class_id", "unknown")
-                    common_name = self.class_id_to_name.get(class_id, f"Unknown ({class_id})")
-                    bbox_species_per_batch[batch_dir.name][common_name] += 1
-                    area = ann.get("global_coordinates", {}).get("area_sqm", None)
-                    if area is not None:
-                        area *= 10000  # Convert sqm to sqcm
-                    species_counts[common_name] += 1
+            for batch_name in tqdm(filtered_batches, desc="Batches", leave=False):
+                batch_dir = developed_dir / batch_name
+                _, batch_date = self.parse_state_date_from_batch(batch_name)
+                images_dir = batch_dir / "images"
+                metadata_dir = batch_dir / "metadata"
+                if not images_dir.exists() or not metadata_dir.exists():
+                    log.warning(f"Missing images or metadata for batch {batch_name} in {lts.name}")
+                    continue        
 
-                    is_primary = ann.get("is_primary", None)
-                    if is_primary == True:
-                        primary_species_counts[common_name + "_primary"] += 1
+                jpgs = list(images_dir.glob("*.jpg"))
+                num_images = len(jpgs)
+                total_size = sum(f.stat().st_size for f in jpgs)
+
+                image_counts.append(num_images)
+                image_sizes.append(total_size)
+                batch_dates.append(batch_date)
+
+                batch_bboxes = 0
+                metadata_files = sorted(metadata_dir.glob("*.json"))
+                for meta_file in tqdm(metadata_files, desc="Metadata", leave=False):
+                    with open(meta_file, "r") as f:
+                        data = json.load(f)
+                    annotations = data.get("annotations", [])
+                    batch_bboxes += len(annotations)
+                    for ann in annotations:
+                        class_id = ann.get("category_class_id", "unknown")
+                        common_name = self.class_id_to_name.get(class_id, f"Unknown ({class_id})")
+                        bbox_species_per_batch[batch_dir.name][common_name] += 1
+                        area = ann.get("global_coordinates", {}).get("area_sqm", None)
+                        if area is not None:
+                            area *= 10000  # Convert sqm to sqcm
+                        species_counts[common_name] += 1
+
+                        is_primary = ann.get("is_primary", None)
+                        if is_primary == True:
+                            primary_species_counts[common_name + "_primary"] += 1
+                            if area:
+                                area_by_primary_species[common_name].append(area)
+                        elif is_primary == False:
+                            primary_species_counts[common_name + "_non_primary"] += 1
+
                         if area:
-                            area_by_primary_species[common_name].append(area)
-                    elif is_primary == False:
-                        primary_species_counts[common_name + "_non_primary"] += 1
+                            area_by_species[common_name].append(area)
 
-                    if area:
-                        area_by_species[common_name].append(area)
-
-            batch_summary.append({
-                "batch_id": batch_dir.name,
-                "num_images": num_images,
-                "total_image_size_GiB": total_size / 2**30,
-                "num_bboxes": batch_bboxes
-            })
+                batch_summary.append({
+                    "batch_id": batch_dir.name,
+                    "num_images": num_images,
+                    "total_image_size_GiB": total_size / 2**30,
+                    "num_bboxes": batch_bboxes,
+                    "lts_location": lts.name,
+                })
 
         # Time-based stats
         df_dates = pd.Series(batch_dates)
@@ -169,7 +196,7 @@ class SeasonStatsCollector:
         # Merge bbox species counts into batch summary
         bbox_species_per_batch_df = pd.DataFrame(bbox_species_per_batch).fillna(0).astype(int).T
         bbox_species_per_batch_df.index.name = "batch_id"
-        batch_summary_df = batch_summary_df.merge(bbox_species_per_batch_df, on="batch_id", how="left")
+        batch_summary_df = batch_summary_df.merge(bbox_species_per_batch_df, on="batch_id", how="left").sort_values("batch_id")
         # Add an index column
         batch_summary_df.insert(0, "Index", range(1, len(batch_summary_df) + 1))
         batch_summary_df.to_csv(self.output_dir / "batch_summary.csv", index=False)
@@ -451,31 +478,24 @@ class SeasonReportGenerator:
         self.create_full_pdf()
         return self.output_pdf_path
 
+@hydra.main(version_base="1.3", config_path="../../conf", config_name="config.yaml")
+def main(cfg: DictConfig):
 
-if __name__ == "__main__":
-    
     ############# Set these ##############
-    season = "cover crops 2024_2025"
-    state = "NC"
-    start = datetime(2024, 12, 2)
-    end = datetime(2025, 4, 4)
-    root_dir = Path("/mnt/research-projects/s/screberg/longterm_images2/semifield-developed-images")
-    output_dir = Path("data/season_stats")
-    species_json_path = Path("data/semifield-utils/species_information/species_info.json")
+    season = "summer_weeds_2024"
+    state = "TX"
+    start = datetime(2024, 3, 26)
+    end = datetime(2024, 9, 8)
     ############################################
     
     # Ensure the root directory exists
-    output_dir = Path("data/season_stats", state, season)
+    output_dir = Path(cfg.paths.season_stats_dir, state, season)
     output_plot_dir = output_dir / "plots"
     output_plot_dir.mkdir(parents=True, exist_ok=True)
 
-    stats = SeasonStatsCollector(
-        root_dir=root_dir, 
-        output_dir=output_dir, 
-        species_json_path=species_json_path
-        )
+    stats = SeasonStatsCollector(cfg,season, state)
     
-    results = stats.collect(start_date=start, end_date=end)
+    results = stats.collect(state_id=state, start_date=start, end_date=end)
     
     # # Load results (optional)
     # results = {
@@ -516,3 +536,7 @@ if __name__ == "__main__":
     )
     # Generate the report
     final_fixed_output = fixed_full_report.generate_report()
+
+if __name__ == "__main__":
+    main()    
+    
