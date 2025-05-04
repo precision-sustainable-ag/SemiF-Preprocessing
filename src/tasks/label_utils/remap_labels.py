@@ -114,10 +114,11 @@ class DataMerger:
             raise
 
 class BBoxMapper:
-    def __init__(self, project_path: str, images: List[dict]):
+    def __init__(self, cfg: DictConfig, project_path: str, images: List[dict]):
         """Class to map bounding box coordinates from image cordinates
         to global coordinates
         """
+        self.bbot_version = cfg.bbot_version
         self.project_path = Path(project_path)
         self.images = images
         self.doc = Metashape.Document()
@@ -228,8 +229,8 @@ class BBoxMapper:
             mapped.append([geo_coord.x, geo_coord.y])
         
         return [mapped[0], mapped[2], mapped[1], mapped[3]]
-
-    def _calculate_area_from_latlon(self, coords: dict) -> float:
+    
+    def _calculate_area(self, coords: List[List[float]], from_latlon: bool = True) -> float:
         """
         Calculate polygon area in square meters from global coordinates.
 
@@ -239,16 +240,25 @@ class BBoxMapper:
         Returns:
             float: Area in square meters.
         """
+        top_left =  coords[0]
+        top_right =  coords[1]
+        bottom_left =  coords[2]
+        bottom_right =  coords[3]
+
         poly = Polygon([
-            tuple(coords["top_left"]),
-            tuple(coords["top_right"]),
-            tuple(coords["bottom_right"]),
-            tuple(coords["bottom_left"]),
-            tuple(coords["top_left"])
+            tuple(top_left),
+            tuple(top_right),
+            tuple(bottom_right),
+            tuple(bottom_left),
+            tuple(top_left)  # closing the polygon
         ])
-        gdf = gpd.GeoDataFrame(index=[0], crs="EPSG:4326", geometry=[poly])
-        gdf_proj = gdf.to_crs(CRS("EPSG:32617"))  # TODO: Dynamically detect zone?
-        return gdf_proj.geometry[0].area
+        if from_latlon:
+            gdf = gpd.GeoDataFrame(index=[0], crs="EPSG:4326", geometry=[poly])
+            gdf_proj = gdf.to_crs(CRS("EPSG:32617"))  # TODO: Dynamically detect zone?
+            return gdf_proj.geometry[0].area
+        else:
+            return poly.area
+
     
     def _construct_global_coords(self, coords: List[List[float]]) -> GlobalCoordinates:
         """
@@ -260,19 +270,16 @@ class BBoxMapper:
             (coords[0][0] + coords[3][0]) / 2,
             (coords[0][1] + coords[3][1]) / 2
         ]
-
+        
+        area = self._calculate_area(coords, from_latlon=True if "3.1" in self.bbot_version else False)
+        
         return GlobalCoordinates(
             top_left=coords[0],
             top_right=coords[1],
             bottom_left=coords[2],
             bottom_right=coords[3],
             global_centroid=centroid,
-            area_sqm=self._calculate_area_from_latlon({
-                "top_left": coords[0],
-                "top_right": coords[1],
-                "bottom_left": coords[2],
-                "bottom_right": coords[3],
-            })
+            area_sqm=area
         )
 
     def _default_global_coords(self) -> dict:
@@ -307,8 +314,8 @@ class RemapLabels:
         self.project_path = self.autosfm_dir / "project" / f"{cfg.batch_id}.psx"
         self.downscaled_dir = self.autosfm_dir / "downscaled_photos"
         self.fullres_dir = self.batch_dir / "images"
-        self.fullres_h = cfg.exif.Image.ImageHeight
-        self.fullres_w = cfg.exif.Image.ImageWidth
+        self.fullres_h = cfg.exif.ImageHeight
+        self.fullres_w = cfg.exif.ImageWidth
 
         self.shp_dir = Path(cfg.paths.fov_shapefiles)
         self.shp_dir.mkdir(exist_ok=True, parents=True)
@@ -527,7 +534,7 @@ class RemapLabels:
         images.sort(key=lambda x: x.image_id)
 
         try:
-            mapper = BBoxMapper(self.project_path, images)
+            mapper = BBoxMapper(self.cfg, self.project_path, images)
             mapped_images = mapper.map()
             log.info("Successfully mapped bounding boxes to global coordinates.")
             return mapped_images

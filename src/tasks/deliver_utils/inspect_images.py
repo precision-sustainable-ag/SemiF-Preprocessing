@@ -168,6 +168,8 @@ class ImageReviewer:
         self.cfg = cfg
         self.batch_id = cfg.batch_id
         self.use_lts_images = cfg.inspection.use_lts_images
+
+        self.bbot_version = cfg.bbot_version
         
         self.lts_locations = cfg.paths.lts_locations
         self.lts_dir = find_lts_dir(self.batch_id, self.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
@@ -347,7 +349,10 @@ class ImageReviewer:
             metadata = json.load(f)
 
         # Set up resizing/scaling parameters
-        fullres_h, fullres_w = (9520, 13368)
+        if "3.1" in self.bbot_version:
+            fullres_h, fullres_w = (9520, 13368)
+        else:
+            fullres_h, fullres_w = (6368, 9592)
         downscaling_factor = 5
         resized_h, resized_w = int(image.shape[0] / downscaling_factor), int(image.shape[1] / downscaling_factor)
         scale_x = resized_w / fullres_w
