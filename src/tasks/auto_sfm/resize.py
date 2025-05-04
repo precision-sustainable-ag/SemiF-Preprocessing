@@ -112,7 +112,7 @@ def resize_image(image_src, scale, masks):
         return None, None
 
 
-def save_resized_image(resized_image, image, image_dst, masks):
+def save_resized_image(resized_image, image, image_dst, masks, bbot_version):
     """Save the resized image to the destination path."""
     kwargs = {}
     try:
@@ -121,9 +121,10 @@ def save_resized_image(resized_image, image, image_dst, masks):
         else:
             try:
                 exif_data = piexif.load(image.info["exif"])
+                # if "3.1" in bbot_version:
                 exif_data = fix_exif_types(exif_data)
-                exif_bytes = piexif.dump(exif_data)
-                kwargs["exif"] = exif_bytes
+                exif_data = piexif.dump(exif_data)
+                kwargs["exif"] = exif_data
             except KeyError:
                 log.warning("EXIF data not found, resizing without EXIF data.")
 
@@ -137,6 +138,7 @@ def resize_and_save(data):
     image_dst = Path(data["image_dst"])
     scale = data["scale"]
     masks = data["masks"]
+    bbot_version = data["bbot_version"]
 
     try:
         resized_image, image = resize_image(image_src, scale, masks)
@@ -156,7 +158,7 @@ def resize_and_save(data):
         return
 
     if resized_image and image:
-        save_resized_image(resized_image, image, image_dst, masks)
+        save_resized_image(resized_image, image, image_dst, masks, bbot_version)
 
 def resize_photo_diretory(cfg):
     # base_path = Path(cfg.paths.images)
@@ -184,6 +186,7 @@ def resize_photo_diretory(cfg):
             "image_dst": save_dir / src.name,
             "scale": cfg.asfm.downscale.factor,
             "masks": False,
+            "bbot_version": cfg.bbot_version,
         }
         for src in files
     ]
