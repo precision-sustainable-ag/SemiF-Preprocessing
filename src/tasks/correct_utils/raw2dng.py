@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 class RawToDNGConverter:
     def __init__(self, 
-                 dng_tags_cfg: DictConfig,
+                 exif_cfg: DictConfig,
                  batch_id: str,
                  lts_dir: Path,
                  developed_dng_dir: Path,
@@ -25,13 +25,13 @@ class RawToDNGConverter:
         Class constructor.
         Separate parameters due to multiprocessing incompatibility of OmegaConf.
         Args:
-            dng_tags_cfg (DictConfig): dng tags configuration
+            exif_cfg (DictConfig): dng tags configuration
             batch_id (str): Batch id
             file_masks (DictConfig): File masks from config
             lts_dir (Path): LTS directory
             ccm_file (Path, optional): Path to the CCM `.npy` file. Defaults to None.
         """
-        self.dng_tags = dng_tags_cfg
+        self.exif_cfg = exif_cfg
         self.batch_id = batch_id
         
         self.lts_dir = lts_dir
@@ -40,8 +40,8 @@ class RawToDNGConverter:
         self.ccm_file = ccm_file  # Path to CCM file
 
         
-        self.height = self.dng_tags.ImageLength
-        self.width = self.dng_tags.ImageWidth
+        self.height = self.exif_cfgs.ImageLength
+        self.width = self.exif_cfgs.ImageWidth
 
     def load_raw_image(self, file_path):
         """
@@ -83,35 +83,35 @@ class RawToDNGConverter:
         """Set DNG tags for the conversion."""
         t = DNGTags()
         # DNG metadata details
-        t.set(Tag.Make, self.dng_tags.Make)
-        t.set(Tag.Model, self.dng_tags.Model)
-        t.set(Tag.DNGVersion, getattr(DNGVersion, self.dng_tags.DNGVersion))
-        t.set(Tag.DNGBackwardVersion, getattr(DNGVersion, self.dng_tags.DNGBackwardVersion))
-        t.set(Tag.PreviewColorSpace, getattr(PreviewColorSpace, self.dng_tags.PreviewColorSpace))
+        t.set(Tag.Make, self.exif_cfgs.Make)
+        t.set(Tag.Model, self.exif_cfgs.Model)
+        t.set(Tag.DNGVersion, getattr(DNGVersion, self.exif_cfgs.DNGVersion))
+        t.set(Tag.DNGBackwardVersion, getattr(DNGVersion, self.exif_cfgs.DNGBackwardVersion))
+        t.set(Tag.PreviewColorSpace, getattr(PreviewColorSpace, self.exif_cfgs.PreviewColorSpace))
         
         # Basic image details
         t.set(Tag.ImageWidth, self.width)
         t.set(Tag.ImageLength, self.height)
         t.set(Tag.TileWidth, self.width)
         t.set(Tag.TileLength, self.height)
-        t.set(Tag.Orientation, getattr(Orientation, self.dng_tags.Orientation))
-        t.set(Tag.FocalLength, [[self.dng_tags.FocalLength, 1]])
-        t.set(Tag.FocalLengthIn35mmFilm, self.dng_tags.FocalLengthIn35mmFilm)
+        t.set(Tag.Orientation, getattr(Orientation, self.exif_cfgs.Orientation))
+        t.set(Tag.FocalLength, [[self.exif_cfgs.FocalLength, 1]])
+        t.set(Tag.FocalLengthIn35mmFilm, self.exif_cfgs.FocalLengthIn35mmFilm)
 
         # t.set(Tag.SamplesPerPixel, 1)
-        t.set(Tag.SamplesPerPixel, self.dng_tags.SamplesPerPixel)
-        t.set(Tag.BitsPerSample, self.dng_tags.BitsPerSample)
+        t.set(Tag.SamplesPerPixel, self.exif_cfgs.SamplesPerPixel)
+        t.set(Tag.BitsPerSample, self.exif_cfgs.BitsPerSample)
         
         # Photometric interpretation
-        t.set(Tag.PhotometricInterpretation, getattr(PhotometricInterpretation, self.dng_tags.PhotometricInterpretation))
-        t.set(Tag.CFARepeatPatternDim, self.dng_tags.CFARepeatPatternDim)
-        t.set(Tag.CFAPattern, getattr(CFAPattern, self.dng_tags.CFAPattern))
+        t.set(Tag.PhotometricInterpretation, getattr(PhotometricInterpretation, self.exif_cfgs.PhotometricInterpretation))
+        t.set(Tag.CFARepeatPatternDim, self.exif_cfgs.CFARepeatPatternDim)
+        t.set(Tag.CFAPattern, getattr(CFAPattern, self.exif_cfgs.CFAPattern))
         # Image calibration
-        t.set(Tag.BlackLevel, self.dng_tags.BlackLevel)
-        t.set(Tag.WhiteLevel, self.dng_tags.WhiteLevel)
-        t.set(Tag.CalibrationIlluminant1, getattr(CalibrationIlluminant, self.dng_tags.CalibrationIlluminant1))
-        t.set(Tag.BaselineExposure, [self.dng_tags.BaselineExposure])
-        t.set(Tag.AsShotNeutral, self.dng_tags.AsShotNeutral)
+        t.set(Tag.BlackLevel, self.exif_cfgs.BlackLevel)
+        t.set(Tag.WhiteLevel, self.exif_cfgs.WhiteLevel)
+        t.set(Tag.CalibrationIlluminant1, getattr(CalibrationIlluminant, self.exif_cfgs.CalibrationIlluminant1))
+        t.set(Tag.BaselineExposure, [self.exif_cfgs.BaselineExposure])
+        t.set(Tag.AsShotNeutral, self.exif_cfgs.AsShotNeutral)
         
         # TODO: Implement our own ccm instead of this standard one
         # uncalibrated color matrix, just for demo.
@@ -153,7 +153,7 @@ class DNGConversionPipeline:
 
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
-        self.dng_tags_cfg = cfg.dng_tags
+        self.exif_cfg = cfg.exif
         self.batch_id = cfg.batch_id
         self.file_masks = cfg.file_masks
 
@@ -202,7 +202,7 @@ class DNGConversionPipeline:
         args = []
         
         for raw_file in self.raw_files:
-            args.append((self.dng_tags_cfg, self.batch_id, self.lts_dir, raw_file, self.developed_dng_dir, self.local_ccm_path))
+            args.append((self.exif_cfg, self.batch_id, self.lts_dir, raw_file, self.developed_dng_dir, self.local_ccm_path))
         return args
 
     def run(self, multiproc: bool = False) -> None:
@@ -246,17 +246,17 @@ class DNGConversionPipeline:
             except Exception as e:
                 log.exception(f"Error processing {arg[3]}")
 
-def process_image(dng_tags_cfg, batch_id, lts_dir, raw_file, developed_dng_dir, local_ccm_path):
+def process_image(exif_cfg, batch_id, lts_dir, raw_file, developed_dng_dir, local_ccm_path):
     """
     Multiprocessing function to convert raw image to DNG format in parallel.
     Args:
-        dng_tags_cfg (DictConfig): DNG tags config
+        exif_cfg (DictConfig): DNG tags config
         batch_id (str): Batch ID
         file_masks (DictConfig): File masks config
         lts_dir (Dict): LTS directory
         raw_file (Path): Raw image to convert
     """
-    raw2dng_conv = RawToDNGConverter(dng_tags_cfg, batch_id, lts_dir, developed_dng_dir, local_ccm_path)
+    raw2dng_conv = RawToDNGConverter(exif_cfg, batch_id, lts_dir, developed_dng_dir, local_ccm_path)
     log.debug("Initialized raw to DNG converter.")
 
     raw_data = raw2dng_conv.load_raw_image(raw_file)

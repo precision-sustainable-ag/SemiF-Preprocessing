@@ -6,8 +6,10 @@ DNGBackwardVersion: "V1_2"
 PreviewColorSpace: sRGB
 
 # Basic image_details
-ImageWidth: 13376     # image width in pixels
-ImageLength: 9528     # image length in pixels
+# ImageWidth: 13368     # image width in pixels
+# ImageLength: 9520     # image length in pixels
+ImageWidth: 9592     # image width in pixels
+ImageLength: 6368     # image length in pixels
 TileWidth: ${dng_tags.ImageWidth}
 TileLength: ${dng_tags.ImageLength}
 Orientation: Horizontal

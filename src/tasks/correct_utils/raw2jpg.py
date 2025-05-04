@@ -155,7 +155,7 @@ class Raw2Jpg:
         raw_file, to_inspect = raw_file_tuple
         try:
             # Convert RAW to DNG
-            raw2dng = RawToDNGConverter(self.cfg.dng_tags, self.batch_id, self.lts_dir, self.developed_dng_dir, self.local_ccm_path)
+            raw2dng = RawToDNGConverter(self.cfg.exif, self.batch_id, self.lts_dir, self.developed_dng_dir, self.local_ccm_path)
             raw_data = raw2dng.load_raw_image(raw_file)
             dng_tags = raw2dng.configure_dng_tags()
             dng_file = raw2dng.convert_to_dng(raw_data, dng_tags, raw_file)
