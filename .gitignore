@@ -5,6 +5,9 @@ outputs
 # Notebooks
 notebooks/
 
+# Random helper scripts
+quick_fix/
+
 # Script logs
 *.logs
 
