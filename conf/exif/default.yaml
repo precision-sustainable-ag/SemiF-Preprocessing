@@ -267,7 +267,7 @@ PreviewColorSpace: sRGB                      # Long       This tag specifies the
 #   JXLEffort:                                #	Long	This optional tag specifies the effort parameter used to encode the JPEG XL data in this IFD. Values range from 1 (low) to 9 (high).
 #   JXLDecodeSpeed:                           #	Long	This optional tag specifies the decode speed parameter used to encode the JPEG XL data in this IFD. Values range from 1 (slow) to 4 (fast).
 # OffsetTime*: -04:00
-Photo:
+# Photo:
 #   ExposureTime:                             #	Rational	Exposure time, given in seconds (sec).
 FNumber: 13                                 #	Rational	The F number.
 #   ExposureProgram:                          #	Short	The class of the program used by the camera to set exposure when the picture is taken.
