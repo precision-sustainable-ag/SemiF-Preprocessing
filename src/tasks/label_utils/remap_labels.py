@@ -97,8 +97,8 @@ class DataMerger:
         """
         try:
             detections = self._load_csvs(self.detections_dir).rename(columns={"classname": "name"})
-            detections["classifier_classname"] = "dummy_classifier_name"  # TODO: Replace with actual classifier
-            detections["classifier_confidence"] = 0.999
+            detections["classifier_classname"] = None  # TODO: Replace with actual classifier
+            detections["classifier_confidence"] = None  # TODO: Replace with actual confidence score
 
             reference = self._load_reference_data()
             merged = detections.merge(reference, on="image_id", how="left")

@@ -13,7 +13,7 @@ from PIL import Image, ImageFile
 from skimage.color import rgb2hsv
 from skimage.morphology import binary_closing, square
 
-from src.utils.utils import retry_nfs_access
+from src.utils.utils import retry_nfs_access, find_lts_dir
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -162,7 +162,8 @@ def resize_and_save(data):
 
 def resize_photo_diretory(cfg):
     # base_path = Path(cfg.paths.images)
-    base_path = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images" / cfg.batch_id / "images"
+    lts_dir = find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
+    base_path = Path(lts_dir) / "semifield-developed-images" / cfg.batch_id / "images"
 
     save_dir = Path(cfg.paths.down_photos)
         
