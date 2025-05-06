@@ -69,4 +69,4 @@ season_stats_dir: ${paths.data_dir}/season_stats
 unprocessed_stats_dir: ${paths.data_dir}/unprocessed_stats
 
 # Artifacts file
-artifact_path: ${paths.batch_dir}/${batch_id}.yaml
+artifact_path: ${paths.inspection_dir}/${batch_id}.yaml

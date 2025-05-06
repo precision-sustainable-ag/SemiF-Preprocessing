@@ -2,15 +2,13 @@ import logging
 import random
 import re
 import shutil
-from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List
 
 import hydra
 import matplotlib.pyplot as plt
 import pandas as pd
-from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -18,6 +16,7 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 
 from src.utils.utils import find_lts_dir
+from src.utils.artifact_utils import read_artifact
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class ImageReport:
         self.sample_size = cfg.report.sample_size
 
     def find_raw_image_files(self) -> List[Path]:
-        if self.bbot_version in ["V3.1","3.1"]:
+        if "3.1" in str(self.bbot_version):
             extension = "*.RAW"
         else:
             # Check if 'SONY' directory exists in the upload directory
@@ -506,117 +505,61 @@ class ImageReport:
         self.generate_average_upload_time_plot()
         self.generate_pdf_report()
         log.info(f"Completed report for batch: {self.batch_id}")
-        # Copy the log file to the output directory
-        self.log_parser.copy_log_file()
 
 class LogParser:
     def __init__(self, cfg: DictConfig, output_report_dir: Path = None):
+        self.artifact_yaml_path = Path(cfg.paths.artifact_path)
         
-        self.log_path = Path(HydraConfig.get().runtime.output_dir) / f"{cfg.batch_id}.log"
-        
-        self.log_lines: List[str] = self._read_log_file()
+        if not self.artifact_yaml_path.exists():
+            raise FileNotFoundError(f"Artifact YAML file not found: {self.artifact_yaml_path}")
+    
+        self.artifact = read_artifact(self.artifact_yaml_path)
         
         self.output_report_dir = output_report_dir
 
-    def _read_log_file(self) -> List[str]:
-        if not self.log_path.exists():
-            raise FileNotFoundError(f"Log file does not exist: {self.log_path}")
-        with open(self.log_path, "r") as f:
-            return f.readlines()
-        
-    def copy_log_file(self) -> None:
-        """
-        Copies the log file to the output report directory.
-        """
-        shutil.copy(self.log_path, self.output_report_dir)
-        log.info(f"Log file copied to {self.output_report_dir}")
-
     def extract_error_blocks(self) -> pd.DataFrame:
-        """
-        Extracts blocks of log entries beginning with ERROR or WARNING.
-
-        Returns:
-            pd.DataFrame: DataFrame containing index, module name, and error/warning log blocks.
-        """
         messages = []
         modules = []
         levels = []
 
-        for line in self.log_lines:
-            match = re.search(r"\[\d{4}-\d{2}-\d{2}.*?\]\[([^\]]+)\]\[(ERROR|WARNING)\]\s+-\s+(.*)", line)
-            if match:
-                module = match.group(1)
-                level = match.group(2)
-                message = match.group(3).strip()
+        warn_errors = self.artifact.get("warning_and_errors", {})
+        for module, entries in warn_errors.items():
+            if entries is None:
+                continue
+            for entry in entries:
+                level = "ERROR" if "ERROR" in entry else "WARNING"
+                messages.append(entry)
                 modules.append(module)
                 levels.append(level)
-                messages.append(message)
 
         return pd.DataFrame({
             "ErrorIndex": range(1, len(messages) + 1),
             "ScriptModule": modules,
             "Level": levels,
-            "LogSnippet": messages
+            "LogSnippet": messages,
         })
 
     def extract_module_timings(self) -> pd.DataFrame:
-        """
-        Calculates total active time for each logical script module using first and last timestamps.
-        Merges entries that map to the same logical module and calculates total active time and boundaries.
-        
-        Returns:
-            pd.DataFrame: DataFrame with ScriptModule, StartTime, EndTime, DurationSeconds.
-        """
-        # Normalize module names early
-        def normalize_module(module: str) -> str:
-            if "auto_sfm" in module:
-                return "autosfm"
-            if "filter_bboxes" in module:
-                return "remap_labels"
-            return module
-
-        module_times = defaultdict(list)
-
-        for line in self.log_lines:
-            match = re.match(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*?\]\[([^\]]+)\]", line)
-            if match:
-                timestamp = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
-                module = normalize_module(match.group(2))
-                module_times[module].append(timestamp)
-
+        task_durations = self.artifact.get("task_durations", {})
         records = []
 
-        all_timestamps = []
-
-        for module, times in module_times.items():
-            times.sort()
-            all_timestamps.extend(times)
-            duration = (times[-1] - times[0]).total_seconds()
+        for module, duration_str in task_durations.items():
+            if duration_str is None:
+                continue
+            h, m, s = map(int, duration_str.split(":"))
+            duration_seconds = timedelta(hours=h, minutes=m, seconds=s).total_seconds()
             records.append({
                 "ScriptModule": module,
-                "StartTime": times[0],
-                "EndTime": times[-1],
-                "DurationSeconds": duration
+                "DurationSeconds": duration_seconds,
             })
 
-        # Add total duration across all modules
-        first_timestamp = min(all_timestamps)
-        last_timestamp = max(all_timestamps)
-        total_duration = (last_timestamp - first_timestamp).total_seconds()
+        total_duration = sum(r["DurationSeconds"] for r in records)
         records.append({
             "ScriptModule": "Total",
-            "StartTime": first_timestamp,
-            "EndTime": last_timestamp,
-            "DurationSeconds": total_duration
+            "DurationSeconds": total_duration,
         })
 
-        df = pd.DataFrame(records)
-
-        df = df[df["ScriptModule"] != "pyogrio._io"]
-        df = df[df["ScriptModule"] != "src.utils.utils"]
-        df = df[df["ScriptModule"] != "__main__"]
-        df = df[df["ScriptModule"] != "utils.utils"]
-        return df
+        return pd.DataFrame(records)
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):

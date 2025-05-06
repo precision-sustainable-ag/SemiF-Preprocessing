@@ -176,11 +176,15 @@ def extract_module_timings(log_lines: List[str]) -> pd.DataFrame:
     df = df[df["ScriptModule"] != "__main__"]
     return df
 
+def read_artifact(artifact_path: str):
+    with open(artifact_path, "r") as file:
+        data = yaml.safe_load(file) or {}
+    return data
+        
 def get_artifacts(artifact_path: Path, cfg: DictConfig, all_tasks: List[str]) -> OrderedDict:
     if artifact_path.exists():
-        with open(artifact_path, "r") as file:
-            data = yaml.safe_load(file) or {}
-            return OrderedDict(data)  # preserve loaded order if possible
+        data = read_artifact(artifact_path)
+        return OrderedDict(data)  # preserve loaded order if possible
     else:
         log.warning(f"Artifact YAML file not found at {artifact_path}. Initializing new artifact.")
         return get_empty_artifact(cfg, all_tasks)
