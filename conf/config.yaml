@@ -21,15 +21,15 @@ batch_id: MD_2025-05-02
 bbot_version: v3.1
 season: cool_season_covers_2024_2025 # cool_season_covers_2024_2025, cool_season_covers_2024_2025_NCpos2, summer_weeds_2024
 create_issue: true
-gh_reviewer: nnotaba # nnotaba or mkutu
+gh_reviewer: mkutu # nnotaba or mkutu
 timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be ignored in the batch
 run_mode: single # single or batch
 modes:
   # - sync
   # - correct
-  # - asfm
+  - asfm
   - label
-  # - deliver
+  - deliver
 ############################################
 
 tasks: # task for each mode
@@ -41,10 +41,10 @@ tasks: # task for each mode
   asfm:
     - autosfm # not implemented # TODO: create task list for autosfm
   label:
-    # - detect_plants
+    - detect_plants
     - merge_overlapping_bboxes
-    # - remap_labels
-    # - assign_species
+    - remap_labels
+    - assign_species
   deliver:
     - inspect_images # deliver
     - move_data # deliver
