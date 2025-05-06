@@ -168,15 +168,15 @@ class ImageReviewer:
         self.cfg = cfg
         self.batch_id = cfg.batch_id
         self.use_lts_images = cfg.inspection.use_lts_images
-
-        self.bbot_version = cfg.bbot_version
-        
         self.lts_locations = cfg.paths.lts_locations
         self.lts_dir = find_lts_dir(self.batch_id, self.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
         self.lts_dir_name = Path(self.lts_dir).name
         self.lts_batch_dir = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
         
         self.batch_folder = Path(cfg.paths.batch_dir)
+
+        self.fullres_h = cfg.exif.ImageHeight
+        self.fullres_w = cfg.exif.ImageWidth
 
         # Inputs
         self.image_dir = Path(cfg.paths.down_photos)
@@ -349,14 +349,10 @@ class ImageReviewer:
             metadata = json.load(f)
 
         # Set up resizing/scaling parameters
-        if "3.1" in self.bbot_version:
-            fullres_h, fullres_w = (9520, 13368)
-        else:
-            fullres_h, fullres_w = (6368, 9592)
         downscaling_factor = 5
         resized_h, resized_w = int(image.shape[0] / downscaling_factor), int(image.shape[1] / downscaling_factor)
-        scale_x = resized_w / fullres_w
-        scale_y = resized_h / fullres_h
+        scale_x = resized_w / self.fullres_w
+        scale_y = resized_h / self.fullres_h
         resized_image = cv2.resize(image, (resized_w, resized_h))
 
         base_lw = max(round(sum(resized_image.shape) / 2 * 0.003), 2)

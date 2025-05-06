@@ -78,8 +78,3 @@ max_workers: 16
 report:
   save2lts: true
   sample_size: 96 # best if this is a multiple of 12
-  reviewers:
-    github:
-      MD: mkutu #map0425 # Nick N of MD
-      NC: mkutu #nnotaba # Nick N of MD
-      default: mkutu # Matt K
