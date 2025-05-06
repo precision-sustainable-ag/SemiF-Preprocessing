@@ -18,6 +18,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "tasks" / "label_utils"))
 
+from src.utils.utils import find_lts_dir
+
 from src.autosfm import main as asfm
 from src.correct import main as correct
 from src.deliver import main as deliver
@@ -86,6 +88,10 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
+    
+    cfg.paths.lts_upload_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations) , "semifield-upload"))
+    cfg.paths.lts_developed_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True) , "semifield-developed-images"))
+    
     if cfg.run_mode == "batch":
 
         if "batch_list" not in cfg or not cfg.batch_list:

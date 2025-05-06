@@ -11,6 +11,9 @@ marker_dir: ${paths.semif_util_dir}/autosfm/GroundControlPoints
 image_development: ${paths.data_dir}/semifield-utils/image_development/
 scripts: ${paths.workdir}/scripts
 img_dev_lts_bkp: /mnt/research-projects/s/screberg/longterm_images2/semifield-utils/image_development/  # lts location with CCM and dev profile backups
+# Leave these empty if you're workling with data in multiple locations
+lts_upload_directory:
+lts_developed_directory:
 
 lts_locations:
   - /mnt/research-projects/s/screberg/longterm_images
@@ -43,6 +46,7 @@ pdf_report: ${paths.inspection_dir}/${batch_id}_asfm_report.pdf
 fov_shapefiles: ${paths.inspection_dir}/fov_shapefiles
 # Config save paths
 log_folder: ${paths.autosfm}
+log_path: ${hydra:runtime.output_dir}/${batch_id}.log
 
 pipeline_keys: ${paths.workdir}/.keys/pipeline_keys.yaml
 metashape_key:
@@ -63,3 +67,6 @@ inspection_dir: ${paths.batch_dir}/inspection
 # Temp stats directories
 season_stats_dir: ${paths.data_dir}/season_stats
 unprocessed_stats_dir: ${paths.data_dir}/unprocessed_stats
+
+# Artifacts file
+artifact_path: ${paths.batch_dir}/${batch_id}.yaml

@@ -218,6 +218,8 @@ def process_all_csvs_in_directory(directory_path: Path, output_dir: Path, iou_th
 
     # Find all CSV files in the directory
     csv_files = sorted(list(directory.rglob("*.csv")))
+    if not csv_files:
+        raise FileNotFoundError(f"No CSV files found in {directory_path}")
     log.info(f"Found {len(csv_files)} CSV files in {directory_path}")
 
     # Process each CSV file
