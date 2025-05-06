@@ -254,14 +254,25 @@ def save_log_to_lts(cfg):
     except Exception as e:
         log.error(f"Failed to save log file: {e}")
 
+def save_yaml_to_lts(cfg, lts_dev_dir):
+    try:
+        yaml_path = Path(cfg.paths.artifact_path)
+        batch_id = cfg.batch_id
+        yaml_dst_dir = Path(lts_dev_dir) / batch_id / "inspection"
+        yaml_dst_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy(yaml_path, yaml_dst_dir)
+    except Exception as e:
+        log.error(f"Failed to save YAML file: {e}")
+
 def create_issue(cfg, issue_type, tsk: str = None, error_msg: str = None):
     batch_id = cfg.batch_id
     user_id = cfg.gh_reviewer
     lts_dev_dir = cfg.paths.lts_developed_directory
     if not lts_dev_dir:
         lts_dev_dir = find_lts_dir(batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
-
     lts_dev_dir_name = Path(lts_dev_dir).parent.name
+
+    save_yaml_to_lts(cfg, lts_dev_dir)
 
     if issue_type == "report":
         trigger_payload = {
