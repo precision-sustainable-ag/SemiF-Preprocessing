@@ -7,12 +7,63 @@ import numpy as np
 import yaml
 import shutil
 from hydra.core.hydra_config import HydraConfig
+import re
+from typing import Dict, Any, List
 import subprocess
 import json
 import os
 import time
 
 log = logging.getLogger(__name__)
+
+def find_batches(lts_dirs: List[Path]) -> List[Path]:
+    """
+    Find all batches in the given directories.
+    """
+    batches = []
+    for lts_dir in lts_dirs:
+        batches.extend(sorted(lts_dir.glob("*")))
+    batches = [batch for batch in batches if matches_batch_format(batch.name)]
+    return batches
+
+def get_json_files(batch: Path) -> List[Path]:
+    """
+    Get all JSON files in the given batch directory.
+    """
+    json_dir = batch / "metadata"
+    return sorted(json_dir.glob("*.json"))
+
+def backup_metadata(batch: Path, local_test_dir: Path) -> None:
+    """
+    Backup metadata for the given batch to the local batch directory.
+    """
+    local_batch_dir = local_test_dir / batch.parent.parent.name / "semifield-developed-images" / batch.name
+    # Create the local batch directory if it doesn't exist
+    local_batch_dir.mkdir(parents=True, exist_ok=True)
+    # Backup the original JSON file data locally
+    shutil.copytree(batch / "metadata", local_batch_dir, dirs_exist_ok=True)
+
+def matches_batch_format(batch: str) -> bool:
+    """
+    Check if the batch name matches the expected format. Which is NC, MD, or TX followed by a date in the format of 2024-01-01. A _ separates state and date.
+    """
+    pattern = r"^(NC|MD|TX)_(\d{4}-\d{2}-\d{2})$"
+    return bool(re.match(pattern, batch))
+
+def read_json_file(file_path: Path) -> Dict[str, Any]:
+    """
+    Read a JSON file and return its content.
+    """
+    with open(file_path, "r") as file:
+        data = json.load(file)
+    return data
+
+def save_json_file(file_path: Path, data: Dict[str, Any]) -> None:
+    """
+    Save a dictionary to a JSON file.
+    """
+    with open(file_path, "w") as file:
+        json.dump(data, file, indent=4)
 
 def set_cpu_affinity() -> None:
     try:

@@ -120,32 +120,37 @@ class SeasonStatsCollector:
         bbox_species_per_batch = defaultdict(Counter)
 
         lts_dirs = [Path(lts) for lts in self.lts_locations]
+        filtered_batches = []
         for lts in tqdm(lts_dirs, desc="LTS Locations"):
 
             developed_dir = lts / "semifield-developed-images"
             batches = self.get_all_batches(developed_dir)
-            filtered_batches = self.filter_by_date(batches, state_id, start_date, end_date)
+            filtered_batches_list = self.filter_by_date(batches, state_id, start_date, end_date)
+            filtered_batches.extend(filtered_batches_list)
+            
 
-            log.info(f"Processing {len(filtered_batches)} batches in {lts.name}")
+        log.info(f"Processing {len(filtered_batches)} batches in {lts.name}")
 
-            for batch_name in tqdm(filtered_batches, desc="Batches", leave=False):
-                batch_dir = developed_dir / batch_name
-                _, batch_date = self.parse_state_date_from_batch(batch_name)
-                images_dir = batch_dir / "images"
-                metadata_dir = batch_dir / "metadata"
-                if not images_dir.exists() or not metadata_dir.exists():
-                    log.warning(f"Missing images or metadata for batch {batch_name} in {lts.name}")
-                    continue        
+        for batch_name in tqdm(filtered_batches, desc="Batches", leave=False):
+            batch_dir = developed_dir / batch_name
+            _, batch_date = self.parse_state_date_from_batch(batch_name)
+            images_dir = batch_dir / "images"
+            metadata_dir = batch_dir / "metadata"
+            if not images_dir.exists():
+                log.warning(f"Missing images for batch {batch_name} in {lts.name}")
+                continue        
 
-                jpgs = list(images_dir.glob("*.jpg"))
-                num_images = len(jpgs)
-                total_size = sum(f.stat().st_size for f in jpgs)
+            jpgs = list(images_dir.glob("*.jpg")) + list(images_dir.glob("*.JPG"))
+            num_images = len(jpgs)
+            total_size = sum(f.stat().st_size for f in jpgs)
 
-                image_counts.append(num_images)
-                image_sizes.append(total_size)
-                batch_dates.append(batch_date)
+            image_counts.append(num_images)
+            image_sizes.append(total_size)
+            batch_dates.append(batch_date)
 
-                batch_bboxes = 0
+            
+            batch_bboxes = 0
+            if metadata_dir.exists():
                 metadata_files = sorted(metadata_dir.glob("*.json"))
                 for meta_file in tqdm(metadata_files, desc="Metadata", leave=False):
                     with open(meta_file, "r") as f:
@@ -172,13 +177,13 @@ class SeasonStatsCollector:
                         if area:
                             area_by_species[common_name].append(area)
 
-                batch_summary.append({
-                    "batch_id": batch_dir.name,
-                    "num_images": num_images,
-                    "total_image_size_GiB": total_size / 2**30,
-                    "num_bboxes": batch_bboxes,
-                    "lts_location": lts.name,
-                })
+            batch_summary.append({
+                "batch_id": batch_dir.name,
+                "num_images": num_images,
+                "total_image_size_GiB": total_size / 2**30,
+                "num_bboxes": batch_bboxes,
+                "lts_location": lts.name,
+            })
 
         # Time-based stats
         df_dates = pd.Series(batch_dates)

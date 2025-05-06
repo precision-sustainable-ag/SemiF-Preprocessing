@@ -54,8 +54,7 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
     log.info(f"Running pipeline for batch {cfg.batch_id} in {','.join(modes)} mode.")
 
     keys = read_yaml(cfg.paths.pipeline_keys)
-    state_id = cfg.batch_id.split("_")[0]
-    user_id = getattr(cfg.report.reviewers.github, state_id, cfg.report.reviewers.github.default)
+    user_id = cfg.gh_reviewer
     os.environ["GITHUB_PAT"] = keys['GITHUB_PAT']
 
     lts_path = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images"
