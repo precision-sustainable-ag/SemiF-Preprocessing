@@ -31,7 +31,7 @@ class RawToDNGConverter:
             lts_dir (Path): LTS directory
             ccm_file (Path, optional): Path to the CCM `.npy` file. Defaults to None.
         """
-        self.exif_cfg = exif_cfg
+        self.exif_cfgs = exif_cfg
         self.batch_id = batch_id
         
         self.lts_dir = lts_dir
@@ -40,8 +40,8 @@ class RawToDNGConverter:
         self.ccm_file = ccm_file  # Path to CCM file
 
         
-        self.height = self.exif_cfgs.ImageLength
-        self.width = self.exif_cfgs.ImageWidth
+        self.height = self.exif_cfgs.DNG_ImageLength
+        self.width = self.exif_cfgs.DNG_ImageWidth
 
     def load_raw_image(self, file_path):
         """
