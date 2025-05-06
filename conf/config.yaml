@@ -21,7 +21,7 @@ batch_id: MD_2025-05-02
 bbot_version: v3.1
 season: cool_season_covers_2024_2025 # cool_season_covers_2024_2025, cool_season_covers_2024_2025_NCpos2, summer_weeds_2024
 create_issue: true
-reviewer: nnotaba # nnotaba or mkutu
+gh_reviewer: nnotaba # nnotaba or mkutu
 timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be ignored in the batch
 run_mode: single # single or batch
 modes:
