@@ -254,14 +254,22 @@ def save_log_to_lts(cfg):
     except Exception as e:
         log.error(f"Failed to save log file: {e}")
 
-def create_issue(batch_id, user_id, issue_type, tsk: str = None, error_msg: str = None):
-    
+def create_issue(cfg, issue_type, tsk: str = None, error_msg: str = None):
+    batch_id = cfg.batch_id
+    user_id = cfg.gh_reviewer
+    lts_dev_dir = cfg.paths.lts_developed_directory
+    if not lts_dev_dir:
+        lts_dev_dir = find_lts_dir(batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
+
+    lts_dev_dir_name = Path(lts_dev_dir).parent.name
+
     if issue_type == "report":
         trigger_payload = {
                 "event_type": "report-generated",
                 "client_payload": {
                     "batch_id": batch_id,
-                    "assignee": user_id  # from cfg.report.reviewers
+                    "assignee": user_id,  # from cfg.report.reviewers
+                    "lts_developed": lts_dev_dir_name
                 }
             }
         
@@ -272,7 +280,8 @@ def create_issue(batch_id, user_id, issue_type, tsk: str = None, error_msg: str 
                     "batch_id": batch_id,
                     "assignee": user_id,
                     "task_name": tsk,
-                    "error_msg": error_msg
+                    "error_msg": error_msg,
+                    "lts_developed": lts_dev_dir_name
                 }
             }
     subprocess.run([

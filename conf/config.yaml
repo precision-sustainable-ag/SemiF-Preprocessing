@@ -26,10 +26,10 @@ timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be
 run_mode: single # single or batch
 modes:
   # - sync
-  - correct
-  - asfm
+  # - correct
+  # - asfm
   - label
-  - deliver
+  # - deliver
 ############################################
 
 tasks: # task for each mode
@@ -41,10 +41,10 @@ tasks: # task for each mode
   asfm:
     - autosfm # not implemented # TODO: create task list for autosfm
   label:
-    - detect_plants
+    # - detect_plants
     - merge_overlapping_bboxes
-    - remap_labels
-    - assign_species
+    # - remap_labels
+    # - assign_species
   deliver:
     - inspect_images # deliver
     - move_data # deliver

@@ -7,16 +7,17 @@ Each task is assumed to expose a `main()` function accessible via Hydra's `get_m
 """
 import logging
 import os
+import sys
 from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig
-import sys
-from pathlib import Path
 
 # Ensure 'src/' is in the Python path
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "tasks" / "label_utils"))
+
+from src.utils.utils import find_lts_dir
 
 from src.autosfm import main as asfm
 from src.correct import main as correct
@@ -72,20 +73,25 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
             if cfg.create_issue:
                 save_log_to_lts(cfg)
                 log.info("Creating GitHub issue for mode failure.")
-                create_issue(cfg.batch_id, user_id, issue_type="failure", tsk=mode, error_msg=str(e))
+                create_issue(cfg, issue_type="failure", tsk=mode, error_msg=str(e))
             log.info("Exiting due to task failure.")
             raise
 
     log.info(f"Finished batch {cfg.batch_id} successfully.")
     if cfg.create_issue:
         log.info("Creating GitHub issue for successful run.")
-        create_issue(cfg.batch_id, user_id, issue_type="report")
+        create_issue(cfg, issue_type="report")
     
     return 
 
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
+    lts_path = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images"
+    retry_nfs_access(lts_path, mode="read", retries=10)
+    cfg.paths.lts_upload_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations) , "semifield-upload"))
+    cfg.paths.lts_developed_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True) , "semifield-developed-images"))
+    
     if cfg.run_mode == "batch":
 
         if "batch_list" not in cfg or not cfg.batch_list:

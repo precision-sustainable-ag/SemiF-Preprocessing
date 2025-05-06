@@ -12,6 +12,8 @@ from pathlib import Path
 import hydra
 from omegaconf import DictConfig
 
+from src.utils.artifact_utils import update_artifact_post_task
+
 log = logging.getLogger(__name__)
 
 def compute_file_hash(filepath: Path, chunk_size: int = 65536) -> str:
@@ -90,6 +92,11 @@ def main(cfg: DictConfig) -> None:
     except Exception as e:
         log.error(f"An error occurred while syncing files: {e}")
         raise
+    finally:
+        try:
+            update_artifact_post_task(cfg, task_name="sync_from_remote")
+        except Exception as log_update_err:
+            log.warning(f"Failed to update artifact with logs for task {'sync_from_remote'}: {log_update_err}")
     
     log.info("File synchronization complete.")
     return

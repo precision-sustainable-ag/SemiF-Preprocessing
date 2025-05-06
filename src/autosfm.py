@@ -1,7 +1,10 @@
 import logging
 import signal
 import sys
+import hydra
 from omegaconf import DictConfig
+
+from src.utils.artifact_utils import update_artifact_post_task
 
 from src.tasks.auto_sfm.config_utils import autosfm_present, create_config
 from src.tasks.auto_sfm.metashape_utils import SfM
@@ -11,8 +14,8 @@ from src.tasks.auto_sfm.resize import (resize_masks,
 # Set the logger
 log = logging.getLogger(__name__)
 
+def run_asfm_pipeline(cfg: DictConfig) -> None:
 
-def main(cfg: DictConfig) -> None:
     def sigint_handler(signum, frame):
         print("\nPython SIGINT detected. Exiting.\n")
         sys.exit(1)
@@ -209,3 +212,25 @@ def main(cfg: DictConfig) -> None:
             raise
     log.info(f"AutoSfM Complete")
     return
+
+@hydra.main(version_base="1.3", config_path="../conf", config_name="config")
+def main(cfg: DictConfig) -> None:
+    """ Main entry point for the application """
+    log.info(f"Starting AutoSfM pipeline...")
+
+    try:
+        run_asfm_pipeline(cfg)
+    except Exception as e:
+        log.exception(f"Error running AutoSfM pipeline: {e}")
+        raise
+    finally:
+        try:
+            update_artifact_post_task(cfg, task_name="autosfm")
+        except Exception as log_update_err:
+            log.warning(f"Failed to update artifact with logs for task {'autosfm'}: {log_update_err}")
+
+    log.info("AutoSfM pipeline complete.")
+    return
+
+if __name__ == "__main__":
+    main()

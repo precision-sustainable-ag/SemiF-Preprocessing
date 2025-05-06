@@ -78,22 +78,26 @@ def build_failure_body():
 
 def build_non_first_success_body():
     globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_report.pdf"
-    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.log"
+    globus_asfm_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_asfm_report.pdf"
+    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.yaml"
     return (
         "### New Inspection Report Available\n\n"
         f"The inspection report for batch `{BATCH_ID}` is ready for review.\n\n"
         f"[View Report PDF]({globus_pdf})\n"
+        f"[View ASFM Report PDF]({globus_asfm_pdf})\n"
         f"[View Log File]({globus_log})\n\n"
         f"_Assigned to @{ASSIGNEE}_\n\n"
     )
 
 def build_first_success_body():
     globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_report.pdf"
-    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.log"
+    globus_asfm_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_asfm_report.pdf"
+    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.yaml"
     return (
         "### New Inspection Report Available\n\n"
         f"The inspection report for batch `{BATCH_ID}` is ready for review.\n\n"
         f"[View Report PDF]({globus_pdf})\n"
+        f"[View ASFM Report PDF]({globus_asfm_pdf})\n"
         f"[View Log File]({globus_log})\n\n"
         f"_Assigned to @{ASSIGNEE}_\n\n"
         "---\n"

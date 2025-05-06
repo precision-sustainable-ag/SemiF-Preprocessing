@@ -26,6 +26,6 @@ jobs:
         BATCH_ID: ${{ github.event.client_payload.batch_id }}
         ASSIGNEE: ${{ github.event.client_payload.assignee }}
         REPO: ${{ github.repository }}
-        GLOBUS_PREFIX: https://m-ae9b45.7ce1a.03c0.data.globus.org/rsstu/users/s/screberg/longterm_images2/semifield-developed-images
+        GLOBUS_PREFIX: https://m-ae9b45.7ce1a.03c0.data.globus.org/rsstu/users/s/screberg/${{ github.event.client_payload.lts_developed }}/semifield-developed-images
         IS_SUCCESS: "true"
       run: python scripts/update_or_create_issue.py

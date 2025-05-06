@@ -59,16 +59,6 @@ def epoch_to_exif_datetime_eastern(epoch: int, use_fractional=True) -> str:
 
     return base
 
-def flatten_exif_dict(config: dict) -> dict:
-    """Flatten a nested EXIF dictionary for exiftool usage."""
-    items = {}
-    for k, v in config.items():
-        for k2, val in v.items():
-            new_key = f"{k2}"
-            if val is not None and val != "":
-                items[f"{new_key}"] = val
-    return items
-
 def _update_exif_worker(args):
     """
     Worker function to update EXIF tags for one image.
@@ -109,7 +99,7 @@ def _update_exif_worker(args):
 
 def batch_update(cfg: DictConfig, image_dir: Path):
     """Update EXIF tags in all image files within a directory using multiprocessing."""
-    tags = flatten_exif_dict(cfg.exif)
+    tags = dict(cfg.exif)
     if not tags:
         log.warning("No EXIF tags found in config. Skipping update.")
         return
