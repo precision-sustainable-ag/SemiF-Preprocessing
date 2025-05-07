@@ -10,6 +10,8 @@ import hydra
 from shapely.geometry import Point
 from tqdm import tqdm
 
+from src.utils.utils import safe_save_json
+
 log = logging.getLogger(__name__)
 
 class SpeciesAssigner:
@@ -33,8 +35,7 @@ class SpeciesAssigner:
         return metadata
     
     def save_json(self, filepath: Path, data: dict):
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=4)
+        safe_save_json(data, filepath)
     
     def run(self) -> None:
         """

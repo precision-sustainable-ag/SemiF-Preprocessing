@@ -7,6 +7,7 @@ notebooks/
 
 # Random helper scripts
 quick_fix/
+backup/
 
 # Script logs
 *.logs

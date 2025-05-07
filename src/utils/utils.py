@@ -16,6 +16,30 @@ import time
 
 log = logging.getLogger(__name__)
 
+def replace_all_nan_with_null(obj: Any) -> Any:
+    """
+    Recursively replace all NaN values with None (JSON null).
+    """
+    if isinstance(obj, dict):
+        return {k: replace_all_nan_with_null(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [replace_all_nan_with_null(v) for v in obj]
+    elif isinstance(obj, float) and math.isnan(obj):
+        return None
+    else:
+        return obj
+
+def save_json_file(file_path: Path, data: Dict[str, Any]) -> None:
+    """
+    Save a dictionary to a JSON file.
+    """
+    with open(file_path, "w") as file:
+        json.dump(data, file, indent=4)
+        
+def safe_save_json(data: Any, path: Path) -> None:
+    cleaned = replace_all_nan_with_null(data)
+    save_json_file(path, cleaned)
+
 def find_batches(lts_dirs: List[Path]) -> List[Path]:
     """
     Find all batches in the given directories.
@@ -50,20 +74,19 @@ def matches_batch_format(batch: str) -> bool:
     pattern = r"^(NC|MD|TX)_(\d{4}-\d{2}-\d{2})$"
     return bool(re.match(pattern, batch))
 
+def strict_parse_constant(val: str):
+    raise ValueError(f"Invalid constant found in JSON: {val}")
+
 def read_json_file(file_path: Path) -> Dict[str, Any]:
     """
     Read a JSON file and return its content.
     """
     with open(file_path, "r") as file:
-        data = json.load(file)
+        data = json.load(file)#, parse_constant=strict_parse_constant)
+
     return data
 
-def save_json_file(file_path: Path, data: Dict[str, Any]) -> None:
-    """
-    Save a dictionary to a JSON file.
-    """
-    with open(file_path, "w") as file:
-        json.dump(data, file, indent=4)
+
 
 def set_cpu_affinity() -> None:
     try:
