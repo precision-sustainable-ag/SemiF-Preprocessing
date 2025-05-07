@@ -84,13 +84,14 @@ def update_artifact_post_task(cfg: DictConfig, task_name: str) -> None:
     # Update warnings/errors
     error_df = extract_error_blocks(log_lines)
     if not error_df.empty:
-        for task in error_df["ScriptModule"].unique():
-            task_key = task.split(".")[-1]
-            if task_key == task_name:
-                subset = error_df[error_df["ScriptModule"] == task]
-                lines = [f"[{r.Level}] {r.LogSnippet} ({r.ScriptModule})" for _, r in subset.iterrows()]
-                artifact["warning_and_errors"][task_key] = lines
-
+        subset = error_df[error_df["ScriptModule"].str.endswith(task_name)]
+        if not subset.empty:
+            lines = [f"[{r.Level}] {r.LogSnippet} ({r.ScriptModule})" for _, r in subset.iterrows()]
+            artifact["warning_and_errors"][task_name] = lines
+        else:
+            artifact["warning_and_errors"][task_name] = None
+    else:
+        artifact["warning_and_errors"][task_name] = None
     save_artifacts(artifact_path, artifact)
 
 

@@ -222,10 +222,10 @@ class ImageReport:
         time_differences = [timestamps[i + 1] - timestamps[i] for i in range(len(timestamps) - 1)]
         return sum(time_differences) / len(time_differences) if time_differences else 0
 
-    
-    def generate_pdf_report(self):
-        if not self.image_data:
-            self.extract_image_metadata()
+    def _generate_summary_section(self, c: canvas.Canvas) -> None:
+        """
+        Generates the summary section of the PDF report.
+        """
         batch_id = self.batch_id
         total_images = self.calculate_total_images()
         total_size = self.calculate_total_size()
@@ -235,14 +235,8 @@ class ImageReport:
         first_upload, last_upload = self.get_first_and_last_upload()
         partial_uploads = self.count_partial_uploads()
 
-        pdf_output_path = self.output_report_dir / f"{batch_id}_report.pdf"
-        c = canvas.Canvas(str(pdf_output_path), pagesize=letter)
         c.setFont("Helvetica", 12)
-        # Set the title of the document
 
-        # ----------------------------------------------------
-        # Section 1: Summary Information
-        # ----------------------------------------------------
         c.drawString(50, 750, f"SemiField Bbot V{self.bbot_version} Collection Report")
         c.drawString(50, 730, f"Batch ID: {batch_id}")
         c.drawString(50, 710, f"Total Raw Images: {total_images}")
@@ -268,11 +262,8 @@ class ImageReport:
         if upload_plot_path.exists():
             c.drawImage(upload_plot_path, 300, 400, width=500//1.6, height=300//1.5)
 
-        
         # Parse module timings
         module_timings_df = self.log_parser.extract_module_timings()
-        # Sort by start time
-        module_timings_df.sort_values(by='StartTime', inplace=True)
         if not module_timings_df.empty:
             c.setFont("Helvetica-Bold", 14)
             c.drawString(50, 370, "Module timing Information:")
@@ -285,19 +276,18 @@ class ImageReport:
             total_duration_str = f"{total_duration_hours}h {total_duration_minutes}m {total_duration_seconds}s"
             c.setFont("Helvetica", 12)
             c.drawString(50, 350, f"Total Duration: {total_duration_str}")
+
             # Prepare table data
-            table_data = [["Module", "Start Time", "End Time", "Duration (h:m:s)"]]
+            table_data = [["Module", "Duration (h:m:s)"]]
             module_timings_df = module_timings_df[module_timings_df['ScriptModule'] != 'Total']
             for _, row in module_timings_df.iterrows():
                 module = row['ScriptModule']
-                start_time = row['StartTime']
-                end_time = row['EndTime']
                 duration = row['DurationSeconds']
                 duration_hours = int(duration // 3600)
                 duration_minutes = int((duration % 3600) // 60)
                 duration_seconds = int(duration % 60)
                 duration_str = f"{duration_hours}h {duration_minutes}m {duration_seconds}s"
-                table_data.append([module, str(start_time), str(end_time), duration_str])
+                table_data.append([module, duration_str])
 
             # Create the table
             table = Table(table_data, colWidths=[160, 130, 130, 100])
@@ -319,63 +309,21 @@ class ImageReport:
             
         else:
             c.drawString(50, 540, "No module timings found in logs.")
-            
-        # --------------------------------------------------------
-        # Section 2: Metashape Report Image Page 1
-        # --------------------------------------------------------
-        
+
+    def _add_metashape_page(self, c: canvas.Canvas, file_name: str, x: int, y: int, width: int, height: int) -> None:
         c.showPage()  # Start a new page
         # Metashape report page
-        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_001.jpg"
+        metashape_page_1 = self.output_report_dir / f"metashape_report_pages/{file_name}"
         if metashape_page_1.exists():
-            c.drawImage(metashape_page_1, -150, -125, width=850, height=1000, preserveAspectRatio=True)
+            c.drawImage(metashape_page_1, x, y, width=width, height=height, preserveAspectRatio=True)
+    
+    def _add_sample_images(self, c: canvas.Canvas) -> None:
+        """
+        Adds sample images to the PDF report.
 
-        # --------------------------------------------------------
-        # Section 3: Metashape Report Image Page 2
-        # --------------------------------------------------------
-
-        c.showPage()  # Start a new page
-        # Metashape report page 2
-        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_002.jpg"
-        if metashape_page_1.exists():
-            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
-
-        # --------------------------------------------------------
-        # Section 4: Metashape Report Image Page 3
-        # --------------------------------------------------------
-
-        c.showPage()  # Start a new page
-        # Metashape report page 3
-        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_003.jpg"
-        if metashape_page_1.exists():
-            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
-
-        # --------------------------------------------------------
-        # Section 5: Metashape Report Image Page 4
-        # --------------------------------------------------------
-        c.showPage()  # Start a new page
-        # Metashape report page 4
-        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_004.jpg"
-        if metashape_page_1.exists():
-            c.drawImage(metashape_page_1, -115, -120, width=850, height=1000, preserveAspectRatio=True)
-        
-        # c = canvas.Canvas(str(Path(pdf_output_path.parent, pdf_output_path.stem + ".test.pdf")), pagesize=letter)
-        c.showPage()  # Start a new page
-        # Metashape report page 9
-        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_009.jpg"
-        if metashape_page_1.exists():
-            c.drawImage(metashape_page_1, -10, -75, width=675, height=1000, preserveAspectRatio=True)
-
-        c.showPage()  # Start a new page
-        # Metashape report page 10
-        metashape_page_1 = self.output_report_dir / "metashape_report_pages/page_010.jpg"
-        if metashape_page_1.exists():
-            c.drawImage(metashape_page_1, -10, -125, width=650, height=1000, preserveAspectRatio=True)
-
-        # --------------------------------------------------------
-        # Section 5: Sample Images
-        # --------------------------------------------------------
-
+        Args:
+            c (canvas.Canvas): The PDF canvas object.
+        """
         # Set heading for sample images
         if self.local_sample_dir.exists() and list(self.local_sample_dir.glob("*.jpg")):
             sample_images = list(self.local_sample_dir.glob("*.jpg"))
@@ -420,57 +368,32 @@ class ImageReport:
         else:
             log.warning("Sample images not available")
             c.drawString(50, 350, "Sample images not available")
-
-        # -----------------------------------------
-        # Section 6: Add Area and Density
-        # -----------------------------------------
-
-        c.showPage()  # Start a new page for the three analytical plots
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 750, "Analysis Plots: Species Counts and Area Distribution")
-
-        # Define positions and sizes
-        plot_w = 250
-        plot_h = 200
-
-        # Plot 1: Count per Species
-        count_plot_path = self.plot_file_base / "species_counts.png"
+        
+    def _add_plot(self, c: canvas.Canvas, plot_file_name: str, x: int, y: int, width: int= 250, height: int = 200, title: str = None, newpage: bool = True) -> None:
+        if newpage:
+            c.showPage()  # Start a new page for the three analytical plots
+        if title:
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(50, 750, title)
+        count_plot_path = self.plot_file_base / plot_file_name
         if Path(count_plot_path).exists():
-            c.drawImage(count_plot_path, 50, 350, width=plot_w*2.0, height=plot_h*2.0, preserveAspectRatio=True)
+            c.drawImage(count_plot_path, x, y, width=width*2.0, height=height*2.0, preserveAspectRatio=True)
 
-        # Plot 2: Area
-        area_plot_path = self.plot_file_base / "area_log_scaled_histograms.png"
-        if Path(area_plot_path).exists():
-            c.drawImage(area_plot_path, 50, 0, width=plot_w * 2, height=plot_h * 2, preserveAspectRatio=True)
+    def _add_errors_and_warnings(self, c: canvas.Canvas) -> None:
+        """
+        Adds errors and warnings to the PDF report.
 
-        #------------------------------------------
-        # Section 7: Species Centroid Density
-        #------------------------------------------
-        
-        c.showPage()  # Start a new page for the three analytical plots
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 750, "Analysis Plots: Spatial Density")
-
-        # Plot 3: Species Centroid Density
-        density_plot_path = self.plot_file_base / "species_centroid_density.png"
-        if Path(density_plot_path).exists():
-            c.drawImage(density_plot_path, 50, 350, width=plot_w * 2, height=plot_h* 2, preserveAspectRatio=True)
-        
-        #-------------------------------------------
-        # Section 8: Log errors
-        #-------------------------------------------
-
+        Args:
+            c (canvas.Canvas): The PDF canvas object.
+        """
         # Parse errors and warnings
         errors_df = self.log_parser.extract_error_blocks()
         if not errors_df.empty:
-            c.showPage()  # Start a new page for the three analytical plots
+            c.showPage()  # Start a new page for the errors and warnings
             c.setFont("Helvetica-Bold", 14)
             c.drawString(50, 750, "Errors and Warnings:")
             c.setFont("Helvetica", 10)
             y_position = 730
-            page_height = 750
-            
-            y = page_height
 
             for _, row in errors_df.iterrows():
                 module = row['ScriptModule']
@@ -486,9 +409,43 @@ class ImageReport:
                 c.drawString(25, y_position, f"[{module}] - {level.upper()} - {message}")
                 y_position -= 15
         else:
-            c.showPage()  # Start a new page for the three analytical plots
+            c.showPage()  # Start a new page for the errors and warnings
             c.setFont("Helvetica-Bold", 14)
             c.drawString(50, 750, "Errors and Warnings:")
+
+    def generate_pdf_report(self):
+        
+        if not self.image_data:
+            self.extract_image_metadata()
+
+        pdf_output_path = self.output_report_dir / f"{self.batch_id}_report.pdf"
+        c = canvas.Canvas(str(pdf_output_path), pagesize=letter)
+        # ----------------------------------------------------
+        # Section 1: Summary Information
+        # ----------------------------------------------------
+        self._generate_summary_section(c)
+        # --------------------------------------------------------
+        # Section 2: Metashape Report Image Page 1
+        # --------------------------------------------------------
+        self._add_metashape_page(c, "page_001.jpg", -150, -125, 850, 1000)
+        self._add_metashape_page(c, "page_002.jpg", -115, -120, 850, 1000)
+        self._add_metashape_page(c, "page_003.jpg", -115, -120, 850, 1000)
+        self._add_metashape_page(c, "page_004.jpg", -115, -120, 850, 1000)
+        # --------------------------------------------------------
+        # Section 5: Sample Images
+        # --------------------------------------------------------
+        self._add_sample_images(c)
+        # -----------------------------------------
+        # Section 6: Add Area and Density
+        # -----------------------------------------
+        self._add_plot(c, "species_counts.png", 50, 350, 250, 200, title="Analysis Plots: Species Counts and Area Distribution", newpage=True)
+        self._add_plot(c, "area_log_scaled_histograms.png", 50, 0, 250, 200, newpage=False)
+        self._add_plot(c, "species_centroid_density.png", 50, 350, 250, 200, title="Analysis Plots: Spatial Density", newpage=True)
+        
+        #-------------------------------------------
+        # Section 8: Log errors
+        #-------------------------------------------
+        self._add_errors_and_warnings(c)
 
         # Save the PDF
         c.save()
