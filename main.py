@@ -89,23 +89,14 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
 def main(cfg: DictConfig) -> None:
     lts_path = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images"
     retry_nfs_access(lts_path, mode="read", retries=10)
-    cfg.paths.lts_upload_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations) , "semifield-upload"))
-    cfg.paths.lts_developed_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True) , "semifield-developed-images"))
-    
-    if cfg.run_mode == "batch":
 
-        if "batch_list" not in cfg or not cfg.batch_list:
-            log.error("Batch mode specified but batch_list is missing in config.")
-            raise ValueError("Missing batch_list for batch mode.")
-        
-        for batch_cfg in cfg.batch_list:
-            try:
-                run_single_batch(cfg, batch_cfg)
-            except Exception as e:
-                log.exception(f"Error processing batch {batch_cfg['batch_id']}: {e}")
-                continue
-    else:
-        run_single_batch(cfg)
+    cfg.paths.lts_upload_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations) , "semifield-upload"))
+    
+    try:
+        cfg.paths.lts_developed_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True) , "semifield-developed-images"))
+    except Exception as e:
+        cfg.paths.lts_developed_directory = None
+    run_single_batch(cfg)
 
 if __name__ == "__main__":
     main()
