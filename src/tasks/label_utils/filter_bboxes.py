@@ -10,6 +10,8 @@ from omegaconf import DictConfig
 from shapely.geometry import Polygon
 from tqdm import tqdm
 
+from src.utils.utils import safe_save_json
+
 log = logging.getLogger(__name__)
 
 FOV_IOU_THRESH = 0.1
@@ -293,8 +295,7 @@ def main(cfg: DictConfig) -> None:
 
     for img in imgs:
         save_path = bbox_filter.metadata_output_dir / f"{img.image_id}.json"
-        with open(save_path, "w") as f:
-            json.dump(asdict(img), f, indent=4)
+        safe_save_json(asdict(img), save_path)
         log.info(f"Saved: {save_path}")
             
         

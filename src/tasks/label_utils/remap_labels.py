@@ -19,6 +19,7 @@ from tqdm import tqdm
 
 import Metashape
 from src.tasks.label_utils.filter_bboxes import BBoxFilter
+from src.utils.utils import safe_save_json
 from src.utils.datasets import (
     BBoxCoordinates,
     BoundingBox,
@@ -558,8 +559,7 @@ class RemapLabels:
         try:
             # Convert to dictionary and sanitize for JSON compatibility
             image_dict = self.sanitize(asdict(image))
-            with open(path, "w") as f:
-                json.dump(image_dict, f, indent=4)
+            safe_save_json(image_dict, path)
 
             log.debug(f"Image {image.image_id}: saved {len(image.annotations)} annotations.")
         except Exception as e:
