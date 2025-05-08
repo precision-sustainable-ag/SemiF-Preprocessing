@@ -10,36 +10,40 @@ Finally, it generates *automated reports* and tracks issues on GitHub, while als
 
 ```mermaid
 flowchart TD
-    A0["Pipeline Orchestration
+    A0["Pipeline Execution & Orchestration
 "]
     A1["Configuration Management (Hydra)
 "]
-    A2["Image Processing Task Module
+    A2["RAW Image Processing & Conversion (RAW -> DNG -> JPG)
 "]
-    A3["AutoSfM (Structure from Motion) Pipeline
+    A3["Structure from Motion (SfM) Pipeline
 "]
-    A4["Automated Reporting and Issue Tracking
+    A4["Plant Detection
 "]
-    A5["Data Representation (Dataclasses)
+    A5["Bounding Box Processing & Labeling
 "]
-    A6["Bounding Box Processing and Remapping
+    A6["Reporting & Quality Control (QC)
 "]
-    A7["EXIF Data Management
+    A7["Automated Issue Tracking (GitHub)
 "]
-    A8["Image File Conversion (RAW to JPG)
+    A8["Data Synchronization & Movement
 "]
-    A9["Data Synchronization and Path Management
-"]
-    A0 -- "Uses config from" --> A1
-    A0 -- "Executes" --> A2
-    A2 -- "Contains task" --> A8
-    A8 -- "Updates/Sets EXIF during" --> A7
-    A2 -- "Contains task" --> A3
-    A3 -- "Provides 3D model to" --> A6
-    A5 -- "Defines data for" --> A6
-    A0 -- "Triggers" --> A4
-    A0 -- "Uses for data access" --> A9
-    A2 -- "Contains task" --> A7
+    A0 -- "Reads configuration from" --> A1
+    A0 -- "Executes RAW processing" --> A2
+    A0 -- "Executes SfM pipeline" --> A3
+    A0 -- "Executes plant detection" --> A4
+    A0 -- "Executes BBox processing" --> A5
+    A0 -- "Executes report generation" --> A6
+    A0 -- "Triggers issue creation/update" --> A7
+    A0 -- "Executes data synchronization" --> A8
+    A1 -- "Provides SfM parameters" --> A3
+    A1 -- "Provides BBox parameters" --> A5
+    A2 -- "Provides JPGs for 3D model" --> A3
+    A2 -- "Provides JPGs for detection" --> A4
+    A3 -- "Provides 3D map for remapping" --> A5
+    A4 -- "Provides initial bounding b..." --> A5
+    A5 -- "Provides processed boxes fo..." --> A6
+    A8 -- "Stages RAW/model files" --> A2
 ```
 
 ## Chapters
