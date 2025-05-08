@@ -15,6 +15,7 @@ from omegaconf import DictConfig
 import hydra
 from pyproj import CRS
 from shapely.geometry import Polygon
+from pyproj import Transformer
 from tqdm import tqdm
 
 import Metashape
@@ -27,7 +28,7 @@ from src.utils.datasets import (
     CameraInfo,
     FOV,
     GlobalCoordinates,
-    ImageMetadata,
+    ImageMetadata
 )
 
 log = logging.getLogger(__name__)
@@ -461,13 +462,13 @@ class RemapLabels:
 
         return ImageMetadata(
             season=self.season,
-            datetime="",
+            datetime=None,
             bbot_version=self.bbot_version,
             image_id=image_id,
             batch_id=self.batch_id,
             validated=False,
             version="v1",
-            Exif_meta="",
+            exif_meta=None,
             camera_info=camera_info,
             annotations=bboxes,
             fullres_width=self.fullres_w,
@@ -475,12 +476,45 @@ class RemapLabels:
             downscaled_width=w,
             fullres_height=self.fullres_h,
         )
+    def calculate_area(self, coords: list[tuple[float, float]]) -> float:
+        # WGS84 to UTM Zone 17N (adjust if needed based on location)
+        transformer = Transformer.from_crs("EPSG:4326", "EPSG:32617", always_xy=True)
+        coords = [transformer.transform(*pt) for pt in coords]
+        polygon = Polygon(coords)
+        return polygon.area
 
+
+    def calculate_fov_area(self, fov: dict) -> float:
+        try:
+            corners = [
+                fov["top_left_xy"],
+                fov["top_right_xy"],
+                fov["bottom_right_xy"],
+                fov["bottom_left_xy"],
+            ]
+            if "3" in self.bbot_version:
+                # For non-TX batches, we need to calculate the area in meters
+                area = self.calculate_area(corners) * 10000
+            else:
+                polygon = Polygon(corners)
+                area = polygon.area * 10000
+            return area
+        
+        except Exception as e:
+            log.warning(f"Failed to calculate FOV area: {e}")
+            return None
+        
     def _fov(self, rows: pd.DataFrame) -> FOV:
         """
         Extract the camera field-of-view (FOV) parameters from a row group.
         """
         try:
+            fov = {
+            "top_left_xy":(rows["top_left_x"].iloc[0], rows["top_left_y"].iloc[0]),
+            "top_right_xy":(rows["top_right_x"].iloc[0], rows["top_right_y"].iloc[0]),
+            "bottom_left_xy":(rows["bottom_left_x"].iloc[0], rows["bottom_left_y"].iloc[0]),
+            "bottom_right_xy":(rows["bottom_right_x"].iloc[0], rows["bottom_right_y"].iloc[0])
+            }
             return FOV(
                 height=rows["height"].iloc[0],
                 width=rows["width"].iloc[0],
@@ -488,8 +522,8 @@ class RemapLabels:
                 top_right_xy=[rows["top_right_x"].iloc[0], rows["top_right_y"].iloc[0]],
                 bottom_left_xy=[rows["bottom_left_x"].iloc[0], rows["bottom_left_y"].iloc[0]],
                 bottom_right_xy=[rows["bottom_right_x"].iloc[0], rows["bottom_right_y"].iloc[0]],
-                fov_area_m2=None  # To be calculated or updated elsewhere
-            )
+                fov_area_cm2=self.calculate_fov_area(fov)  # To be calculated or updated elsewhere
+            ) 
         except Exception as e:
             log.exception("Failed to construct FOV object.")
             raise

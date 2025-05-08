@@ -31,7 +31,7 @@ class FOV:
     top_right_xy: List[float]
     bottom_left_xy: List[float]
     bottom_right_xy: bool
-    fov_area_m2: float
+    fov_area_cm2: float
     
 @dataclass
 class CameraCoefficients:
@@ -94,7 +94,7 @@ class ImageMetadata:
     image_id: str
     validated: bool
     version: str
-    Exif_meta: ExifMeta
+    exif_meta: ExifMeta
     camera_info: CameraInfo
     fullres_height: int
     fullres_width: int
