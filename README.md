@@ -1,66 +1,69 @@
 # Tutorial: SemiF-Preprocessing
 
-This project automates the *preprocessing* of **RAW agricultural images**, particularly those of plants in controlled environments.
-It takes raw image data, converts it to standard formats (**JPG**), reconstructs a **3D scene** using Structure from Motion (SfM), detects plants (**YOLO**), refines their locations (**bounding boxes**), assigns species labels, generates quality control **reports**, and automatically tracks progress and issues on **GitHub**.
-The entire workflow is orchestrated as a pipeline, managed by configuration files for flexibility.
+The **SemiF-Preprocessing** project is an *automated pipeline* for processing SemiField Benchbot images.
+It takes *RAW image files*, converts them to JPG, and manages their **EXIF metadata**.
+A core part is the *AutoSfM (Structure from Motion)* process, generating **3D models** from these images.
+These models aid in tasks like *detecting plants*, creating **bounding boxes**, and remapping them to real-world coordinates.
+The workflow is driven by a **Pipeline Orchestrator** using a flexible **Configuration Management** system (Hydra).
+Finally, it generates *automated reports* and tracks issues on GitHub, while also handling **data synchronization** with long-term storage.
+
 
 ```mermaid
 flowchart TD
-    A0["Pipeline Execution & Orchestration"]
-    A1["Configuration Management (Hydra)"]
-    A2["RAW Image Processing & Conversion (RAW to DNG to JPG)"]
-    A3["Structure from Motion (SfM) Pipeline"]
-    A4["Plant Detection"]
-    A5["Bounding Box Processing and Labeling"]
-    A6["Reporting and Quality Control (QC)"]
-    A7["Automated Issue Tracking (GitHub)"]
-    A8["Data Synchronization and Movement"]
-
-    A0 -->|Reads configuration| A1
-    A0 -->|Executes RAW processing| A2
-    A0 -->|Executes SfM pipeline| A3
-    A0 -->|Executes plant detection| A4
-    A0 -->|Executes BBox processing| A5
-    A0 -->|Executes report generation| A6
-    A0 -->|Triggers issue creation/update| A7
-    A0 -->|Executes data synchronization| A8
-
-    A1 -->|Provides RAW processing config| A2
-    A1 -->|Provides SfM parameters| A3
-    A1 -->|Provides detection settings| A4
-    A1 -->|Provides BBox parameters| A5
-    A1 -->|Provides QC/reporting config| A6
-    A1 -->|Provides sync rules| A8
-
-    A2 -->|Provides JPGs for 3D model| A3
-    A2 -->|Provides JPGs for detection| A4
-    A3 -->|Provides 3D map for remapping| A5
-    A4 -->|Provides initial bounding boxes| A5
-    A5 -->|Provides processed boxes for reports| A6
-    A8 -->|Stages RAW and model files| A2
+    A0["Pipeline Orchestration
+"]
+    A1["Configuration Management (Hydra)
+"]
+    A2["Image Processing Task Module
+"]
+    A3["AutoSfM (Structure from Motion) Pipeline
+"]
+    A4["Automated Reporting and Issue Tracking
+"]
+    A5["Data Representation (Dataclasses)
+"]
+    A6["Bounding Box Processing and Remapping
+"]
+    A7["EXIF Data Management
+"]
+    A8["Image File Conversion (RAW to JPG)
+"]
+    A9["Data Synchronization and Path Management
+"]
+    A0 -- "Uses config from" --> A1
+    A0 -- "Executes" --> A2
+    A2 -- "Contains task" --> A8
+    A8 -- "Updates/Sets EXIF during" --> A7
+    A2 -- "Contains task" --> A3
+    A3 -- "Provides 3D model to" --> A6
+    A5 -- "Defines data for" --> A6
+    A0 -- "Triggers" --> A4
+    A0 -- "Uses for data access" --> A9
+    A2 -- "Contains task" --> A7
 ```
 
 ## Chapters
 
-1. [RAW Image Processing & Conversion (RAW -> DNG -> JPG)
-](docs/01_raw_image_processing___conversion__raw____dng____jpg__.md)
-2. [Plant Detection
-](docs/02_plant_detection_.md)
-3. [Structure from Motion (SfM) Pipeline
-](docs/03_structure_from_motion__sfm__pipeline_.md)
-4. [Bounding Box Processing & Labeling
-](docs/04_bounding_box_processing___labeling_.md)
-5. [Pipeline Execution & Orchestration
-](docs/05_pipeline_execution___orchestration_.md)
-6. [Configuration Management (Hydra)
-](docs/06_configuration_management__hydra__.md)
-7. [Data Synchronization & Movement
-](docs/07_data_synchronization___movement_.md)
-8. [Reporting & Quality Control (QC)
-](docs/08_reporting___quality_control__qc__.md)
-9. [Automated Issue Tracking (GitHub)
-](docs/09_automated_issue_tracking__github__.md)
-
+1. [Pipeline Orchestration
+](docs/01_pipeline_orchestration_.md)
+2. [Configuration Management (Hydra)
+](docs/02_configuration_management__hydra__.md)
+3. [Data Synchronization and Path Management
+](docs/03_data_synchronization_and_path_management_.md)
+4. [Image Processing Task Module
+](docs/04_image_processing_task_module_.md)
+5. [Image File Conversion (RAW to JPG)
+](docs/05_image_file_conversion__raw_to_jpg__.md)
+6. [EXIF Data Management
+](docs/06_exif_data_management_.md)
+7. [AutoSfM (Structure from Motion) Pipeline
+](docs/07_autosfm__structure_from_motion__pipeline_.md)
+8. [Data Representation (Dataclasses)
+](docs/08_data_representation__dataclasses__.md)
+9. [Bounding Box Processing and Remapping
+](docs/09_bounding_box_processing_and_remapping_.md)
+10. [Automated Reporting and Issue Tracking
+](docs/10_automated_reporting_and_issue_tracking_.md)
 
 ---
 
