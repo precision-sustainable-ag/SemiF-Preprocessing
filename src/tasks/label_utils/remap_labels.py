@@ -463,11 +463,11 @@ class RemapLabels:
         return ImageMetadata(
             season=self.season,
             datetime=None,
-            bbot_version=self.bbot_version,
+            bbot_version=str(self.bbot_version),
             image_id=image_id,
             batch_id=self.batch_id,
             validated=False,
-            version="v1",
+            version="1",
             exif_meta=None,
             camera_info=camera_info,
             annotations=bboxes,

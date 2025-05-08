@@ -195,6 +195,7 @@ def save_artifacts(artifact_path: str, data: Dict[str, Any]) -> None:
     Save the given data to the YAML file at the specified artifact path.
     """
     artifact_path = Path(artifact_path)
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
     
     with open(artifact_path, "w") as file:
         yaml.dump(data, file, sort_keys=False, Dumper=yaml.SafeDumper)
