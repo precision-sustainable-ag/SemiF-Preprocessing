@@ -154,9 +154,9 @@ sequenceDiagram
     participant ASFM_Module
 
     User->>Orchestrator (main.py): Run batch_id=TX_2024-08-07, modes=[correct,asfm]
-    Orchestrator (main.py)->>Config (config.yaml + overrides): Load configuration
-    Note over Orchestrator (main.py),Config (config.yaml + overrides): 'batch_id' and 'modes' are now set
-    Config (config.yaml + overrides)-->>Orchestrator (main.py): Configuration ready
+    Orchestrator (main.py)->>Config (config.yaml - overrides): Load configuration
+    Note over Orchestrator (main.py),Config (config.yaml - overrides): 'batch_id' and 'modes' are now set
+    Config (config.yaml - overrides)-->>Orchestrator (main.py): Configuration ready
     
     Orchestrator (main.py)->>Correct_Module: Execute 'correct' task with config
     Note right of Correct_Module: Performs image correction, saves results
@@ -166,7 +166,7 @@ sequenceDiagram
     Note right of ASFM_Module: Performs 3D modeling, saves results
     ASFM_Module-->>Orchestrator (main.py): 'asfm' task done
     
-    Orchestrator (main.py)-->>User: Processing finished for TX_2024-08-07
+    Orchestrator (main.py)->>User: Processing finished for TX_2024-08-07
 ```
 
 1.  **You (User)** start the process by running `main.py` with specific parameters (like `batch_id` and `modes`).
