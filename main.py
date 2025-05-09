@@ -17,8 +17,6 @@ from omegaconf import DictConfig
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "tasks" / "label_utils"))
 
-from src.utils.utils import find_lts_dir
-
 from src.autosfm import main as asfm
 from src.correct import main as correct
 from src.deliver import main as deliver
@@ -59,23 +57,22 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
     os.environ["GITHUB_PAT"] = keys['GITHUB_PAT']
 
     lts_path = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images"
-    
-    for mode in modes:
-        if mode not in TASK_REGISTRY:
-            log.error(f"Task {mode} not found in task registry")
-            raise ValueError(f"Task {mode} not found in task registry")
-        try:
+    try:
+        for mode in modes:
+            if mode not in TASK_REGISTRY:
+                log.error(f"Task {mode} not found in task registry")
+                raise ValueError(f"Task {mode} not found in task registry")
             retry_nfs_access(lts_path, mode="read", retries=10)
             set_cpu_affinity()
             TASK_REGISTRY[mode](cfg)
-        except Exception as e:
-            log.exception(f"Error running {mode}")
-            if cfg.create_issue:
-                save_log_to_lts(cfg)
-                log.info("Creating GitHub issue for mode failure.")
-                create_issue(cfg, issue_type="failure", tsk=mode, error_msg=str(e))
-            log.info("Exiting due to task failure.")
-            raise
+    except Exception as e:
+        log.exception(f"Error running {mode}")
+        if cfg.create_issue:
+            save_log_to_lts(cfg)
+            log.info("Creating GitHub issue for mode failure.")
+            create_issue(cfg, issue_type="failure", tsk=mode, error_msg=str(e))
+        log.info("Exiting due to task failure.")
+        raise
 
     log.info(f"Finished batch {cfg.batch_id} successfully.")
     if cfg.create_issue:
@@ -87,15 +84,7 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
 
 @hydra.main(version_base="1.3", config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
-    lts_path = Path(cfg.paths.lts_locations[-1]) / "semifield-developed-images"
-    retry_nfs_access(lts_path, mode="read", retries=10)
-
-    cfg.paths.lts_upload_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations) , "semifield-upload"))
     
-    try:
-        cfg.paths.lts_developed_directory = str(Path(find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True) , "semifield-developed-images"))
-    except Exception as e:
-        cfg.paths.lts_developed_directory = None
     run_single_batch(cfg)
 
 if __name__ == "__main__":
