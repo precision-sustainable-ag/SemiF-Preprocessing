@@ -8,17 +8,16 @@ from src.tasks.label_utils.merge_overlapping_bboxes import main as merge_overlap
 from src.tasks.label_utils.remap_labels import main as remap_labels
 from src.tasks.label_utils.assign_species import main as assign_species
 
-from src.utils.artifact_utils import update_artifact_post_task
+from src.utils.artifact_utils import artifact_updater
 
 log = logging.getLogger(__name__)
 
 # Define a registry of tasks
 TASK_REGISTRY = {
-    "detect_plants": detect_plants,
-    "merge_overlapping_bboxes": merge_overlapping_bboxes,
-    "remap_labels": remap_labels,
-    "assign_species": assign_species,
-    # Add more tasks here as needed
+    "detect_plants": artifact_updater("detect_plants")(detect_plants),
+    "merge_overlapping_bboxes": artifact_updater("merge_overlapping_bboxes")(merge_overlapping_bboxes),
+    "remap_labels": artifact_updater("remap_labels")(remap_labels),
+    "assign_species": artifact_updater("assign_species")(assign_species),
 }
 
 
@@ -38,11 +37,6 @@ def main(cfg: DictConfig) -> None:
             except Exception as e:
                 log.error(f"Error running task {task}: {e}")
                 raise
-            finally:
-                try:
-                    update_artifact_post_task(cfg, task_name=task)
-                except Exception as log_update_err:
-                    log.warning(f"Failed to update artifact with logs for task {task}: {log_update_err}")
 
         else:
             log.error(f"Task {task} not found in labeling task registry")

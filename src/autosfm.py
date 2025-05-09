@@ -4,7 +4,7 @@ import sys
 import hydra
 from omegaconf import DictConfig
 
-from src.utils.artifact_utils import update_artifact_post_task
+from src.utils.artifact_utils import artifact_updater
 
 from src.tasks.auto_sfm.config_utils import autosfm_present, create_config
 from src.tasks.auto_sfm.metashape_utils import SfM
@@ -14,6 +14,7 @@ from src.tasks.auto_sfm.resize import (resize_masks,
 # Set the logger
 log = logging.getLogger(__name__)
 
+@artifact_updater("autosfm")
 def run_asfm_pipeline(cfg: DictConfig) -> None:
 
     def sigint_handler(signum, frame):
@@ -223,11 +224,6 @@ def main(cfg: DictConfig) -> None:
     except Exception as e:
         log.exception(f"Error running AutoSfM pipeline: {e}")
         raise
-    finally:
-        try:
-            update_artifact_post_task(cfg, task_name="autosfm")
-        except Exception as log_update_err:
-            log.warning(f"Failed to update artifact with logs for task {'autosfm'}: {log_update_err}")
 
     log.info("AutoSfM pipeline complete.")
     return
