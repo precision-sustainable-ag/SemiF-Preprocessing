@@ -2,7 +2,7 @@ import logging
 import hydra
 from omegaconf import DictConfig
 
-from src.utils.artifact_utils import update_artifact_post_task
+from src.utils.artifact_utils import artifact_updater
 
 # Import the task functions
 from src.tasks.deliver_utils.inspect_images import main as inspect_images
@@ -13,9 +13,9 @@ log = logging.getLogger(__name__)
 
 # Define a registry of tasks
 TASK_REGISTRY = {
-    "inspect_images": inspect_images,
-    "move_data": move_data,
-    "report": report,
+    "inspect_images": artifact_updater("inspect_images")(inspect_images),
+    "move_data": artifact_updater("move_data")(move_data),
+    "report": artifact_updater("report")(report),
     # Add more tasks here as needed
 }
 
@@ -35,11 +35,6 @@ def main(cfg: DictConfig) -> None:
             except Exception as e:
                 log.error(f"Error running task {task}: {e}")
                 raise
-            finally:
-                try:
-                    update_artifact_post_task(cfg, task_name=task)
-                except Exception as log_update_err:
-                    log.warning(f"Failed to update artifact with logs for task {task}: {log_update_err}")
 
         else:
             log.error(f"Task {task} not found in delvier task registry")

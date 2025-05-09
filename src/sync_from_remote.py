@@ -12,7 +12,7 @@ from pathlib import Path
 import hydra
 from omegaconf import DictConfig
 
-from src.utils.artifact_utils import update_artifact_post_task
+from src.utils.artifact_utils import artifact_updater
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ def update_file(local_file: Path, remote_file: Path):
         log.error(f"Failed to update {local_file}: {e}")
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
+@artifact_updater("sync_from_remote")
 def main(cfg: DictConfig) -> None:
     """
     Checks if local files are up to date compared to their remote versions,
@@ -92,12 +93,6 @@ def main(cfg: DictConfig) -> None:
     except Exception as e:
         log.error(f"An error occurred while syncing files: {e}")
         raise
-    finally:
-        try:
-            update_artifact_post_task(cfg, task_name="sync_from_remote")
-        except Exception as log_update_err:
-            log.warning(f"Failed to update artifact with logs for task {'sync_from_remote'}: {log_update_err}")
-    
     log.info("File synchronization complete.")
     return
 

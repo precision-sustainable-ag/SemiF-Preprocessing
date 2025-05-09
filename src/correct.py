@@ -2,7 +2,7 @@ import logging
 import hydra
 from omegaconf import DictConfig
 
-from src.utils.artifact_utils import update_artifact_post_task
+from src.utils.artifact_utils import artifact_updater
 
 # Import the task functions
 from src.tasks.correct_utils.raw2jpg import main as raw2jpg 
@@ -12,9 +12,8 @@ log = logging.getLogger(__name__)
 
 # Define a registry of tasks
 TASK_REGISTRY = {
-    "raw2jpg": raw2jpg,
-    "update_exif": update_exif,
-    # Add more tasks here as needed
+    "raw2jpg": artifact_updater("raw2jpg")(raw2jpg),
+    "update_exif": artifact_updater("update_exif")(update_exif)
 }
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
@@ -33,11 +32,6 @@ def main(cfg: DictConfig) -> None:
             except Exception as e:
                 log.error(f"Error running task {task}: {e}")
                 raise
-            finally:
-                try:
-                    update_artifact_post_task(cfg, task_name=task)
-                except Exception as log_update_err:
-                    log.warning(f"Failed to update artifact with logs for task {task}: {log_update_err}")
 
         else:
             log.error(f"Task {task} not found in correction task registry")
