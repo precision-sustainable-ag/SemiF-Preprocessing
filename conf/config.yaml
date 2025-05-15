@@ -17,7 +17,7 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 # Main configuration for the current batch
 ############################################
-batch_id: MD_2025-05-08
+batch_id: MD_2025-05-12
 bbot_version: "3.1"
 season: cool_season_covers_2024_2025 # cool_season_covers_2024_2025, cool_season_covers_2024_2025_NCpos2, summer_weeds_2024
 create_issue: true
