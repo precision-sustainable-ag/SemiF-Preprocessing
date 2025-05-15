@@ -43,11 +43,18 @@ def artifact_updater(task_name: str):
 
 def get_empty_artifact(cfg: DictConfig, all_tasks: List[str]) -> OrderedDict:
     default_none = {task: None for task in all_tasks}
+    if cfg.paths.lts_developed_directory is None:
+        try:
+            lts_dir = find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
+            cfg.paths.lts_developed_directory = str(Path(lts_dir) / "semifield-developed-images")
+        except Exception as e:
+            log.error(f"Error finding LTS developed-images directory: {e}")
     return OrderedDict([
         ("batch_id", cfg.batch_id),
         ("bbot_version", getattr(cfg, "bbot_version", "")),
         ("season", getattr(cfg, "season", "")),
         ("lts_upload_directory", cfg.paths.lts_upload_directory),
+        ("lts_developed_directory", cfg.paths.lts_developed_directory),
         ("task_durations", default_none.copy()),
         ("warning_and_errors", default_none.copy()),
         ("task_status", default_none.copy()),

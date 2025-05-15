@@ -36,7 +36,7 @@ tasks: # task for each mode
   sync:
     - sync_from_remote # not implemented # TODO: create task list for sync
   correct:
-    - raw2jpg # raw2jpg does raw2dng + dng2jpg
+    # - raw2jpg # raw2jpg does raw2dng + dng2jpg
     - update_exif
   asfm:
     - autosfm # not implemented # TODO: create task list for autosfm
