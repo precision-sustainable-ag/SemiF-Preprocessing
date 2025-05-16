@@ -292,7 +292,7 @@ def create_issue(cfg, issue_type, tsk: str = None, error_msg: str = None):
     user_id = cfg.gh_reviewer
     lts_dev_dir = cfg.paths.lts_developed_directory
     if not lts_dev_dir:
-        lts_dev_dir = find_lts_dir(batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
+        lts_dev_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)) / "semifield-developed-images"
     lts_dev_dir_name = Path(lts_dev_dir).parent.name
 
     save_yaml_to_lts(cfg, lts_dev_dir)
