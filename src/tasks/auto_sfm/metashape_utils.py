@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from copy import deepcopy
-from typing import Callable
+from typing import Callable, Tuple
 from tqdm import tqdm
 
 import Metashape as ms
@@ -18,6 +18,7 @@ class SfM:
         self.cfg = cfg
         self.batch_id = self.cfg.batch_id
         self.season = cfg.season
+        self.bbot_version = str(cfg.bbot_version)
         # Directories
         self.project_path = Path(cfg.paths.proj_path)
         self.down_photos = Path(cfg.paths.down_photos)
@@ -58,8 +59,7 @@ class SfM:
 
         self.doc = self.load_or_create_project()
         
-        self.crs = self.get_crs_str()
-        self.markerbit = self.get_target_bit()
+        self.crs, self.markerbit = self.get_crs_and_markerbit()
         
         self.num_gpus = (
             cfg.asfm.num_gpus
@@ -121,27 +121,35 @@ class SfM:
             )
         return stats
     
-    def get_target_bit(self) -> ms.TargetType:
-        if "2024" in self.season and "2025" in self.season:
-            markerBit = ms.CircularTarget14bit
-            log.info(f"Using 14 bit circular target")
-        else:
-            markerBit = ms.CircularTarget12bit
-            log.info(f"Using 12 bit circular target")
-            
-        return markerBit
-    
-    def get_crs_str(self):
+    def get_crs_and_markerbit(self) -> Tuple[str, ms.TargetType]:
+        # Marker bit
+        marker_bit = ms.CircularTarget14bit if "3" in self.bbot_version else ms.CircularTarget12bit
+        log.info(f"Using marker bit {marker_bit} for {self.batch_id}")
 
-        if "2024" in self.season and "2025" in self.season:
-            crs = "EPSG::4326"
-            log.info(f"Using WGS84 EPSG::4326")
-        else:
+        state = self.batch_id.split("_")[0]
+        year = self.batch_id.split("_")[1].split("-")[0]
+
+        # CRS logic
+        if "3.0" in self.bbot_version or "3.1" in self.bbot_version:
+            if state == "TX" and ("2025" in year or "2025" in self.season or "2025" in self.batch_id):
+                crs = "EPSG::32614"  # UTM Zone 14N
+                log.info(f"Using UTM Zone 14N ({crs}) for {self.batch_id}")
+            else:
+                crs = "EPSG::4326"
+                log.info(f"Using {crs} for {self.batch_id}")
+ 
+        elif "2" in self.bbot_version:
             crs = "LOCAL"
-            log.info(f"Using local coordinate system")
-
-        return crs
+            log.info(f"Using LOCAL CRS ({crs}) for {self.batch_id}")
         
+        # Exceptions for specific batch IDs
+        # Add your specific date/pos2 logic here if needed
+
+        else:
+            raise ValueError(f"Unexpected BBot version: {self.bbot_version}")
+
+        return crs, marker_bit
+    
     
     def load_or_create_project(self) -> ms.Document:
         """Opens a project if it exists or creates and saves a project
@@ -371,48 +379,48 @@ class SfM:
                 prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                 self._correct_unaligned_cameras(unaligned_cameras, chunk, progress_callback)
                 unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)      
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)     
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
 
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                if prev_unaligned_cameras != unaligned_cameras:
+                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
                     prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
                     self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
                     unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)            
