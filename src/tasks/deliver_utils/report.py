@@ -56,6 +56,12 @@ class ImageReport:
                 extension = "*.ARW"
         raw_image_files = sorted(self.upload_directory.glob(extension))
         log.debug(f"Found {len(raw_image_files)} raw image files in {self.upload_directory}")
+        if not raw_image_files:
+            extension = "*.jpg"
+            jpg_image_files = sorted(Path(self.developed_directory, "images").glob(extension))
+            if jpg_image_files:
+                log.info(f"Using developed JPGs from {self.developed_directory} instead of raw images.")
+                raw_image_files = jpg_image_files
         return raw_image_files
         
     def calculate_total_images(self) -> int:

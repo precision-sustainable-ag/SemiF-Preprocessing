@@ -5,10 +5,11 @@ import time
 from datetime import datetime
 from dataclasses import asdict
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import cv2
 import geopandas as gpd
+import shapely
 import numpy as np
 import pandas as pd
 from omegaconf import DictConfig
@@ -120,7 +121,10 @@ class BBoxMapper:
         """Class to map bounding box coordinates from image cordinates
         to global coordinates
         """
-        self.bbot_version = cfg.bbot_version
+        self.batch_id = cfg.batch_id
+        self.bbot_version = str(cfg.bbot_version)
+        self.season = cfg.season
+        self.crs = self._get_crs()
         self.project_path = Path(project_path)
         self.images = images
         self.doc = Metashape.Document()
@@ -209,8 +213,8 @@ class BBoxMapper:
         cam = self.camera_lookup.get(image_id)
         
         if not cam:
-            log.error(f"Camera not found for image ID: {image_id}")
-            raise ValueError(f"Camera not found for image ID: {image_id}")
+            log.warning(f"Camera not found for image ID: {image_id}")
+            return [[0,0], [0,0], [0,0], [0,0]]  # Default to zero coordinates
 
         mapped = []
         corners = ["top_left", "bottom_left", "top_right", "bottom_right"]
@@ -255,12 +259,39 @@ class BBoxMapper:
             tuple(top_left)  # closing the polygon
         ])
         if from_latlon:
-            gdf = gpd.GeoDataFrame(index=[0], crs="EPSG:4326", geometry=[poly])
+            gdf = gpd.GeoDataFrame(index=[0], crs=self.crs, geometry=[poly])
             gdf_proj = gdf.to_crs(CRS("EPSG:32617"))  # TODO: Dynamically detect zone?
             return gdf_proj.geometry[0].area
         else:
             return poly.area
 
+    
+    def _get_crs(self) -> str:
+        # Marker bit
+
+        state = self.batch_id.split("_")[0]
+        year = self.batch_id.split("_")[1].split("-")[0]
+
+        # CRS logic
+        if "3.0" in self.bbot_version or "3.1" in self.bbot_version:
+            if state == "TX" and ("2025" in year or "2025" in self.season or "2025" in self.batch_id):
+                crs = "EPSG:32614"  # UTM Zone 14N
+                log.info(f"Using UTM Zone 14N ({crs}) for {self.batch_id}")
+            else:
+                crs = "EPSG:4326"
+                log.info(f"Using {crs} for {self.batch_id}")
+ 
+        elif "2" in self.bbot_version:
+            crs = "LOCAL"
+            log.info(f"Using LOCAL CRS ({crs}) for {self.batch_id}")
+        
+        # Exceptions for specific batch IDs
+        # Add your specific date/pos2 logic here if needed
+
+        else:
+            raise ValueError(f"Unexpected BBot version: {self.bbot_version}")
+
+        return crs
     
     def _construct_global_coords(self, coords: List[List[float]]) -> GlobalCoordinates:
         """
@@ -272,9 +303,12 @@ class BBoxMapper:
             (coords[0][0] + coords[3][0]) / 2,
             (coords[0][1] + coords[3][1]) / 2
         ]
-        
-        area = self._calculate_area(coords, from_latlon=True if "3.1" in self.bbot_version else False)
-        
+        if self.crs != "LOCAL":
+            from_latlon = True
+        else:
+            from_latlon = False
+        area = self._calculate_area(coords, from_latlon=from_latlon)
+
         return GlobalCoordinates(
             top_left=coords[0],
             top_right=coords[1],
@@ -316,8 +350,8 @@ class RemapLabels:
         self.project_path = self.autosfm_dir / "project" / f"{cfg.batch_id}.psx"
         self.downscaled_dir = self.autosfm_dir / "downscaled_photos"
         self.fullres_dir = self.batch_dir / "images"
-        self.fullres_h = cfg.exif.ImageHeight
-        self.fullres_w = cfg.exif.ImageWidth
+        self.fullres_h = cfg.exif.SVCamImageHeight if "3.1" in str(self.bbot_version) else cfg.exif.SonyImageHeight
+        self.fullres_w = cfg.exif.SVCamImageWidth if "3.1" in str(self.bbot_version) else cfg.exif.SonyImageWidth
 
         self.shp_dir = Path(cfg.paths.fov_shapefiles)
         self.shp_dir.mkdir(exist_ok=True, parents=True)
@@ -325,8 +359,37 @@ class RemapLabels:
         with open(cfg.paths.species_info) as f:
             self.species_info = json.load(f)
 
+        self.crs = self._get_crs()
+
         log.info(f"Label projecting initialized for batch: {self.batch_id}, season: {self.season}, BBOT version: {self.bbot_version}")
 
+    def _get_crs(self) -> str:
+        # Marker bit
+
+        state = self.batch_id.split("_")[0]
+        year = self.batch_id.split("_")[1].split("-")[0]
+
+        # CRS logic
+        if "3.0" in self.bbot_version or "3.1" in self.bbot_version:
+            if state == "TX" and ("2025" in year or "2025" in self.season or "2025" in self.batch_id):
+                crs = "EPSG:32614"  # UTM Zone 14N
+                log.info(f"Using UTM Zone 14N ({crs}) for {self.batch_id}")
+            else:
+                crs = "EPSG:4326"
+                log.info(f"Using {crs} for {self.batch_id}")
+ 
+        elif "2" in self.bbot_version:
+            crs = "LOCAL"
+            log.info(f"Using LOCAL CRS ({crs}) for {self.batch_id}")
+        
+        # Exceptions for specific batch IDs
+        # Add your specific date/pos2 logic here if needed
+
+        else:
+            raise ValueError(f"Unexpected BBot version: {self.bbot_version}")
+
+        return crs
+    
     def _get_image_shape(self) -> tuple[int, int]:
         """
         Returns the height and width of a sample image from the downscaled directory.
@@ -476,12 +539,52 @@ class RemapLabels:
             downscaled_width=w,
             fullres_height=self.fullres_h,
         )
-    def calculate_area(self, coords: list[tuple[float, float]]) -> float:
-        # WGS84 to UTM Zone 17N (adjust if needed based on location)
-        transformer = Transformer.from_crs("EPSG:4326", "EPSG:32617", always_xy=True)
-        coords = [transformer.transform(*pt) for pt in coords]
-        polygon = Polygon(coords)
-        return polygon.area
+    
+    def _check_fov_coords(self, coords: list[tuple[float, float]] | None) -> bool:
+        """
+        Check if the coordinates are valid for FOV.
+        Returns True if valid, False otherwise.
+        """
+        if not coords or coords is None:
+            return False
+        # If any None in the list or any element is not a tuple of two floats
+        for pt in coords:
+            if (
+                pt is None or
+                len(pt) != 2 or
+                pt[0] is None or pt[1] is None or
+                (isinstance(pt[0], float) and np.isnan(pt[0])) or
+                (isinstance(pt[1], float) and np.isnan(pt[1]))
+            ):
+                return False
+        return True
+    
+    def calculate_area(self, coords: list[tuple[float, float]] | None) -> float:
+        """
+        Calculate polygon area in square meters from WGS84 coordinates.
+        Returns 0.0 if coords is None or contains None/invalid values.
+        """        
+        # If any None in the list or any element is not a tuple of two floats
+        if not self._check_fov_coords(coords):
+            return None
+            
+        if len(coords) < 3:
+            raise ValueError("At least 3 coordinates are required to form a polygon.")
+
+        transformer = Transformer.from_crs(self.crs, "EPSG:32617", always_xy=True)
+        coords_t = [transformer.transform(*pt) for pt in coords]
+
+        # Ensure polygon is closed
+        if coords_t[0] != coords_t[-1]:
+            coords_t.append(coords_t[0])
+
+        try:
+            poly = Polygon(coords_t) 
+        except Exception as e:
+            log.exception(f"Failed to create polygon from coordinates: {e}")
+            raise
+
+        return poly.area
 
 
     def calculate_fov_area(self, fov: dict) -> float:
@@ -492,17 +595,20 @@ class RemapLabels:
                 fov["bottom_right_xy"],
                 fov["bottom_left_xy"],
             ]
-            if "3" in self.bbot_version:
+            if "3" in str(self.bbot_version):
                 # For non-TX batches, we need to calculate the area in meters
-                area = self.calculate_area(corners) * 10000
+                area = self.calculate_area(corners) 
+                area_cm2 = area * 10000 if area else None
             else:
+                if not self._check_fov_coords(corners):
+                    return None
                 polygon = Polygon(corners)
-                area = polygon.area * 10000
-            return area
+                area_cm2 = polygon.area * 10000
+            return area_cm2
         
         except Exception as e:
-            log.warning(f"Failed to calculate FOV area: {e}")
-            return None
+            log.exception(f"Failed to calculate FOV area: {e}")
+            raise
         
     def _fov(self, rows: pd.DataFrame) -> FOV:
         """
@@ -525,7 +631,7 @@ class RemapLabels:
                 fov_area_cm2=self.calculate_fov_area(fov)  # To be calculated or updated elsewhere
             ) 
         except Exception as e:
-            log.exception("Failed to construct FOV object.")
+            log.exception(f"Failed to construct FOV object for {rows['image_id'].iloc[0]}.")
             raise
     
     def _camera_loc(self, rows: pd.DataFrame) -> list[float]:
