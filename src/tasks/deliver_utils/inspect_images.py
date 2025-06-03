@@ -40,7 +40,13 @@ class AnnotationPlotter:
     such as species counts, area histograms, and centroid density heatmaps.
     """
     def __init__(self, cfg: DictConfig):
-        self.metadata_dir = Path(cfg.paths.batch_dir) / "metadata"
+        self.batch_id = cfg.batch_id
+        self.lts_locations = cfg.paths.lts_locations
+        self.lts_dir = find_lts_dir(self.batch_id, self.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
+        self.lts_batch_dir = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
+        
+        # Inputs
+        self.metadata_dir = Path(cfg.paths.batch_dir, "metadata") if Path(cfg.paths.batch_dir, "metadata").exists() else self.lts_batch_dir / "metadata"
         self.save_dir = Path(cfg.paths.inspection_dir) / "plots"
         self.save_dir.mkdir(parents=True, exist_ok=True)
         
@@ -166,6 +172,7 @@ class AnnotationPlotter:
 class ImageReviewer:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
+        self.bbot_version = cfg.bbot_version
         self.batch_id = cfg.batch_id
         self.use_lts_images = cfg.inspection.use_lts_images
         self.lts_locations = cfg.paths.lts_locations
@@ -175,12 +182,14 @@ class ImageReviewer:
         
         self.batch_folder = Path(cfg.paths.batch_dir)
 
-        self.fullres_h = cfg.exif.ImageHeight
-        self.fullres_w = cfg.exif.ImageWidth
+        self.fullres_h = cfg.exif.SVCamImageHeight if "3.1" in str(self.bbot_version) else cfg.exif.SonyImageHeight
+        self.fullres_w = cfg.exif.SVCamImageWidth if "3.1" in str(self.bbot_version) else cfg.exif.SonyImageWidth
+        log.info(f"Full resolution: {self.fullres_w} x {self.fullres_h}")
 
         # Inputs
-        self.image_dir = Path(cfg.paths.down_photos)
-        self.metadata_dir = Path(cfg.paths.batch_dir) / "metadata"
+        # self.image_dir = Path(cfg.paths.down_photos) if Path(cfg.paths.down_photos).exists() else self.lts_batch_dir / "images"
+        self.image_dir = self.lts_batch_dir / "images"
+        self.metadata_dir = Path(cfg.paths.batch_dir, "metadata") if Path(cfg.paths.batch_dir, "metadata").exists() else self.lts_batch_dir / "metadata"
         self.species_info = self.read_species_info(Path(cfg.paths.species_info))
         
         # Outputs        
@@ -451,8 +460,7 @@ class ImageReviewer:
             cv2.imshow("Inspection Viewer", resized_image)
         
         save_path = self.remapped_sample_dir / img_path.name
-        if not save_path.exists():
-            cv2.imwrite(str(save_path), resized_image)
+        cv2.imwrite(str(save_path), resized_image)
         
         return True
     
@@ -469,13 +477,11 @@ class ImageReviewer:
         log.info("Generating sample images...")
         count = 0        
         for img_path in tqdm(self.images, desc="Generating sample images"):
-            save_path = self.remapped_sample_dir / img_path.name
-            if not save_path.exists():
-                success = self._create_bboxes_on_image(img_path, preview_only=True)
-                if success:
-                    count += 1
+            success = self._create_bboxes_on_image(img_path, preview_only=True)
+            if success:
+                count += 1
             else:
-                log.debug(f"Sample image already exists: {save_path}")
+                log.warning(f"Failed to create bounding boxes for {img_path.name}. Skipping.")
                 continue
         log.info(f"Generated {count} sample images in {self.remapped_sample_dir}")
         
