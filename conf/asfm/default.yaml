@@ -23,6 +23,8 @@ export_report: True
 
 ## Main processing settings
 # Electives
+skip_first_n_images: 5 # Skip first n images encase of bad images during testing and bbot setup
+
 downscale:
   enabled: True
   factor: 0.75 # between (0, 1] 1 is highest accuracy. By default 0.5

@@ -124,7 +124,7 @@ class BBoxMapper:
         self.batch_id = cfg.batch_id
         self.bbot_version = str(cfg.bbot_version)
         self.season = cfg.season
-        self.crs = self._get_crs()
+        self.crs = cfg.crs
         self.project_path = Path(project_path)
         self.images = images
         self.doc = Metashape.Document()
@@ -259,39 +259,11 @@ class BBoxMapper:
             tuple(top_left)  # closing the polygon
         ])
         if from_latlon:
-            gdf = gpd.GeoDataFrame(index=[0], crs=self.crs, geometry=[poly])
-            gdf_proj = gdf.to_crs(CRS("EPSG:32617"))  # TODO: Dynamically detect zone?
+            gdf_proj = gpd.GeoDataFrame(index=[0], crs=self.crs, geometry=[poly])
             return gdf_proj.geometry[0].area
         else:
             return poly.area
 
-    
-    def _get_crs(self) -> str:
-        # Marker bit
-
-        state = self.batch_id.split("_")[0]
-        year = self.batch_id.split("_")[1].split("-")[0]
-
-        # CRS logic
-        if "3.0" in self.bbot_version or "3.1" in self.bbot_version:
-            if state == "TX" and ("2025" in year or "2025" in self.season or "2025" in self.batch_id):
-                crs = "EPSG:32614"  # UTM Zone 14N
-                log.info(f"Using UTM Zone 14N ({crs}) for {self.batch_id}")
-            else:
-                crs = "EPSG:4326"
-                log.info(f"Using {crs} for {self.batch_id}")
- 
-        elif "2" in self.bbot_version:
-            crs = "LOCAL"
-            log.info(f"Using LOCAL CRS ({crs}) for {self.batch_id}")
-        
-        # Exceptions for specific batch IDs
-        # Add your specific date/pos2 logic here if needed
-
-        else:
-            raise ValueError(f"Unexpected BBot version: {self.bbot_version}")
-
-        return crs
     
     def _construct_global_coords(self, coords: List[List[float]]) -> GlobalCoordinates:
         """
@@ -359,36 +331,10 @@ class RemapLabels:
         with open(cfg.paths.species_info) as f:
             self.species_info = json.load(f)
 
-        self.crs = self._get_crs()
+        self.crs = cfg.crs
 
         log.info(f"Label projecting initialized for batch: {self.batch_id}, season: {self.season}, BBOT version: {self.bbot_version}")
 
-    def _get_crs(self) -> str:
-        # Marker bit
-
-        state = self.batch_id.split("_")[0]
-        year = self.batch_id.split("_")[1].split("-")[0]
-
-        # CRS logic
-        if "3.0" in self.bbot_version or "3.1" in self.bbot_version:
-            if state == "TX" and ("2025" in year or "2025" in self.season or "2025" in self.batch_id):
-                crs = "EPSG:32614"  # UTM Zone 14N
-                log.info(f"Using UTM Zone 14N ({crs}) for {self.batch_id}")
-            else:
-                crs = "EPSG:4326"
-                log.info(f"Using {crs} for {self.batch_id}")
- 
-        elif "2" in self.bbot_version:
-            crs = "LOCAL"
-            log.info(f"Using LOCAL CRS ({crs}) for {self.batch_id}")
-        
-        # Exceptions for specific batch IDs
-        # Add your specific date/pos2 logic here if needed
-
-        else:
-            raise ValueError(f"Unexpected BBot version: {self.bbot_version}")
-
-        return crs
     
     def _get_image_shape(self) -> tuple[int, int]:
         """
@@ -571,7 +517,7 @@ class RemapLabels:
         if len(coords) < 3:
             raise ValueError("At least 3 coordinates are required to form a polygon.")
 
-        transformer = Transformer.from_crs(self.crs, "EPSG:32617", always_xy=True)
+        transformer = Transformer.from_crs(self.crs, self.crs, always_xy=True)
         coords_t = [transformer.transform(*pt) for pt in coords]
 
         # Ensure polygon is closed
@@ -800,7 +746,7 @@ class RemapLabels:
             output_path (Path): Where the shapefile should be saved.
         """
         try:
-            gdf = gpd.GeoDataFrame(records, crs="EPSG:4326")
+            gdf = gpd.GeoDataFrame(records, crs=self.crs)
             gdf.to_file(output_path, driver='ESRI Shapefile')
             log.info(f"Saved shapefile: {output_path} with {len(records)} features.")
         except Exception as e:

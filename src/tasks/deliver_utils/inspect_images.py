@@ -201,11 +201,12 @@ class ImageReviewer:
 
         self.sample_size = 75
         self.images = self._get_image_paths()
-        self.results = self._load_existing_results()
         
         # Get the current timestamp and user
         self.timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.user = getpass.getuser()
+
+        self.include_rate_in_label = True if "assign_rates" in cfg.tasks.label else False
 
     def read_species_info(self, path: Path) -> dict[str, str]:
         """
@@ -242,7 +243,6 @@ class ImageReviewer:
                 log.error(f"Failed finding multiple species: {file.name}: {e}", exc_info=True)
         return multiple_species_images
             
-    
 
     def _get_image_paths(self) -> list[Path]:
         """Load images and return a sorted list of (a subset of) unlabeled ones."""
@@ -256,87 +256,6 @@ class ImageReviewer:
         data_paths = sorted(random_sample + multi_spec_img_paths)
         return data_paths
 
-    def display_instructions(self) -> None:
-        """Prints instructions for user input."""
-        print("\n--- Image Quality Assessment ---")
-        for key, label in LABEL_OPTIONS.items():
-            display_key = f"{key} (zero)" if key == "0" else key
-            bright_key = f"\033[1;97m{display_key}\033[0m"
-            print(f"{bright_key} - {label}")
-        print("\n🔄 Please wait while the X11 or X410 forwarding initializes. This may take a few seconds...\n")
-
-    def confirm_save_results(self) -> None:
-        """Ask the user if they want to save the final CSV. If not, delete the file."""
-        while True:
-            confirm = input("\n💾 Do you want to save the final inspection results? (y/n): ").strip().lower()
-            if confirm == "y":
-                self._save_results()
-                log.info(f"Inspection results saved to {self.csv_file}")
-                return self.csv_file
-            elif confirm == "n":
-                if self.csv_file.exists():
-                    self.csv_file.unlink()
-                    log.info(f"Inspection results discarded. {self.csv_file} removed.")
-                else:
-                    log.warning("No saved CSV file found to delete.")
-                return None
-            else:
-                print("⚠️ Invalid input. Please enter 'y' to save or 'n' to discard.")
-
-    def _load_existing_results(self) -> list[list[str]]:
-        """Load existing CSV results or return an empty list."""
-        if self.csv_file.exists():
-            log.info(f"Loading existing results from {self.csv_file}")
-            return pd.read_csv(self.csv_file).values.tolist()
-        return []
-
-    def _save_results(self) -> None:
-        """Save the labeling results to a CSV file."""
-        df = pd.DataFrame(
-            self.results,
-            columns=['BatchID', 'ImageID', 'Selection', 'Timestamp', 'User', 'LTSLocation']
-        )
-        df.to_csv(self.csv_file, index=False)
-
-    def review_images(self):
-        """Iterate over images and allow the user to label them."""
-        sample_images = sorted(list(self.remapped_sample_dir.glob("*.jpg")))
-        if not sample_images:
-            log.warning("No sample images found for review.")
-            return None
-
-        self.display_instructions()
-        cv2.namedWindow("Inspection Viewer")
-        index = 0
-        while index < len(sample_images):
-            img_path = sample_images[index]
-            if not self._display_bboxes_on_image(img_path):
-                index += 1
-                continue
-
-            label = self._get_user_input()
-            if label == "Quit":
-                print("\n❌ Exiting image review.")
-                cv2.destroyAllWindows()
-                return self.csv_file  # Save progress and exit
-
-            if label == "Back":
-                if index > 0:
-                    print("\n🔙 Going back to the previous image.")
-                    self.results.pop()  # Remove last entry
-                    index -= 1
-                else:
-                    print("⚠️ Already at the first image, cannot go back further.")
-                continue
-
-            self.results.append([self.batch_id, img_path.stem, label, self.timestamp, self.user, self.lts_dir_name])
-            self._save_results()
-            index += 1
-
-        cv2.destroyAllWindows()
-        log.info("✅ Image review completed.")
-        self._review_flagged_images()
-        return self.confirm_save_results()
 
     def _create_bboxes_on_image(self, img_path, preview_only=False):
         """Displays bounding boxes on an image for visual inspection."""
@@ -376,12 +295,19 @@ class ImageReviewer:
             x2, y2 = int(x2 * scale_x), int(y2 * scale_y)
             cv2.rectangle(resized_image, (x1, y1), (x2, y2), (0, 15, 200), 2)
 
-            cat_class_id = str(bbox.get("category_class_id", "Unknown"))
+            
             area_sqm = bbox["global_coordinates"]["area_sqm"]
             area_sqcm = area_sqm * 10000  # convert m² to cm²
             is_primary = bbox.get("is_primary", False)
             
-            label_text = f"{self.species_info.get(cat_class_id, 'Unknown')} ({area_sqcm:.2f} cm2) {'P' if is_primary else ''}"
+            # Prepare label text
+            if self.include_rate_in_label:
+                rate = bbox.get("experiment_info", {}).get("rate_gAE_A", None)
+                plot_id = bbox.get("experiment_info", {}).get("plot_id", None)
+                label_text = f"{plot_id} ({rate:.2f} g AE/A) | {area_sqcm:.2f} cm2 {'P' if is_primary else ''}"
+            else:
+                cat_class_id = str(bbox.get("category_class_id", "Unknown"))
+                label_text = f"{self.species_info.get(cat_class_id, 'Unknown')} ({area_sqcm:.2f} cm2) {'P' if is_primary else ''}"
 
             bbox_height = max(y2 - y1, 1)
             bbox_width = max(x2 - x1, 1)
@@ -391,7 +317,7 @@ class ImageReviewer:
             (text_width, text_height), _ = cv2.getTextSize(
                 label_text, cv2.FONT_HERSHEY_SIMPLEX, proposed_scale, font_thickness
             )
-            max_text_width = bbox_width * 0.9
+            max_text_width = bbox_width * 1.9
             if text_width > max_text_width:
                 proposed_scale *= max_text_width / text_width
                 (text_width, text_height), _ = cv2.getTextSize(
@@ -485,50 +411,7 @@ class ImageReviewer:
                 continue
         log.info(f"Generated {count} sample images in {self.remapped_sample_dir}")
         
-    def _get_user_input(self):
-        """Captures user input for labeling images."""
-        while True:
-            key = cv2.waitKey(0) & 0xFF
-            key_char = chr(key)
-            if key_char in LABEL_OPTIONS:
-                return LABEL_OPTIONS[key_char]
-            print("⚠️ Invalid choice. Please press a valid key (1-7, 0, q, or b).")
 
-    def _review_flagged_images(self):
-        """Offers the option to review flagged images for issue reporting."""
-        df_final = pd.read_csv(self.csv_file)
-        flagged_images = df_final[df_final["Selection"] != "Pass"]
-        if flagged_images.empty:
-            return self.csv_file
-
-        print("\n⚠️ Some images have issues.")
-        print(f"📌 Please report them at our GitHub repository: {GITHUB_REPO_URL}")
-        if input("Would you like to review the flagged images for screenshots? (y/n): ").strip().lower() == 'y':
-            self._display_flagged_images(flagged_images)
-
-        print("\n📌 After taking screenshots, submit an issue on GitHub:")
-        print(f"🔗 {GITHUB_REPO_URL}")
-        print(f"Title the issue: {self.batch_folder.name} preprocessing inspection: {len(flagged_images)} flagged images\n")
-        return self.csv_file
-
-    def _display_flagged_images(self, flagged_images):
-        """Displays flagged images for screenshot capture."""
-        for _, row in flagged_images.iterrows():
-            # Use self.image_dir to locate images based on ImageID
-            img_path = self.image_dir / f"{row['ImageID']}.jpg"
-            if not img_path.exists():
-                img_path = self.image_dir / f"{row['ImageID']}.JPG"
-            if img_path.exists():
-                image = cv2.imread(str(img_path))
-                resized_image = cv2.resize(image, (13376 // 10, 9528 // 10))
-                cv2.imshow("Flagged Image", resized_image)
-                print(f"📸 Take a screenshot for: {row['ImageID']} ({row['Selection']})")
-                key = cv2.waitKey(0) & 0xFF
-                if key == ord('q'):
-                    break
-            else:
-                print(f"⚠️ Could not find image: {row['ImageID']}")
-        cv2.destroyAllWindows()
 
 
 class PDFReviewer:
@@ -619,36 +502,6 @@ class PDFReviewer:
         cv2.destroyAllWindows()
         log.info("PDF review completed.")
 
-class ReviewSession:
-    def __init__(self, cfg: DictConfig):
-        self.cfg = cfg
-        self.image_reviewer = ImageReviewer(cfg)
-        self.pdf_reviewer = PDFReviewer(cfg)
-
-    def run(self):
-        """Prompt the user to select a review mode and run the corresponding review."""
-        log.info("Starting interactive review session.")
-        while True:
-            print("\nSelect review mode:")
-            print("1 - Image Review")
-            print("2 - PDF Review")
-            print("3 - Both")
-            print("q - Quit")
-            choice = input("Your choice: ").strip().lower()
-            log.info(f"Review mode selected: {choice}")
-            if choice == "1":
-                self.image_reviewer.review_images()
-            elif choice == "2":
-                self.pdf_reviewer.review_pdf()
-            elif choice == "3":
-                self.image_reviewer.review_images()
-                self.pdf_reviewer.review_pdf()
-            elif choice == "q":
-                print("Exiting review session.")
-                break
-            else:
-                print("Invalid choice. Please select again.")
-
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
@@ -669,13 +522,6 @@ def main(cfg: DictConfig):
         plotter = AnnotationPlotter(cfg)
         plotter.plot_summary()
         log.info("Summary plots generated.")
-
-        if cfg.inspection.inspect:
-            log.info("Starting review session...")
-            session = ReviewSession(cfg)
-            session.run()
-            log.info("Review session completed.")
-    
     except Exception as e:
         log.exception(f"Inspection failed: {e}")
         raise

@@ -9,3 +9,7 @@
 !semifield-utils/image_development/dev_profiles
 !semifield-utils/image_development/dev_profiles/default.pp3
 !semifield-utils/image_development/dev_profiles/NC_2025-02-21.pp3
+
+!semifield-utils/species_information/
+!semifield-utils/species_information/colors.py
+!semifield-utils/species_information/species_info.json
