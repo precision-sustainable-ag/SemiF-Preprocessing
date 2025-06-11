@@ -170,7 +170,7 @@ class SfM:
         """Adds a directory to the project"""
         photos = sorted([str(x) for x in list(self.down_photos.glob("*.jpg")) + list(self.down_photos.glob("*.JPG"))])
         # check of self.skip_first_n_images is an int or None
-        if not isinstance(self.skip_first_n_images, int):
+        if isinstance(self.skip_first_n_images, int):
             photos = photos[self.skip_first_n_images:]
         log.info(f"Adding {len(photos)} photos to the project")
         if self.doc.chunk is None:

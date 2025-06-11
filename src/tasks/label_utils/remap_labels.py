@@ -517,8 +517,9 @@ class RemapLabels:
         if len(coords) < 3:
             raise ValueError("At least 3 coordinates are required to form a polygon.")
 
-        transformer = Transformer.from_crs(self.crs, self.crs, always_xy=True)
-        coords_t = [transformer.transform(*pt) for pt in coords]
+        # transformer = Transformer.from_crs(self.crs, self.crs, always_xy=True)
+        # coords_t = [transformer.transform(*pt) for pt in coords]
+        coords_t = coords
 
         # Ensure polygon is closed
         if coords_t[0] != coords_t[-1]:
