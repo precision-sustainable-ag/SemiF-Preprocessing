@@ -7,6 +7,7 @@ from src.tasks.label_utils.detect_plants import main as detect_plants
 from src.tasks.label_utils.merge_overlapping_bboxes import main as merge_overlapping_bboxes
 from src.tasks.label_utils.remap_labels import main as remap_labels
 from src.tasks.label_utils.assign_species import main as assign_species
+from src.tasks.label_utils.assign_rates import main as assign_rates
 
 from src.utils.artifact_utils import artifact_updater
 
@@ -18,6 +19,7 @@ TASK_REGISTRY = {
     "merge_overlapping_bboxes": artifact_updater("merge_overlapping_bboxes")(merge_overlapping_bboxes),
     "remap_labels": artifact_updater("remap_labels")(remap_labels),
     "assign_species": artifact_updater("assign_species")(assign_species),
+    "assign_rates": artifact_updater("assign_rates")(assign_rates),
 }
 
 

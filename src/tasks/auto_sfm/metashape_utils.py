@@ -66,6 +66,8 @@ class SfM:
             if cfg.asfm.num_gpus != "all"
             else 2 ** len(ms.app.enumGPUDevices()) - 1
         )
+
+        self.skip_first_n_images = cfg.asfm.skip_first_n_images
         
     def _remove_duplicate_and_unaligned_cameras(self):
         """Removes duplicate aligned cameras and unaligned cameras from the chunk."""
@@ -130,23 +132,8 @@ class SfM:
         year = self.batch_id.split("_")[1].split("-")[0]
 
         # CRS logic
-        if "3.0" in self.bbot_version or "3.1" in self.bbot_version:
-            if state == "TX" and ("2025" in year or "2025" in self.season or "2025" in self.batch_id):
-                crs = "EPSG::32614"  # UTM Zone 14N
-                log.info(f"Using UTM Zone 14N ({crs}) for {self.batch_id}")
-            else:
-                crs = "EPSG::4326"
-                log.info(f"Using {crs} for {self.batch_id}")
- 
-        elif "2" in self.bbot_version:
-            crs = "LOCAL"
-            log.info(f"Using LOCAL CRS ({crs}) for {self.batch_id}")
-        
-        # Exceptions for specific batch IDs
-        # Add your specific date/pos2 logic here if needed
-
-        else:
-            raise ValueError(f"Unexpected BBot version: {self.bbot_version}")
+        crs = f"EPSG::{self.cfg.crs}"
+        log.info(f"Using CRS {crs} for {self.batch_id}")
 
         return crs, marker_bit
     
@@ -181,7 +168,10 @@ class SfM:
 
     def add_photos(self):
         """Adds a directory to the project"""
-        photos = [str(x) for x in list(self.down_photos.glob("*.jpg")) + list(self.down_photos.glob("*.JPG"))]
+        photos = sorted([str(x) for x in list(self.down_photos.glob("*.jpg")) + list(self.down_photos.glob("*.JPG"))])
+        # check of self.skip_first_n_images is an int or None
+        if isinstance(self.skip_first_n_images, int):
+            photos = photos[self.skip_first_n_images:]
         log.info(f"Adding {len(photos)} photos to the project")
         if self.doc.chunk is None:
             self.doc.addChunk()
