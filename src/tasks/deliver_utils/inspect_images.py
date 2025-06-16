@@ -59,7 +59,7 @@ class AnnotationPlotter:
             for species in species_data["species"].values()
         }
 
-        self.assign_rates = True if "assign_rates" in cfg.tasks.label else False
+        self.assign_rates = None # Goes to True if any annotation has a 'experiment_info' field.
 
     def load_annotation_data(self) -> pd.DataFrame:
         """
@@ -82,7 +82,8 @@ class AnnotationPlotter:
                         x_centroid, y_centroid  = centroid[0], centroid[1]
                         area = ann.get("global_coordinates", {}).get("area_sqm") * 10000  # Convert to square cm
                         if species_id is not None and area is not None:
-                            if "experiment_info" in ann and self.assign_rates:
+                            if "experiment_info" in ann:
+                                self.assign_rates = True
                                 rate = ann["experiment_info"].get("rate_gAE_A", None)
                                 dap_id = ann["experiment_info"].get("dap_id", None)
                                 plot_id = ann["experiment_info"].get("plot_id", None)
@@ -232,8 +233,6 @@ class ImageReviewer:
         self.timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.user = getpass.getuser()
 
-        self.include_rate_in_label = True if "assign_rates" in cfg.tasks.label else False
-
     def read_species_info(self, path: Path) -> dict[str, str]:
         """
         Reads species info JSON and returns mapping from class ID to common name.
@@ -327,9 +326,11 @@ class ImageReviewer:
             is_primary = bbox.get("is_primary", False)
             
             # Prepare label text
-            if self.include_rate_in_label:
+            if "experiment_info" in bbox:
                 rate = bbox.get("experiment_info", {}).get("rate_gAE_A", None)
                 plot_id = bbox.get("experiment_info", {}).get("plot_id", None)
+                if rate is None or plot_id is None:
+                    log.warning(f"Missing rate or plot_id in metadata for {img_path.name}.")
                 label_text = f"{plot_id} ({rate:.2f} g AE/A) | {area_sqcm:.2f} cm2 {'P' if is_primary else ''}"
             else:
                 cat_class_id = str(bbox.get("category_class_id", "Unknown"))
