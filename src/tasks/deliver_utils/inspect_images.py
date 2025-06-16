@@ -59,6 +59,8 @@ class AnnotationPlotter:
             for species in species_data["species"].values()
         }
 
+        self.assign_rates = True if "assign_rates" in cfg.tasks.label else False
+
     def load_annotation_data(self) -> pd.DataFrame:
         """
         Loads annotation data from JSON files in the metadata directory.
@@ -80,7 +82,27 @@ class AnnotationPlotter:
                         x_centroid, y_centroid  = centroid[0], centroid[1]
                         area = ann.get("global_coordinates", {}).get("area_sqm") * 10000  # Convert to square cm
                         if species_id is not None and area is not None:
-                            records.append({"species_id": species_id, "area_sqcm": area, "x": x, "y": y, "w": w, "h": h, "x_centroid": x_centroid, "y_centroid": y_centroid})
+                            if "experiment_info" in ann and self.assign_rates:
+                                rate = ann["experiment_info"].get("rate_gAE_A", None)
+                                dap_id = ann["experiment_info"].get("dap_id", None)
+                                plot_id = ann["experiment_info"].get("plot_id", None)
+                                
+                                if rate is not None and plot_id is not None:
+                                    records.append({
+                                        "species_id": species_id,
+                                        "rate_gAE_A": str(round(rate, 2)),
+                                        "plot_id": str(plot_id),
+                                        "dap_id": str(dap_id),
+                                        "area_sqcm": area,
+                                        "x": x,
+                                        "y": y,
+                                        "w": w,
+                                        "h": h,
+                                        "x_centroid": x_centroid,
+                                        "y_centroid": y_centroid
+                                    })
+                            else:
+                                records.append({"species_id": species_id, "area_sqcm": area, "x": x, "y": y, "w": w, "h": h, "x_centroid": x_centroid, "y_centroid": y_centroid})
             except Exception as e:
                 log.error(f"Failed to process {json_file.name}: {e}", exc_info=True)
         return pd.DataFrame(records)
@@ -91,8 +113,8 @@ class AnnotationPlotter:
         """
     
         plt.figure(figsize=(10, 8))
-
-        g = sns.FacetGrid(df, col="species_id", col_wrap=3, height=3.5)
+        col = "rate_gAE_A" if self.assign_rates else "species_id"
+        g = sns.FacetGrid(df, col=col, col_wrap=3, height=3.5)
         g.map_dataframe(sns.kdeplot, x="x_centroid", y="y_centroid", fill=True, cmap="viridis", bw_adjust=0.5, clip=((0, 1), (0, 1)))
         g.set_titles("{col_name}")
         g.set_axis_labels("X (relative)", "Y (relative)")
@@ -107,7 +129,7 @@ class AnnotationPlotter:
         cbar = g.figure.colorbar(sm, cax=cbar_ax)
         cbar.set_label("Relative Density")
 
-        g.figure.suptitle("Centroid Density per Species (Normalized)", y=1.02)
+        g.figure.suptitle(f"Centroid Density per {'Species' if not self.assign_rates else 'Rate (g AE/A)'} (Normalized)")
         plt.tight_layout(rect=[0, 0, 0.9, 1])  # Leave space for colorbar
         plot_path = self.save_dir / "species_centroid_density.png"
         plt.savefig(plot_path, dpi=300)
@@ -118,11 +140,12 @@ class AnnotationPlotter:
         Creates log-scaled histograms of plant area (in cm²) for each species.
         """
         # Plot 2: Log-scaled histogram per species
-        g = sns.FacetGrid(df, col="species_id", col_wrap=3, sharey=False, height=3.5)
+        col = "rate_gAE_A" if self.assign_rates else "species_id"
+        g = sns.FacetGrid(df, col=col, col_wrap=3, sharey=False, height=3.5)
         g.map_dataframe(sns.histplot, x="area_sqcm", bins=bins, log_scale=(True, False))
         g.set_titles("{col_name}")
         g.set_axis_labels("Area (cm², log scale)", "Count")
-        g.figure.suptitle("Log-Scaled Histograms of Area per Species")
+        g.figure.suptitle(f"Log-Scaled Histograms of Area per {'Species' if not self.assign_rates else 'Rate (g AE/A)'}")
         plt.tight_layout()
         plot_path = self.save_dir / "area_log_scaled_histograms.png"
         plt.savefig(plot_path, dpi=300)
@@ -132,11 +155,15 @@ class AnnotationPlotter:
         """
         Creates a bar plot showing the number of annotations per species.
         """
-        species_counts = df["species_id"].value_counts().sort_index()
+        if self.assign_rates:
+            species_counts = df["rate_gAE_A"].value_counts().sort_index()
+        else:
+            species_counts = df["species_id"].value_counts().sort_index()
+
         plt.figure(figsize=(8, 5))
         ax = species_counts.plot(kind="bar")
-        plt.title("Number of Annotations per Species")
-        plt.xlabel("Species ID")
+        plt.title(f"Number of Annotations per {'Species' if not self.assign_rates else 'Rate (g AE/A)'}")
+        plt.xlabel(f"{'Species' if not self.assign_rates else 'Rate (g AE/A)'} ID")
         plt.ylabel("Count")
         plt.tight_layout()
         plt.grid(axis="y")
@@ -194,7 +221,6 @@ class ImageReviewer:
         
         # Outputs        
         self.inspection_dir = self.lts_batch_dir / "inspection" if self.use_lts_images else Path(cfg.paths.inspection_dir)
-        self.csv_file = self.inspection_dir / f"{self.batch_id}_label_inspection.csv"
         self.remapped_sample_dir = self.inspection_dir / "remapped_samples"
         if not self.remapped_sample_dir.exists():
             self.remapped_sample_dir.mkdir(parents=True, exist_ok=True)
