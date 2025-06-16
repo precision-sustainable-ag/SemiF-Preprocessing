@@ -1886,6 +1886,63 @@
                 194
             ],
             "alias": []
+        },"HITR": {
+            "class_id": 64,
+            "USDA_symbol": "HITR",
+            "EPPO": "HIBTR",
+            "group": "Dicot",
+            "class": "Magnoliopsida",
+            "subclass": "Dilleniidae",
+            "order": "Malvales",
+            "family": "Malvaceae",
+            "genus": "Hibiscus",
+            "species": "trionum",
+            "common_name": "Venice mallow",
+            "authority": "Linnaeus",
+            "growth_habit": "forb/herb",
+            "duration": "annual",
+            "collection_location": null,
+            "category": "summer weed",
+            "collection_timing": null,
+            "multi_species_USDA_symbol": null,
+            "link": "https://plants.usda.gov/plant-profile/HITR",
+            "note": null,
+            "hex": "#aebd70",
+            "rgb": [
+                174, 
+                189, 
+                112
+            ],
+            "alias": []
+        },
+        "PHAM4": {
+            "class_id": 65,
+            "USDA_symbol": "PHAM4",
+            "EPPO": "PHTAM",
+            "group": "Dicot",
+            "class": "Magnoliopsida",
+            "subclass": "Caryophyllidae",
+            "order": "Caryophyllales",
+            "family": "Phytolaccaceae",
+            "genus": "Phytolacca",
+            "species": "americana",
+            "common_name": "Common pokeweed",
+            "authority": "Linnaeus",
+            "growth_habit": "forb/herb",
+            "duration": "perennial",
+            "collection_location": null,
+            "category": "summer weed",
+            "collection_timing": null,
+            "multi_species_USDA_symbol": null,
+            "link": "https://plants.usda.gov/plant-profile/PHAM4",
+            "note": null,
+            "hex": "#675395",
+            "rgb": [
+                103, 
+                83, 
+                149
+            ],
+            "alias": []
         }
     },
     "Notes": {

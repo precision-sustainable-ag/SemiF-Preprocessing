@@ -19,20 +19,22 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 ############################################
 batch_id:
 bbot_version: "3.1"
-season: cash_crop_dicamba_2025 # summer_weeds_2024  #cool_season_covers_2023_2024, cool_season_covers_2024_2025_bbotv30, cool_season_covers_2024_2025, cool_season_covers_2024_2025_NCpos2, summer_weeds_2024
+season: # cash_crop_dicamba_2025, summer_weeds_2024  #cool_season_covers_2023_2024, cool_season_covers_2024_2025_bbotv30, cool_season_covers_2024_2025, cool_season_covers_2024_2025_NCpos2, summer_weeds_2024
 create_issue: true
 crs: 
 gh_reviewer: mkutu # nnotaba or mkutu
 timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be ignored in the batch
 run_mode: single # single or batch
+
+# Toggle the modes you want to run
 modes:
   # - sync
   - correct
   - asfm
   - label
-  - deliver
-############################################
+  # - deliver
 
+# Toggle the tasks you want to run in each mode
 tasks: # task for each mode
   sync:
     - sync_from_remote
@@ -45,12 +47,15 @@ tasks: # task for each mode
     - detect_plants
     - merge_overlapping_bboxes
     - remap_labels
-    # - assign_species
-    - assign_rates # only used for dicamba study
+    - assign_species
+    # - assign_rates # only used for dicamba study
   deliver:
     - inspect_images # deliver
     - move_data # deliver
     - report  # deliver
+
+############################################
+############################################
 
 inspection:
   inspect: false
