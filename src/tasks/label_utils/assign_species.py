@@ -23,7 +23,7 @@ class SpeciesAssigner:
         self.metadata_path = Path(cfg.paths.batch_dir, "metadata")
         
         self.shapefile_path = Path(cfg.paths.semif_util_dir) / "autosfm" / "ShapeFiles" / self.season / f"{self.season}.shp"
-        self.polygons = gpd.read_file(self.shapefile_path)
+        self.polygons = gpd.read_file(self.shapefile_path).to_crs(cfg.crs)
         self.closest_distance_thresh = 2  # meters
 
         log.info(f"Initialized SpeciesAssigner for batch: {self.batch_id}, season: {self.season}")
