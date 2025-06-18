@@ -659,7 +659,6 @@ class RemapLabels:
             images_data (List[ImageMetadata]): List of images with mapped metadata.
         """
         log.info("Starting shapefile export for FOVs and bounding boxes.")
-        bbox_records = []
         fov_records = []
 
         for image_data in images_data:
@@ -686,33 +685,7 @@ class RemapLabels:
                 log.warning(f"[{image_id}] Failed to build FOV polygon: {e}")
                 continue
 
-            for bbox in image_data.annotations:
-                coords = bbox.global_coordinates
-                
-                if not coords:
-                    log.warning(f"Missing global coordinates for bbox {bbox.cutout_id} in image {image_id}. Skipping.")
-                    continue  # skip unmapped bbox
-                try:
-                    bbox_polygon = self._build_polygons(coords)
-                    bbox_records.append({
-                        "image_id": image_id,
-                        "cutout_id": bbox.cutout_id,
-                        "geometry": bbox_polygon,
-                        "area_sqm": coords.area_sqm,
-                        "category_class_id": bbox.category_class_id,
-                        "is_primary": bbox.is_primary,
-                        "non_target_weed": bbox.non_target_weed,
-                        "non_target_weed_pred_conf": bbox.non_target_weed_pred_conf,
-                        "centroid": coords.global_centroid,
-                    })
-                except Exception as e:
-                    log.warning(f"[{image_id}] Failed to build bbox polygon {bbox.cutout_id}: {e}")
-
-
-        bbox_output_path = self.shp_dir / f"{self.batch_dir.name}_bboxes_fov.shp"
         fov_output_path = self.shp_dir / f"{self.batch_dir.name}_image_fovs.shp"
-        
-        self._write_shapefile(bbox_records, bbox_output_path)
         self._write_shapefile(fov_records, fov_output_path)
 
         log.info("Completed shapefile export.")
