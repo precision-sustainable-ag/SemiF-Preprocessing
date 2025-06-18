@@ -5,16 +5,14 @@ import time
 from datetime import datetime
 from dataclasses import asdict
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Dict, Tuple
 
 import cv2
 import geopandas as gpd
-import shapely
 import numpy as np
 import pandas as pd
 from omegaconf import DictConfig
 import hydra
-from pyproj import CRS
 from shapely.geometry import Polygon
 from pyproj import Transformer
 from tqdm import tqdm
@@ -117,7 +115,7 @@ class DataMerger:
             raise
 
 class BBoxMapper:
-    def __init__(self, cfg: DictConfig, project_path: str, images: List[dict]):
+    def __init__(self, cfg: DictConfig, project_path: str, images: List[Dict]):
         """Class to map bounding box coordinates from image cordinates
         to global coordinates
         """
@@ -129,7 +127,7 @@ class BBoxMapper:
         self.images = images
         self.doc = Metashape.Document()
         self.doc.open(str(project_path), ignore_lock=True)
-        self.camera_lookup: dict[str, Metashape.Camera] = {
+        self.camera_lookup: Dict[str, Metashape.Camera] = {
             cam.label: cam for chunk in self.doc.chunks for cam in chunk.cameras
         }
     
@@ -166,7 +164,7 @@ class BBoxMapper:
         log.info("Completed global coordinate mapping for all images.")
         return self.images
 
-    def _select_chunk(self, image_map: dict):
+    def _select_chunk(self, image_map: Dict)  -> Metashape.Chunk:
         """Heuristically select the correct chunk from a project based on image presence."""
         labels = [chunk.label for chunk in self.doc.chunks]
         log.debug(f"Available chunks in project: {labels}")
@@ -290,7 +288,7 @@ class BBoxMapper:
             area_sqm=area
         )
 
-    def _default_global_coords(self) -> dict:
+    def _default_global_coords(self) -> Dict:
         """
         Return a default fallback value for unmapped bounding boxes.
         """
@@ -336,7 +334,7 @@ class RemapLabels:
         log.info(f"Label projecting initialized for batch: {self.batch_id}, season: {self.season}, BBOT version: {self.bbot_version}")
 
     
-    def _get_image_shape(self) -> tuple[int, int]:
+    def _get_image_shape(self) -> Tuple[int, int]:
         """
         Returns the height and width of a sample image from the downscaled directory.
         """
@@ -360,7 +358,7 @@ class RemapLabels:
         h = round((row["ymax"] * self.fullres_h)) - y
         return [x, y, w, h]
 
-    def _get_season_and_bbot(self) -> tuple[Optional[str], Optional[str]]:
+    def _get_season_and_bbot(self) -> Tuple[Optional[str], Optional[str]]:
         """
         Derive the season and BBOT version based on the batch_id.
 
@@ -486,7 +484,7 @@ class RemapLabels:
             fullres_height=self.fullres_h,
         )
     
-    def _check_fov_coords(self, coords: list[tuple[float, float]] | None) -> bool:
+    def _check_fov_coords(self, coords: List[Tuple[float, float]] | None) -> bool:
         """
         Check if the coordinates are valid for FOV.
         Returns True if valid, False otherwise.
@@ -505,7 +503,7 @@ class RemapLabels:
                 return False
         return True
     
-    def calculate_area(self, coords: list[tuple[float, float]] | None) -> float:
+    def calculate_area(self, coords: list[Tuple[float, float]] | None) -> float:
         """
         Calculate polygon area in square meters from WGS84 coordinates.
         Returns 0.0 if coords is None or contains None/invalid values.
@@ -534,7 +532,7 @@ class RemapLabels:
         return poly.area
 
 
-    def calculate_fov_area(self, fov: dict) -> float:
+    def calculate_fov_area(self, fov: Dict) -> float:
         try:
             corners = [
                 fov["top_left_xy"],
@@ -581,7 +579,7 @@ class RemapLabels:
             log.exception(f"Failed to construct FOV object for {rows['image_id'].iloc[0]}.")
             raise
     
-    def _camera_loc(self, rows: pd.DataFrame) -> list[float]:
+    def _camera_loc(self, rows: pd.DataFrame) -> List[float]:
         """
         Extract estimated 3D camera location from metadata.
         """
@@ -595,7 +593,7 @@ class RemapLabels:
             log.exception("Failed to extract camera location.")
             raise
     
-    def remap(self) -> List[dict]:
+    def remap(self) -> List[Dict]:
         """
         Main remapping procedure that:
         1. Builds metadata for all images
@@ -738,7 +736,7 @@ class RemapLabels:
         ])
         
     
-    def _write_shapefile(self, records: List[dict], output_path: Path) -> None:
+    def _write_shapefile(self, records: List[Dict], output_path: Path) -> None:
         """
         Write a list of record dictionaries to an ESRI Shapefile.
 
