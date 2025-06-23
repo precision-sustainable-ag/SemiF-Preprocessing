@@ -374,6 +374,12 @@ class SfM:
             subdivide_task=True,
             progress=progress_callback,
         )
+        
+        if self.cfg.clean_tie_points:
+            log.debug(f"Cleaning tie points in chunk {chunk}")
+            # Clean tie points based on reprojection error
+            self.clean_tie_points(chunk=chunk)
+
         ms.app.cpu_enable = True if ms.app.gpu_mask else False
         self.save_project()
 
@@ -394,6 +400,9 @@ class SfM:
         self._remove_duplicate_and_unaligned_cameras()
         self.reset_region()
         self.save_project()
+
+    def clean_tie_points(self, chunk: int = 0):
+            self.doc.chunks[chunk].cleanTiePoints(criterion=ms.TiePoints.Criterion.ReprojectionError, threshold=1.0)
     
     def _correct_unaligned_cameras(self, unaligned_cameras, chunk, progress_callback):
         """Attempts to correct unaligned cameras by reprocessing them."""        
