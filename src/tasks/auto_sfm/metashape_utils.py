@@ -281,7 +281,7 @@ class SfM:
 
     def get_unaligned_cameras(
         self,
-        chunk: int = 0,
+        chunk: int = -1,
     ):
         unaligned_cameras = [
             camera
@@ -362,57 +362,19 @@ class SfM:
         ms.app.cpu_enable = True if ms.app.gpu_mask else False
         self.save_project()
 
-        unaligned_cameras = self.get_unaligned_cameras(chunk)
-        if len(unaligned_cameras) > 2:
-            log.warning(f"Found {len(unaligned_cameras)} unaligned cameras.")
-            if correct:
-                prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                self._correct_unaligned_cameras(unaligned_cameras, chunk, progress_callback)
-                unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                    prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                    self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                    unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                    if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                        prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                        self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                        unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                        if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                            prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                            self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                            unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                            if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                    prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                    self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                    unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)      
-                                    if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                        prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                        self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                        unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                                        if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                            prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                            self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                            unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                                            if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                                prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                                self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                                unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)     
-                                                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                                    prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                                    self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                                    unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                                                    if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                                        prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                                        self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                                        unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                                                        if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                                            prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                                            self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                                            unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)            
+        if correct:
+            prev_unaligned_count = float('inf')
+            cur_unaligned = self.get_unaligned_cameras(chunk)
+            counter = 0
+            while len(cur_unaligned) > 2 and len(cur_unaligned) < prev_unaligned_count:
+                prev_unaligned_count = len(cur_unaligned)
+                log.warning(f"Found {prev_unaligned_count} unaligned cameras. Attempting correction...")
+                self._correct_unaligned_cameras(unaligned_cameras=cur_unaligned, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
+                cur_unaligned = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
+                counter += 1
+                log.info(f"Iteration {counter}: Found {len(cur_unaligned)} unaligned cameras.")
+            if len(cur_unaligned) > 2:
+                log.warning(f"Stopped correcting unaligned cameras after no further progress. {len(cur_unaligned)} still unaligned.")
 
         self._remove_duplicate_and_unaligned_cameras()
         self.reset_region()
