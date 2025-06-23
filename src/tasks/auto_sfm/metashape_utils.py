@@ -338,6 +338,21 @@ class SfM:
         ms.app.cpu_enable = True if ms.app.gpu_mask else False
         self.save_project()
 
+    def analyze_images(self, chunk: int = 0, progress_callback: Callable = percentage_callback):
+        """Analyzes images in the current chunk to gather statistics."""
+        log.debug("Analyzing images")
+
+        self.doc.chunks[chunk].analyzeImages(
+            cameras=self.doc.chunks[chunk].cameras,
+            progress=progress_callback
+        )
+
+        for camera in self.doc.chunks[chunk].cameras:
+            if float(camera.meta['Image/Quality']) < 0.5:
+                camera.enabled = False
+
+        self.save_project()
+        
     def align_photos(
             self,
             progress_callback: Callable = percentage_callback,
@@ -399,6 +414,10 @@ class SfM:
 
         log.debug("Matching and Aligning photos again.")
         self.match_photos(chunk=len(self.doc.chunks) - 1)
+
+        if self.cfg.asfm.analyze_images:
+            self.analyze_images(chunk=len(self.doc.chunks) - 1, progress_callback=progress_callback)
+        
         self.align_photos(chunk=len(self.doc.chunks) - 1, correct=False)
 
         log.debug("Merging Chunks.")
