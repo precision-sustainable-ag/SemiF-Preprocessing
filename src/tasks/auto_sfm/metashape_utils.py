@@ -435,12 +435,21 @@ class SfM:
         )
         log.debug(f"Chunks names: {[chunk.label for chunk in self.doc.chunks]}")
         
+        if self.depth_map_cfg.filtering_mode == "aggressive":
+            filter_mode = ms.AggressiveFiltering
+        elif self.depth_map_cfg.filtering_mode == "moderate":
+            filter_mode = ms.ModerateFiltering
+        elif self.depth_map_cfg.filtering_mode == "mild":
+            filter_mode = ms.MildFiltering
+        else:
+            filter_mode = ms.NoFiltering
+        
         self.doc.chunk.buildDepthMaps(
             downscale=self.depth_map_cfg.downscale,
-            filter_mode=ms.ModerateFiltering,
+            filter_mode=filter_mode,
             cameras=self.doc.chunk.cameras,
             reuse_depth=True,
-            max_neighbors=-1,
+            max_neighbors=self.depth_map_cfg.max_neighbors,
             subdivide_task=True,
             workitem_size_cameras=20,
             max_workgroup_size=100,
@@ -461,6 +470,7 @@ class SfM:
 
         self.doc.chunk.buildPointCloud(
             point_colors=True,
+            point_spacing=self.dense_cloud_cfg.point_spacing,
             point_confidence=False,
             keep_depth=True,
             max_neighbors=100,
