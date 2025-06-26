@@ -135,10 +135,14 @@ class RateAssigner:
                     continue
 
                 exp_info = bbox.get("experiment_info", {})
+                area_sqm = bbox.get("global_coordinates", {}).get("area_sqm", 0)
+                area_sqcm = area_sqm * 10000  # 1 sqm = 10,000 sqcm
                 record = {
                     "geometry": poly,
                     "cutout_id": bbox.get("cutout_id", ""),
                     "class_id": bbox.get("category_class_id", None),
+                    "is_primary": bbox.get("is_primary", None),
+                    "area_sqcm": area_sqcm,
                     **exp_info,
                 }
                 all_records.append(record)
