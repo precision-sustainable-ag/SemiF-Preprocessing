@@ -281,7 +281,7 @@ class SfM:
 
     def get_unaligned_cameras(
         self,
-        chunk: int = 0,
+        chunk: int = -1,
     ):
         unaligned_cameras = [
             camera
@@ -338,6 +338,7 @@ class SfM:
         ms.app.cpu_enable = True if ms.app.gpu_mask else False
         self.save_project()
 
+        
     def align_photos(
             self,
             progress_callback: Callable = percentage_callback,
@@ -359,65 +360,29 @@ class SfM:
             subdivide_task=True,
             progress=progress_callback,
         )
+        
+
         ms.app.cpu_enable = True if ms.app.gpu_mask else False
         self.save_project()
 
-        unaligned_cameras = self.get_unaligned_cameras(chunk)
-        if len(unaligned_cameras) > 2:
-            log.warning(f"Found {len(unaligned_cameras)} unaligned cameras.")
-            if correct:
-                prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                self._correct_unaligned_cameras(unaligned_cameras, chunk, progress_callback)
-                unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                    prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                    self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                    unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                    if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                        prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                        self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                        unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                        if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                            prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                            self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                            unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                            if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                    prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                    self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                    unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)      
-                                    if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                        prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                        self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                        unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                                        if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                            prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                            self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                            unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                                            if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                                prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                                self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                                unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)     
-                                                if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                                    prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                                    self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                                    unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                                                    if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                                        prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                                        self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                                        unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)  
-                                                        if prev_unaligned_cameras != unaligned_cameras and len(unaligned_cameras) > 2:
-                                                            prev_unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                                                            self._correct_unaligned_cameras(unaligned_cameras=unaligned_cameras, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                                                            unaligned_cameras = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)            
+        if correct:
+            prev_unaligned_count = float('inf')
+            cur_unaligned = self.get_unaligned_cameras(chunk)
+            counter = 0
+            while len(cur_unaligned) > 2 and len(cur_unaligned) < prev_unaligned_count:
+                prev_unaligned_count = len(cur_unaligned)
+                log.warning(f"Found {prev_unaligned_count} unaligned cameras. Attempting correction...")
+                self._correct_unaligned_cameras(unaligned_cameras=cur_unaligned, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
+                cur_unaligned = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
+                counter += 1
+                log.info(f"Iteration {counter}: Found {len(cur_unaligned)} unaligned cameras.")
+            if len(cur_unaligned) > 2:
+                log.warning(f"Stopped correcting unaligned cameras after no further progress. {len(cur_unaligned)} still unaligned.")
 
         self._remove_duplicate_and_unaligned_cameras()
         self.reset_region()
         self.save_project()
-    
+
     def _correct_unaligned_cameras(self, unaligned_cameras, chunk, progress_callback):
         """Attempts to correct unaligned cameras by reprocessing them."""        
         log.info(f"Attempting to align {len(unaligned_cameras)} unaligned cameras.")
@@ -438,7 +403,6 @@ class SfM:
         log.debug("Matching and Aligning photos again.")
         self.match_photos(chunk=len(self.doc.chunks) - 1)
         self.align_photos(chunk=len(self.doc.chunks) - 1, correct=False)
-
         log.debug("Merging Chunks.")
         self.doc.mergeChunks(chunks=[chunk, len(self.doc.chunks) - 1], merge_markers=True, progress=progress_callback)
         log.debug("Setting active chunk.")
@@ -454,12 +418,23 @@ class SfM:
         )
         log.debug(f"Chunks names: {[chunk.label for chunk in self.doc.chunks]}")
         
+        if self.depth_map_cfg.filtering_mode == "aggressive":
+            filter_mode = ms.AggressiveFiltering
+        elif self.depth_map_cfg.filtering_mode == "moderate":
+            filter_mode = ms.ModerateFiltering
+        elif self.depth_map_cfg.filtering_mode == "mild":
+            filter_mode = ms.MildFiltering
+        elif self.depth_map_cfg.filtering_mode.lower() == "none":
+            filter_mode = ms.NoFiltering
+        else:
+            raise ValueError(f"Unknown filtering mode: {self.depth_map_cfg.filtering_mode}")
+        
         self.doc.chunk.buildDepthMaps(
             downscale=self.depth_map_cfg.downscale,
-            filter_mode=ms.ModerateFiltering,
+            filter_mode=filter_mode,
             cameras=self.doc.chunk.cameras,
             reuse_depth=True,
-            max_neighbors=-1,
+            max_neighbors=self.depth_map_cfg.max_neighbors,
             subdivide_task=True,
             workitem_size_cameras=20,
             max_workgroup_size=100,
@@ -480,6 +455,7 @@ class SfM:
 
         self.doc.chunk.buildPointCloud(
             point_colors=True,
+            points_spacing=self.dense_cloud_cfg.points_spacing,
             point_confidence=False,
             keep_depth=True,
             max_neighbors=100,
