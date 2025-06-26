@@ -338,20 +338,6 @@ class SfM:
         ms.app.cpu_enable = True if ms.app.gpu_mask else False
         self.save_project()
 
-    def analyze_images(self, chunk: int = 0, progress_callback: Callable = percentage_callback):
-        """Analyzes images in the current chunk to gather statistics."""
-        log.debug("Analyzing images")
-
-        self.doc.chunks[chunk].analyzeImages(
-            cameras=self.doc.chunks[chunk].cameras,
-            progress=progress_callback
-        )
-
-        for camera in self.doc.chunks[chunk].cameras:
-            if float(camera.meta['Image/Quality']) < 0.5:
-                camera.enabled = False
-
-        self.save_project()
         
     def align_photos(
             self,
@@ -375,10 +361,6 @@ class SfM:
             progress=progress_callback,
         )
         
-        if self.cfg.clean_tie_points:
-            log.debug(f"Cleaning tie points in chunk {chunk}")
-            # Clean tie points based on reprojection error
-            self.clean_tie_points(chunk=chunk)
 
         ms.app.cpu_enable = True if ms.app.gpu_mask else False
         self.save_project()
@@ -401,9 +383,6 @@ class SfM:
         self.reset_region()
         self.save_project()
 
-    def clean_tie_points(self, chunk: int = 0):
-            self.doc.chunks[chunk].cleanTiePoints(criterion=ms.TiePoints.Criterion.ReprojectionError, threshold=1.0)
-    
     def _correct_unaligned_cameras(self, unaligned_cameras, chunk, progress_callback):
         """Attempts to correct unaligned cameras by reprocessing them."""        
         log.info(f"Attempting to align {len(unaligned_cameras)} unaligned cameras.")
@@ -423,12 +402,7 @@ class SfM:
 
         log.debug("Matching and Aligning photos again.")
         self.match_photos(chunk=len(self.doc.chunks) - 1)
-
-        if self.cfg.asfm.analyze_images:
-            self.analyze_images(chunk=len(self.doc.chunks) - 1, progress_callback=progress_callback)
-        
         self.align_photos(chunk=len(self.doc.chunks) - 1, correct=False)
-
         log.debug("Merging Chunks.")
         self.doc.mergeChunks(chunks=[chunk, len(self.doc.chunks) - 1], merge_markers=True, progress=progress_callback)
         log.debug("Setting active chunk.")
@@ -450,8 +424,10 @@ class SfM:
             filter_mode = ms.ModerateFiltering
         elif self.depth_map_cfg.filtering_mode == "mild":
             filter_mode = ms.MildFiltering
-        else:
+        elif self.depth_map_cfg.filtering_mode.lower() == "none":
             filter_mode = ms.NoFiltering
+        else:
+            raise ValueError(f"Unknown filtering mode: {self.depth_map_cfg.filtering_mode}")
         
         self.doc.chunk.buildDepthMaps(
             downscale=self.depth_map_cfg.downscale,
@@ -479,7 +455,7 @@ class SfM:
 
         self.doc.chunk.buildPointCloud(
             point_colors=True,
-            point_spacing=self.dense_cloud_cfg.point_spacing,
+            points_spacing=self.dense_cloud_cfg.points_spacing,
             point_confidence=False,
             keep_depth=True,
             max_neighbors=100,
