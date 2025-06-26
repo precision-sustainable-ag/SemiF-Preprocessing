@@ -101,15 +101,6 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
             log.exception(f"Failed to match photos. Exiting")
             raise
 
-    # Analyze images
-    if cfg.asfm.analyze_images:
-        try:
-            log.info(f"Analyzing images")
-            pipeline.analyze_images()
-        except Exception as e:
-            log.exception(f"Failed to analyze images. Exiting")
-            raise
-
     # Align photos
     if cfg.asfm.align:
         try:
