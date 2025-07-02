@@ -56,10 +56,13 @@ optimize_cameras_cfg:
 depth_map:
   enabled: True
   downscale: 4 # Depth map quality, lower means higher accuracy [1, 2, 4, 8, or 16]. By default 4
+  filtering_mode: 'moderate' # 'none', 'aggressive', 'mild', or 'moderate'
+  max_neighbors: -1 # Maximum number of neighbors to consider for depth map generation
   autosave: True
 
 dense_cloud:
   enabled: True
+  points_spacing: 0.1
   autosave: True
 
 model:
