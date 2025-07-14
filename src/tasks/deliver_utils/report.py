@@ -509,8 +509,15 @@ class LogParser:
         for module, duration_str in task_durations.items():
             if duration_str is None:
                 continue
-            h, m, s = map(int, duration_str.split(":"))
-            duration_seconds = timedelta(hours=h, minutes=m, seconds=s).total_seconds()
+            # Handle "X day, HH:MM:SS" or "X days, HH:MM:SS"
+            days = 0
+            time_part = duration_str
+            if "day" in duration_str:
+                days_part, time_part = duration_str.split(",", 1)
+                days = int(days_part.strip().split()[0])
+                time_part = time_part.strip()
+            h, m, s = map(int, time_part.split(":"))
+            duration_seconds = timedelta(days=days, hours=h, minutes=m, seconds=s).total_seconds()
             records.append({
                 "ScriptModule": module,
                 "DurationSeconds": duration_seconds,

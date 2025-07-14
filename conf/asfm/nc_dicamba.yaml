@@ -4,15 +4,15 @@ num_gpus: 1 # 8=255, 7=127, 6=63, 5=31, 4=15, 3=7, 2=3, 1=1; or use 'all' to use
 use_masking: False
 
 # Pipeline settings
-check_for_asfm: True
-resize_photos: True
-add_photos_and_masks: True
-detect_markers: True
-import_references: True
+check_for_asfm: False
+resize_photos: False
+add_photos_and_masks: False
+detect_markers: False
+import_references: False
 match: True
 align: True
 optimize_cameras: True
-export_gcp_camref_err: True
+export_gcp_camref_err: True # Necessary for export FOV
 build_depth: True
 build_dense: True
 build_model: True
@@ -23,16 +23,19 @@ export_report: True
 
 ## Main processing settings
 # Electives
+skip_first_n_images: # Skip first n images encase of bad images during testing and bbot setup
+
 downscale:
   enabled: True
-  factor: 0.25 # between (0, 1] 1 is highest accuracy. By default 0.5
+  factor: 0.75 # between (0, 1] 1 is highest accuracy. By default 0.5
 
 align_photos:
-  downscale: 8 # Accuracy parameter, lower means higher accuracy [0, 1, 2, 4, or 8]. By default 1
+  downscale: 2 # Accuracy parameter, lower means higher accuracy [0, 1, 2, 4, or 8]. By default 1
   autosave: True
   generic_preselection: False # broad filtering method based on general attributes of the images, faster but less accurate
   reference_preselection: False # more targeted approach that utilizes existing 3D data to improve the efficiency of image matching, slower but more accurate
   filter_stationary_points: False
+  adaptive_fitting: False
 
 optimize_cameras_cfg:
   fit_f: True
@@ -52,11 +55,14 @@ optimize_cameras_cfg:
 
 depth_map:
   enabled: True
-  downscale: 8 # Depth map quality, lower means higher accuracy [1, 2, 4, 8, or 16]. By default 4
+  downscale: 2 # Depth map quality, lower means higher accuracy [1, 2, 4, 8, or 16]. By default 4
+  filtering_mode: 'moderate' # 'none', 'aggressive', 'mild', or 'moderate'
+  max_neighbors: -1 # Maximum number of neighbors to consider for depth map generation
   autosave: True
 
 dense_cloud:
   enabled: True
+  points_spacing: 0.1
   autosave: True
 
 model:
@@ -71,12 +77,12 @@ dem:
   enabled: True
   autosave: True
   export: 
-    enabled: True
+    enabled: False
 
 orthomosaic:
   enabled: True
   export: 
-    enabled: True
+    enabled: False
   autosave: True
 
 camera_fov:

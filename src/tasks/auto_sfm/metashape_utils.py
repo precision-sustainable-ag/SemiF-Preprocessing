@@ -3,6 +3,7 @@ from pathlib import Path
 from copy import deepcopy
 from typing import Callable, Tuple
 from tqdm import tqdm
+import yaml
 
 import Metashape as ms
 
@@ -68,6 +69,13 @@ class SfM:
         )
 
         self.skip_first_n_images = cfg.asfm.skip_first_n_images
+
+        self.metashape_key = self._read_yaml(cfg.paths.pipeline_keys).get("metashape", {}).get("lic", None)
+        
+    def _read_yaml(self, path: Path):
+        """Reads a YAML file and returns the content."""
+        with open(path, 'r') as file:
+            return yaml.safe_load(file)
         
     def _remove_duplicate_and_unaligned_cameras(self):
         """Removes duplicate aligned cameras and unaligned cameras from the chunk."""
