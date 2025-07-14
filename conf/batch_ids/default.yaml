@@ -1,0 +1,11 @@
+force_reload: False # Force calculate batch IDs even if cache exists
+max_age_minutes: 60 # Maximum age of cache file in minutes
+exclude: # Exclude certain states and bbot versions
+  states:
+    # - NC
+  bbot_versions:
+    # - 2.0
+    # - 3.0
+
+batch_ids: # List of batch IDs to process. If items exists, it overrides loading from the cache or calculating batch IDs.
+  # - TX_2025-07-14
