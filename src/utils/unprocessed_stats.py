@@ -1,17 +1,18 @@
-from tqdm import tqdm
-from pathlib import Path
-from typing import List, Optional, Tuple, Dict
-import pandas as pd
-import hydra
-import re
-from omegaconf import DictConfig
 import logging
+import re
+import time
 from datetime import datetime
-import yaml
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
+import hydra
+import pandas as pd
+import yaml
+from omegaconf import DictConfig
+from tqdm import tqdm
 log = logging.getLogger(__name__)
 
-import pandas as pd
+
 
 class BatchAnalyzer:
     def __init__(self, df: pd.DataFrame):
