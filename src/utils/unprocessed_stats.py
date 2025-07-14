@@ -40,7 +40,16 @@ class BatchStatusChecker:
         self.lts_locations: List[str] = cfg.paths.lts_locations
         self.required_dirs = ["images", "metadata", "meta_masks", "reference"]
         self.season_config = cfg.date_ranges
+        self.cache_path = Path(cfg.paths.cache_path)
+        self.max_age_minutes = cfg.batch_ids.max_age_minutes
+        self.force_reload = cfg.batch_ids.force_reload
 
+    def is_cache_valid(self) -> bool:
+        if not self.cache_path.exists():
+            return False
+        age = (time.time() - self.cache_path.stat().st_mtime) / 60
+        return age < self.max_age_minutes
+    
     def match_season(self, site: str, date_str: str) -> Tuple[Optional[str], Optional[str]]:
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         for season, data in self.season_config.get(site, {}).items():
@@ -56,6 +65,10 @@ class BatchStatusChecker:
         return {d.name for d in path.iterdir() if d.is_dir() and self.VALID_BATCH_REGEX.match(d.name)}
 
     def check_batches(self) -> pd.DataFrame:
+        if self.is_cache_valid() and not self.force_reload:
+            log.info(f"Using cached batch status from {self.cache_path}")
+            return pd.read_csv(self.cache_path)
+        log.info("Scanning LTS locations for batch data...")
         batch_records = {}
 
         for lts in tqdm(self.lts_locations, desc="Scanning LTS locations", unit="location"):
@@ -66,8 +79,8 @@ class BatchStatusChecker:
             developed_batches = self.get_all_batches(developed_path)
             uploads_batches = self.get_all_batches(uploads_path)
             all_batches = developed_batches.union(uploads_batches)
-
-            for batch_id in all_batches:
+            log.info(f"Found {len(all_batches)} batches in {lts_path.name}")
+            for batch_id in tqdm(all_batches, desc="Processing batches", leave=False):
                 if batch_id not in batch_records:
                     match = self.VALID_BATCH_REGEX.match(batch_id)
                     site = match.group(1)
@@ -106,7 +119,11 @@ class BatchStatusChecker:
                 if upload_folder.exists():
                     record["exists_in_uploads"] = True
 
-        return pd.DataFrame(batch_records.values())
+        df = pd.DataFrame(batch_records.values())
+        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(self.cache_path, index=False)
+        log.info(f"Batch status written to cache at {self.cache_path}")
+        return df
 
 def preprocess_dataframe(df: pd.DataFrame, season_mapping: Dict[str, list]) -> pd.DataFrame:
     # Create a date column from batch_id
