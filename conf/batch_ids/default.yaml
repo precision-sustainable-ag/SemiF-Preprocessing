@@ -7,5 +7,5 @@ exclude: # Exclude certain states and bbot versions
     # - 2.0
     # - 3.0
 
-batch_ids: # List of batch IDs to process. If items exists, it overrides loading from the cache or calculating batch IDs.
+batch_ids: # List of batch IDs to process. If items exists, caches is not used and batch IDs are calculated
   # - TX_2025-07-14
