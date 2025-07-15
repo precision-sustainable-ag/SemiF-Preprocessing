@@ -5,6 +5,7 @@ defaults:
   - exif: default
   - asfm: default
   - date_ranges: default
+  - batch_ids: default
   - override hydra/job_logging: custom
 
 hydra:

@@ -115,8 +115,31 @@ class AnnotationPlotter:
     
         plt.figure(figsize=(10, 8))
         col = "rate_gAE_A" if self.assign_rates else "species_id"
+        plt.figure(figsize=(10, 8))
         g = sns.FacetGrid(df, col=col, col_wrap=3, height=3.5)
-        g.map_dataframe(sns.kdeplot, x="x_centroid", y="y_centroid", fill=True, cmap="viridis", bw_adjust=0.5, clip=((0, 1), (0, 1)))
+
+        def safe_kdeplot(data, **kwargs):
+            if len(data) < 3:
+                plt.gca().text(0.5, 0.5, "Not enough data", ha='center', va='center')
+                return
+            if data["x_centroid"].nunique() < 2 or data["y_centroid"].nunique() < 2:
+                plt.gca().text(0.5, 0.5, "No variance", ha='center', va='center')
+                return
+            try:
+                return sns.kdeplot(
+                    data=data,
+                    x="x_centroid",
+                    y="y_centroid",
+                    fill=True,
+                    cmap="viridis",
+                    bw_adjust=0.5,
+                    clip=((0, 1), (0, 1)),
+                    **kwargs
+                )
+            except Exception:
+                plt.gca().text(0.5, 0.5, "KDE error", ha='center', va='center')
+                return
+        g.map_dataframe(safe_kdeplot)
         g.set_titles("{col_name}")
         g.set_axis_labels("X (relative)", "Y (relative)")
         for ax in g.axes.flatten():

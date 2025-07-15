@@ -70,3 +70,6 @@ unprocessed_stats_dir: ${paths.data_dir}/unprocessed_stats
 
 # Artifacts file
 artifact_path: ${paths.inspection_dir}/${batch_id}.yaml
+
+# Cache path for unprocessed stats
+cache_path: ${paths.data_dir}/unprocessed_stats/batches_cache.csv
