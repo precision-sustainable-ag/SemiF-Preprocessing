@@ -2,7 +2,7 @@ name: Run SemiF-Preprocessing Pipeline
 
 on:
   issues:
-    types: [opened, edited, labeled]
+    types: [labeled]
 
 jobs:
   run-pipeline:
