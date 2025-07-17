@@ -3,10 +3,13 @@ name: Run SemiF-Preprocessing Pipeline
 on:
   issues:
     types: [opened, edited, labeled]
-    
+
 jobs:
   run-pipeline:
-    if: ${{ !contains(github.event.head_commit.message, 'SKIP-PIPELINE') }}
+    if: |
+      github.event_name == 'issues' &&
+      contains(github.event.issue.title, 'Batch Processing Request') &&
+      contains(github.event.issue.body, '### Batch ID')
     runs-on: [self-hosted]
     timeout-minutes: 4320  # 72 hours
     
@@ -23,4 +26,8 @@ jobs:
         env:
           GITHUB_PAT: ${{ secrets.REPORT_BOT_PAT }}
         run: |
-          taskset -c 2-31 python main.py
+          BATCH_ID=$(echo "${{ github.event.issue.body }}" | awk '/### Batch ID/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
+          SEASON=$(echo "${{ github.event.issue.body }}" | awk '/### Season/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
+          BBOT_VERSION=$(echo "${{ github.event.issue.body }}" | awk '/### BBot Version/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
+          
+          taskset -c 2-31 python main.py batch_id="$BATCH_ID" season="$SEASON" bbot_version="$BBOT_VERSION"
