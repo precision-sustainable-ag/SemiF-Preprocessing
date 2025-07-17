@@ -10,7 +10,7 @@ jobs:
       github.event_name == 'issues' &&
       contains(github.event.issue.title, 'Batch Processing Request') &&
       contains(github.event.issue.body, '### Batch ID') &&
-      (github.event.label.name == 'ready-for-processing')
+      (github.event.label.name == 'queued')
     runs-on: [self-hosted]
     timeout-minutes: 4320  # 72 hours
     
@@ -23,26 +23,26 @@ jobs:
           source ~/miniconda3/etc/profile.d/conda.sh
           conda activate semifpre
 
-      - name: Switch to 'currently-processing' label
+      - name: Switch to 'running' label
         uses: actions/github-script@v7
         with:
           script: |
             const issue_number = context.issue.number;
             const repo = context.repo.repo;
             const owner = context.repo.owner;
-            // Remove 'ready-for-processing'
+            // Remove 'queued'
             await github.rest.issues.removeLabel({
               owner,
               repo,
               issue_number,
-              name: 'ready-for-processing'
+              name: 'queued'
             });
-            // Add 'currently-processing'
+            // Add 'running'
             await github.rest.issues.addLabels({
               owner,
               repo,
               issue_number,
-              labels: ['currently-processing']
+              labels: ['running']
             });
 
       - name: Run SemiF-Preprocessing pipeline
@@ -55,7 +55,7 @@ jobs:
           
           taskset -c 2-31 python main.py batch_id="$BATCH_ID" season="$SEASON" bbot_version="$BBOT_VERSION"
       
-      - name: Remove 'currently-processing' label (always runs)
+      - name: Remove 'running' label (always runs)
         if: always()
         uses: actions/github-script@v7
         with:
@@ -68,14 +68,14 @@ jobs:
                 owner,
                 repo,
                 issue_number,
-                name: 'currently-processing'
+                name: 'running'
               });
             } catch (e) {
               // Label might already be gone; ignore
             }
 
-      # Adds 'processing-complete' label on success:
-      - name: Add processing-complete label (on success)
+      # Adds 'completed' label on success:
+      - name: Add processing-complete and needs-review labels (on success)
         if: success()
         uses: actions/github-script@v7
         with:
@@ -84,11 +84,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              labels: ['processing-complete']
+              labels: ['completed', 'needs-review']
             });
 
-      # Add a 'processing-failed' label on failure:
-      - name: Add processing-failed label (on failure)
+      # Add a 'failed' label on failure:
+      - name: Add failed label (on failure)
         if: failure()
         uses: actions/github-script@v7
         with:
@@ -97,5 +97,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              labels: ['processing-failed']
+              labels: ['failed']
             });
