@@ -21,8 +21,8 @@ jobs:
             }
 
             // Extract Batch ID
-            const batchIdMatch = body.match(/Batch ID: *(.*)/);
-            const seasonMatch = body.match(/Season: *(.*)/);
+            const batchIdMatch = body.match(/### Batch ID\s*\n([^\n]+)/);
+            const seasonMatch = body.match(/### Season\s*\n([^\n]+)/);
 
             const batchId = batchIdMatch ? batchIdMatch[1].trim() : "";
             const season = seasonMatch ? seasonMatch[1].trim() : "";
