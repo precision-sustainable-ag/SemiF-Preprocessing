@@ -23,20 +23,18 @@ body:
     validations:
       required: true
 
-  - type: markdown
-    attributes:
-      value: |
-        **BenchBot Version Reference**
-        - 3.5 = Rails + SVCam
-        - 3.1 = Amiga + SVCam
-        - 3.0 = Amiga + SonyCam
-        - 2.0 = Vention + SonyCam
-
-  - type: dropdown
+ - type: dropdown
     id: bbot_version
     attributes:
       label: BBot Version
-      description: Select the version used for this batch
+      description: |
+        Select the BenchBot version used for this batch.
+  
+        **Options:**
+        - 3.5: Rails + SVCam
+        - 3.1: Amiga + SVCam
+        - 3.0: Amiga + SonyCam
+        - 2.0: Vention + SonyCam
       options:
         - 3.5
         - 3.1
