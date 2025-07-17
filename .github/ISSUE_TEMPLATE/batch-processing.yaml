@@ -2,7 +2,6 @@ name: Batch Processing Request
 description: Submit a new batch processing task
 labels: [batch-request]
 body:
-
   - type: input
     id: template_id
     attributes:
