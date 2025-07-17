@@ -8,7 +8,7 @@ jobs:
   run-pipeline:
     if: |
       github.event_name == 'issues' &&
-      contains(github.event.issue.title, 'Batch Processing Request Form') &&
+      contains(github.event.issue.title, 'Batch Processing Request') &&
       contains(github.event.issue.body, '### Batch ID') &&
       (github.event.label.name == 'queued')
     runs-on: [self-hosted]
