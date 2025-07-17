@@ -2,10 +2,15 @@ name: Batch Processing Request
 description: Submit a new batch processing task
 labels: [batch-request]
 body:
-  - type: markdown
+  - type: input
+    id: template_id
     attributes:
-      value: "Batch Processing Request Form"
-
+      label: Template ID
+      description: For internal use only; do not modify.
+      value: Batch Processing Request Form
+    validations:
+      required: true
+    
   - type: input
     id: batch_id
     attributes:
