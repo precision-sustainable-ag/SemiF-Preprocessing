@@ -6,16 +6,117 @@ body:
     id: batch_id
     attributes:
       label: Batch ID
-      description: Unique ID for this batch
-      placeholder: e.g., TX_2024-08-30
+      description: Unique batch identifier (e.g., MD_2025-07-09)
+      placeholder: e.g., MD_2025-07-09
     validations:
       required: true
-  - type: input
+
+  - type: dropdown
     id: season
     attributes:
       label: Season
-      description: Season name
-      placeholder: e.g., Summer2024
+      description: Select the season for this batch
+      options:
+        - summer_weeds_2025
+        - cover_crops_2025_2026
+        # Add more as needed
     validations:
       required: true
-  # Add other fields as needed
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Any relevant notes, observations, or issues for this batch
+
+  - type: input
+    id: num_images
+    attributes:
+      label: Number of Images Taken
+      description: Total number of images collected for this batch
+      placeholder: e.g., 684
+    validations:
+      required: true
+
+  - type: input
+    id: x_axis_start
+    attributes:
+      label: X-axis Start (cm)
+      description: X-axis starting position in centimeters
+      placeholder: e.g., 40
+    validations:
+      required: true
+
+  - type: input
+    id: z_axis_start
+    attributes:
+      label: Z-axis Start (cm)
+      description: Z-axis starting position in centimeters
+      placeholder: e.g., 170
+    validations:
+      required: true
+
+  - type: input
+    id: pots_per_row
+    attributes:
+      label: Pots per Row
+      description: Number of pots per row
+      placeholder: e.g., 12
+    validations:
+      required: true
+
+  - type: input
+    id: row_spacing
+    attributes:
+      label: Row Spacing (cm)
+      description: Spacing between rows in centimeters
+      placeholder: e.g., 40
+    validations:
+      required: true
+
+  - type: input
+    id: pot_spacing
+    attributes:
+      label: Pot Spacing (cm)
+      description: Spacing between pots in centimeters
+      placeholder: e.g., 43
+    validations:
+      required: true
+
+  - type: input
+    id: num_rows_imaged
+    attributes:
+      label: Number of Rows Imaged
+      description: Total number of rows imaged
+      placeholder: e.g., 57
+    validations:
+      required: true
+
+  - type: input
+    id: aperture
+    attributes:
+      label: Aperture
+      description: Camera aperture setting (e.g., 13.5)
+      placeholder: e.g., 13.5
+    validations:
+      required: true
+
+  - type: input
+    id: focus
+    attributes:
+      label: Focus
+      description: Camera focus value (e.g., 20.3)
+      placeholder: e.g., 20.3
+    validations:
+      required: true
+
+  - type: input
+    id: flash_power
+    attributes:
+      label: Flash Power
+      description: Flash power setting (e.g., 1/1)
+      placeholder: e.g., 1/1
+    validations:
+      required: true
+
+
