@@ -50,10 +50,8 @@ jobs:
           GITHUB_PAT: ${{ secrets.REPORT_BOT_PAT }}
         run: |
           BATCH_ID=$(echo "${{ github.event.issue.body }}" | awk '/### Batch ID/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
-          SEASON=$(echo "${{ github.event.issue.body }}" | awk '/### Season/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
-          BBOT_VERSION=$(echo "${{ github.event.issue.body }}" | awk '/### BBot Version/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
           
-          taskset -c 2-31 python main.py batch_id="$BATCH_ID" season="$SEASON" bbot_version="$BBOT_VERSION"
+          taskset -c 2-31 python main.py batch_id="$BATCH_ID" create_issue=true
       
       - name: Remove 'running' label (always runs)
         if: always()

@@ -117,7 +117,7 @@ def build_first_success_body():
 def main():
     
     body = build_first_success_body() if IS_SUCCESS else build_failure_body()
-    title = f"{BATCH_ID}: Preprocessing Status"
+    title = f"{BATCH_ID} Batch Processing Request"
     issue_number = find_existing_issue(BATCH_ID, title)
 
     if issue_number:
