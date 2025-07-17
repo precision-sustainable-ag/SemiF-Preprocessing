@@ -1,0 +1,21 @@
+name: Batch Processing Request
+description: Submit a new batch processing task
+labels: [batch-request]
+body:
+  - type: input
+    id: batch_id
+    attributes:
+      label: Batch ID
+      description: Unique ID for this batch
+      placeholder: e.g., TX_2024-08-30
+    validations:
+      required: true
+  - type: input
+    id: season
+    attributes:
+      label: Season
+      description: Season name
+      placeholder: e.g., Summer2024
+    validations:
+      required: true
+  # Add other fields as needed
