@@ -28,6 +28,7 @@ from src.utils.utils import (
     retry_nfs_access,
     save_log_to_lts,
     set_cpu_affinity,
+    extract_season_info
 )
 
 # Define a registry of tasks
@@ -46,9 +47,7 @@ log = logging.getLogger(__name__)
 def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
     if batch_cfg:
         cfg.batch_id = batch_cfg["batch_id"]
-        cfg.bbot_version = batch_cfg["bbot_version"]
-        cfg.season = batch_cfg["season"]
-        cfg.crs = batch_cfg["crs"]
+    cfg = extract_season_info(cfg)
     
     modes = cfg.modes
     log.info(f"Running pipeline for batch {cfg.batch_id} in {','.join(modes)} mode.")
