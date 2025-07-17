@@ -24,10 +24,10 @@ body:
       required: true
 
    - type: dropdown
-      id: bbot_version
-      attributes:
-        label: BBot Version
-        description: |
+     id: bbot_version
+     attributes:
+       label: BBot Version
+       description: |
           Select the BenchBot version used for this batch.
     
           **Options:**
