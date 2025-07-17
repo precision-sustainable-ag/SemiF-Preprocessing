@@ -1,0 +1,49 @@
+name: Auto Retitle Batch Processing Issues
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  retitle-batch-processing-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || "";
+
+            // Only retitle if this was created with the batch processing form
+            if (!body.includes("Batch Processing Request Form") || !body.includes("Batch ID")) {
+              core.info("Not a batch processing request. Skipping retitle.");
+              return;
+            }
+
+            // Extract Batch ID
+            const batchIdMatch = body.match(/Batch ID: *(.*)/);
+            const seasonMatch = body.match(/Season: *(.*)/);
+
+            const batchId = batchIdMatch ? batchIdMatch[1].trim() : "";
+            const season = seasonMatch ? seasonMatch[1].trim() : "";
+
+            if (!batchId) {
+              core.info("Batch ID not found. Skipping retitle.");
+              return;
+            }
+
+            let newTitle = batchId;
+            if (season) {
+              newTitle = `${batchId} ${season}`;
+            }
+            newTitle += " Batch Processing Request";
+
+            // Update the issue title
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              title: newTitle,
+            });
+
+            core.info(`Retitled issue to: ${newTitle}`);
