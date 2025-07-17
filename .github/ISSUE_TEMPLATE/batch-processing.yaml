@@ -1,4 +1,3 @@
-
 name: Batch Processing Request
 description: Submit a new batch processing task
 labels: [batch-request]
@@ -6,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: "Batch Processing Request Form"
-      
+
   - type: input
     id: batch_id
     attributes:
@@ -143,5 +142,3 @@ body:
       placeholder: e.g., 1/1
     validations:
       required: true
-
-
