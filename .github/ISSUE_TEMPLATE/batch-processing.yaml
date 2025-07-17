@@ -7,7 +7,7 @@ body:
     attributes:
       label: Template ID
       description: For internal use only; do not modify.
-      default: batch-processing-request
+      value: batch-processing-request
     validations:
       required: true
     
