@@ -1,0 +1,26 @@
+name: Auto-Queue Batch Request
+
+on:
+  issues:
+    types: [edited]
+
+jobs:
+  add-queued-label:
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.issue.title, 'Batch Processing Request') &&
+      !contains(join(github.event.issue.labels.*.name), 'queued') &&
+      !contains(join(github.event.issue.labels.*.name), 'completed') &&
+      !contains(join(github.event.issue.labels.*.name), 'failed') &&
+      !contains(join(github.event.issue.labels.*.name), 'needs-review') &&
+      !contains(join(github.event.issue.labels.*.name), 'running')
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['queued']
+            });
