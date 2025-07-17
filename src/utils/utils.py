@@ -6,7 +6,9 @@ import math
 import numpy as np
 import yaml
 import shutil
+from datetime import datetime
 from hydra.core.hydra_config import HydraConfig
+from omegaconf import DictConfig
 import re
 from typing import Dict, Any, List
 import subprocess
@@ -15,6 +17,28 @@ import os
 import time
 
 log = logging.getLogger(__name__)
+
+
+def extract_season_info(cfg: DictConfig):
+    # Parse batch id
+    try:
+        _, date_str = cfg.batch_id.split("_")
+        batch_date = datetime.strptime(date_str, "%Y-%m-%d")
+    except Exception as e:
+        raise ValueError("Batch ID format must be SITE_YYYY-MM-DD") from e
+
+    # Scan through site's seasons
+    date_ranges = cfg.date_ranges
+    for _, info in date_ranges.items():
+        start = datetime.strptime(info["start"], "%Y-%m-%d")
+        end = datetime.strptime(info["end"], "%Y-%m-%d")
+        if start <= batch_date <= end:
+            cfg.season = info["pipeline_season"] if cfg.season is None else cfg.season
+            cfg.bbot_version = info["bbot_version"] if cfg.bbot_version is None else cfg.bbot_version
+            cfg.crs = info["crs"] if cfg.crs is None else cfg.crs
+            cfg.gh_reviewer = info.get("gh_reviewer", "mkutu")
+    
+    return cfg
 
 def replace_all_nan_with_null(obj: Any) -> Any:
     """

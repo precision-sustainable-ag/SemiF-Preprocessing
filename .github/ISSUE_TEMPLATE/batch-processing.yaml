@@ -30,7 +30,7 @@ body:
         - cover_crops_2025_2026
         # Add more as needed
     validations:
-      required: true
+      required: false
 
   - type: dropdown
     id: bbot_version
@@ -50,7 +50,7 @@ body:
         - 3.0
         - 2.0
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: notes
@@ -65,7 +65,7 @@ body:
       description: Total number of images collected for this batch
       placeholder: e.g., 684
     validations:
-      required: true
+      required: false
 
   - type: input
     id: x_axis_start
@@ -74,7 +74,7 @@ body:
       description: X-axis starting position in centimeters
       placeholder: e.g., 40
     validations:
-      required: true
+      required: false
 
   - type: input
     id: z_axis_start
@@ -83,7 +83,7 @@ body:
       description: Z-axis starting position in centimeters
       placeholder: e.g., 170
     validations:
-      required: true
+      required: false
 
   - type: input
     id: pots_per_row
@@ -92,7 +92,7 @@ body:
       description: Number of pots per row
       placeholder: e.g., 12
     validations:
-      required: true
+      required: false
 
   - type: input
     id: row_spacing
@@ -101,7 +101,7 @@ body:
       description: Spacing between rows in centimeters
       placeholder: e.g., 40
     validations:
-      required: true
+      required: false
 
   - type: input
     id: pot_spacing
@@ -110,7 +110,7 @@ body:
       description: Spacing between pots in centimeters
       placeholder: e.g., 43
     validations:
-      required: true
+      required: false
 
   - type: input
     id: num_rows_imaged
@@ -119,7 +119,7 @@ body:
       description: Total number of rows imaged
       placeholder: e.g., 57
     validations:
-      required: true
+      required: false
 
   - type: input
     id: aperture
@@ -128,7 +128,7 @@ body:
       description: Camera aperture setting (e.g., 13.5)
       placeholder: e.g., 13.5
     validations:
-      required: true
+      required: false
 
   - type: input
     id: focus
@@ -137,7 +137,7 @@ body:
       description: Camera focus value (e.g., 20.3)
       placeholder: e.g., 20.3
     validations:
-      required: true
+      required: false
 
   - type: input
     id: flash_power
@@ -146,4 +146,4 @@ body:
       description: Flash power setting (e.g., 1/1)
       placeholder: e.g., 1/1
     validations:
-      required: true
+      required: false
