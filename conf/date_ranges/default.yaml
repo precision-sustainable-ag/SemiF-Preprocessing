@@ -90,14 +90,14 @@ NC:
     crs: EPSG:32617
     pipeline_season: cash_crop_dicamba_2025
     gh_reviewer: map0425
-  cash crops 2025:
+  cash crops 2025_1:
     start: "2025-07-02"
     end: "2025-07-16"
     bbot_version: 3.1
     crs: EPSG:32617
     pipeline_season: cash_crop_dicamba_2025_dap30
     gh_reviewer: map0425
-  cash crops 2025:
+  cash crops 2025_2:
     start: "2025-07-17"
     end: "2025-10-16"
     bbot_version: 3.1

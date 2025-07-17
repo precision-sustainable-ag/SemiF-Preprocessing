@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 import Metashape
 from src.tasks.label_utils.filter_bboxes import BBoxFilter
-from src.utils.utils import safe_save_json
+from src.utils.utils import safe_save_json, extract_season_info
 from src.utils.datasets import (
     BBoxCoordinates,
     BoundingBox,
@@ -304,10 +304,10 @@ class BBoxMapper:
 
 class RemapLabels:
     def __init__(self, cfg: DictConfig):
-        self.cfg = cfg
+        self.cfg = extract_season_info(cfg)
         self.batch_id = cfg.batch_id
-        self.season_cfg = cfg.date_ranges
-        self.season, self.bbot_version = self._get_season_and_bbot()
+        self.season = cfg.season
+        self.bbot_version = cfg.bbot_version
 
         self.batch_dir = Path(cfg.paths.batch_dir)
         self.autosfm_dir = Path(cfg.paths.autosfm)
@@ -357,35 +357,6 @@ class RemapLabels:
         w = round((row["xmax"] * self.fullres_w)) - x 
         h = round((row["ymax"] * self.fullres_h)) - y
         return [x, y, w, h]
-
-    def _get_season_and_bbot(self) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Derive the season and BBOT version based on the batch_id.
-
-        Returns:
-            tuple[Optional[str], Optional[str]]: Season name and BBOT version if found.
-        """
-
-        try:
-            site, date_str = self.batch_id.split("_")
-            date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            site_seasons = getattr(self.season_cfg, site)
-
-            for season_name, season_range in site_seasons.items():
-                start = datetime.strptime(season_range["start"], "%Y-%m-%d").date()
-                end = datetime.strptime(season_range["end"], "%Y-%m-%d").date()
-                bbot_version = season_range.get("bbot_version", None)
-                if start <= date <= end:
-                    log.debug(f"Matched season: {season_name} | BBOT: {bbot_version}")
-                    return season_name, bbot_version
-            
-            log.warning(f"No matching season found for batch date: {date}")
-            return None, None  # No matching season
-        
-        except Exception as e:
-            log.exception(f"Error determining season and BBOT from batch ID '{self.batch_id}': {e}")
-            return None, None
-        
 
     def _build_metadata(self, image_id: str, h: int, w: int) -> ImageMetadata:
         """
