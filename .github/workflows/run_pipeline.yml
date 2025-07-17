@@ -1,13 +1,16 @@
 name: Run SemiF-Preprocessing Pipeline
 
 on:
-  push:
-    branches:
-      - develop
+  issues:
+    types: [opened, edited, labeled]
 
 jobs:
   run-pipeline:
-    if: ${{ !contains(github.event.head_commit.message, 'SKIP-PIPELINE') }}
+    if: |
+      github.event_name == 'issues' &&
+      contains(github.event.issue.title, 'Batch Processing Request') &&
+      contains(github.event.issue.body, '### Batch ID') &&
+      (github.event.label.name == 'queued')
     runs-on: [self-hosted]
     timeout-minutes: 4320  # 72 hours
     
@@ -20,8 +23,79 @@ jobs:
           source ~/miniconda3/etc/profile.d/conda.sh
           conda activate semifpre
 
+      - name: Switch to 'running' label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue_number = context.issue.number;
+            const repo = context.repo.repo;
+            const owner = context.repo.owner;
+            // Remove 'queued'
+            await github.rest.issues.removeLabel({
+              owner,
+              repo,
+              issue_number,
+              name: 'queued'
+            });
+            // Add 'running'
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number,
+              labels: ['running']
+            });
+
       - name: Run SemiF-Preprocessing pipeline
         env:
           GITHUB_PAT: ${{ secrets.REPORT_BOT_PAT }}
         run: |
-          taskset -c 2-31 python main.py
+          BATCH_ID=$(echo "${{ github.event.issue.body }}" | awk '/### Batch ID/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
+          SEASON=$(echo "${{ github.event.issue.body }}" | awk '/### Season/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
+          BBOT_VERSION=$(echo "${{ github.event.issue.body }}" | awk '/### BBot Version/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
+          
+          taskset -c 2-31 python main.py batch_id="$BATCH_ID" season="$SEASON" bbot_version="$BBOT_VERSION"
+      
+      - name: Remove 'running' label (always runs)
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue_number = context.issue.number;
+            const repo = context.repo.repo;
+            const owner = context.repo.owner;
+            try {
+              await github.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number,
+                name: 'running'
+              });
+            } catch (e) {
+              // Label might already be gone; ignore
+            }
+
+      # Adds 'completed' label on success:
+      - name: Add processing-complete and needs-review labels (on success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['completed', 'needs-review']
+            });
+
+      # Add a 'failed' label on failure:
+      - name: Add failed label (on failure)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['failed']
+            });

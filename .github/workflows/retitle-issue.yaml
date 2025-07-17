@@ -47,3 +47,11 @@ jobs:
             });
 
             core.info(`Retitled issue to: ${newTitle}`);
+
+            // ... after updating the title:
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: ['queued'],
+            });
