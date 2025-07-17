@@ -53,5 +53,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-              labels: ['ready-for-processing'],
+              labels: ['queued'],
             });
