@@ -1627,7 +1627,7 @@
         "PRLO": {
             "class_id": 55,
             "USDA_symbol": "PRLO",
-            "EPPO": "PROLU",
+            "EPPO": "PROLO",
             "group": "dicot",
             "class": "Magnoliopsida",
             "subclass": "Asteridae",
