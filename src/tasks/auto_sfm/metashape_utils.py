@@ -69,6 +69,7 @@ class SfM:
         )
 
         self.skip_first_n_images = cfg.asfm.skip_first_n_images
+        self.skip_last_n_images = cfg.asfm.skip_last_n_images
 
         self.metashape_key = self._read_yaml(cfg.paths.pipeline_keys).get("metashape", {}).get("lic", None)
         
@@ -180,6 +181,8 @@ class SfM:
         # check of self.skip_first_n_images is an int or None
         if isinstance(self.skip_first_n_images, int):
             photos = photos[self.skip_first_n_images:]
+        if isinstance(self.skip_last_n_images, int):
+            photos = photos[:-self.skip_last_n_images]
         log.info(f"Adding {len(photos)} photos to the project")
         if self.doc.chunk is None:
             self.doc.addChunk()
