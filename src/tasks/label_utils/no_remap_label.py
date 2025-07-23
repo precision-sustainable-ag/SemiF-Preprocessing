@@ -220,17 +220,6 @@ class RemapLabelsPipeline:
         # Iterate through each image_id group in the DataFrame
         for image_id, group in self.df.groupby("image_id"):
             
-            # Create CameraInfo object with default FOV and coefficients
-            try:
-                camera_info = CameraInfo(
-                    fov=FOV(),
-                    pixel_width=self.fullres_width,
-                    pixel_height=self.fullres_height,
-                    camera_coefficients=CameraCoefficients()
-                    )
-            except Exception as e:
-                raise ValueError(f"Error creating CameraInfo for {image_id}: {e}")
-
             # Create ImageMeta object for the current image
             try:
                 image_meta = ImageMeta(
@@ -240,7 +229,10 @@ class RemapLabelsPipeline:
                     bbot_version=self.bbot_version,
                     fullres_width=self.fullres_width,
                     fullres_height=self.fullres_height,
-                    camera_info=camera_info
+                    camera_info=CameraInfo(
+                        fov=FOV(),
+                        camera_coefficients=CameraCoefficients()
+                        )
                 )
             except Exception as e:
                 raise ValueError(f"Error creating ImageMeta for {image_id}: {e}")

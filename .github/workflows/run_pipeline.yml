@@ -50,10 +50,30 @@ jobs:
         env:
           GITHUB_PAT: ${{ secrets.REPORT_BOT_PAT }}
         run: |
+          # Extract Batch ID
           BATCH_ID=$(echo "${{ github.event.issue.body }}" | awk '/### Batch ID/{flag=1;next}/###/{flag=0}flag && NF{print; flag=0}')
+          # Extract Perform Reconstruction (skipping blank lines)
+          PERFORM_RECON=$(echo "${{ github.event.issue.body }}" | awk '/### Perform Reconstruction/{flag=1; next} flag && NF {print; exit}' | tr '[:upper:]' '[:lower:]' | xargs)
+          SKIP_FIRST_N=$(echo "${{ github.event.issue.body }}" | awk '/### Skip First N Images/{flag=1; next} flag && NF {print; exit}' | xargs)
+          SKIP_LAST_N=$(echo "${{ github.event.issue.body }}" | awk '/### Skip Last N Images/{flag=1; next} flag && NF {print; exit}' | xargs)
+
+          echo "Batch ID: $BATCH_ID"
+          echo "Perform Reconstruction: $PERFORM_RECON"
+
+          if [[ "$PERFORM_RECON" == "false" ]]; then
+            echo "Running pipeline with alternate args (no reconstruction)..."
+            taskset -c 2-31 python main.py batch_id="$BATCH_ID" create_issue=true \
+              modes=[correct,label,deliver] \
+              tasks.label=[detect_plants,merge_overlapping_bboxes,no_remap_label] \
+              asfm.skip_first_n_images="$SKIP_FIRST_N" \
+              asfm.skip_last_n_images="$SKIP_LAST_N"
+          else
+            echo "Running standard pipeline (with reconstruction)..."
+            taskset -c 2-31 python main.py batch_id="$BATCH_ID" create_issue=true \
+              asfm.skip_first_n_images="$SKIP_FIRST_N" \
+              asfm.skip_last_n_images="$SKIP_LAST_N"
+          fi
           
-          taskset -c 2-31 python main.py batch_id="$BATCH_ID" create_issue=true
-      
       - name: Remove 'running' label (always runs)
         if: always()
         uses: actions/github-script@v7

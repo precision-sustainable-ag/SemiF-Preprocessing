@@ -31,6 +31,24 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: skip_first_n_images
+    attributes:
+      label: Skip First N Images
+      description: Specify the number of images to skip at the beginning.
+      placeholder: e.g., 3
+    validations:
+      required: false
+
+  - type: input
+    id: skip_last_n_images
+    attributes:
+      label: Skip Last N Images
+      description: Specify the number of images to skip at the end.
+      placeholder: e.g., 3
+    validations:
+      required: false
+
   - type: dropdown
     id: season
     attributes:
