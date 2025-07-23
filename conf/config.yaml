@@ -49,7 +49,7 @@ tasks: # task for each mode
     - merge_overlapping_bboxes
     - remap_labels
     - assign_species
-    # - assign_rates # only used for dicamba study
+    # - no_remap_label # used for no remapping label task
   deliver:
     - inspect_images # deliver
     - move_data # deliver
