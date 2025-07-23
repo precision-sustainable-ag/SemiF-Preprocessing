@@ -18,6 +18,30 @@ import time
 
 log = logging.getLogger(__name__)
 
+def is_reconstructed(cfg: DictConfig) -> bool:
+    """
+    Check if the batch is reconstructed based on the presence of 'autosfm' in the artifact YAML.
+    Raises an error if reconstruction status cannot be determined.
+    """
+    with open(cfg.paths.artifact_path, 'r') as f:
+        artifact_data = yaml.safe_load(f)
+    
+    task_statuses = artifact_data.get("task_status", {})
+
+    autosfm_status = task_statuses.get("autosfm", {})
+    remap_labels_status = task_statuses.get("remap_labels", {})
+    no_remap_label_status = task_statuses.get("no_remap_label", {})
+
+    if no_remap_label_status == "success":
+        log.info("No remap label task detected. Using simple labels.")
+        return False
+
+    if remap_labels_status == "success" and no_remap_label_status != "success" and autosfm_status == "success":
+        log.info("Remap label task detected. Using reconstructed labels.")
+        return True
+
+    raise RuntimeError("Cannot determine reconstruction status from artifact YAML.")
+
 
 def extract_season_info(cfg: DictConfig):
     # Parse batch id
