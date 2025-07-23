@@ -15,13 +15,13 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 
-from src.utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir, is_reconstructed
 from src.utils.artifact_utils import read_artifact
 
 log = logging.getLogger(__name__)
 
 class ImageReport:
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, is_batch_reconstructed: bool):
         self.batch_id = cfg.batch_id
         
         self.bbot_version = str(cfg.bbot_version)
@@ -43,6 +43,8 @@ class ImageReport:
         self.log_parser = LogParser(cfg, self.output_report_dir)
 
         self.sample_size = cfg.report.sample_size
+
+        self.is_reconstructed = is_batch_reconstructed
 
     def find_raw_image_files(self) -> List[Path]:
         if "3.1" in str(self.bbot_version):
@@ -317,10 +319,10 @@ class ImageReport:
             c.drawString(50, 540, "No module timings found in logs.")
 
     def _add_metashape_page(self, c: canvas.Canvas, file_name: str, x: int, y: int, width: int, height: int) -> None:
-        c.showPage()  # Start a new page
         # Metashape report page
         metashape_page_1 = self.output_report_dir / f"metashape_report_pages/{file_name}"
         if metashape_page_1.exists():
+            c.showPage()  # Start a new page
             c.drawImage(metashape_page_1, x, y, width=width, height=height, preserveAspectRatio=True)
     
     def _add_sample_images(self, c: canvas.Canvas) -> None:
@@ -376,13 +378,13 @@ class ImageReport:
             c.drawString(50, 350, "Sample images not available")
         
     def _add_plot(self, c: canvas.Canvas, plot_file_name: str, x: int, y: int, width: int= 250, height: int = 200, title: str = None, newpage: bool = True) -> None:
-        if newpage:
-            c.showPage()  # Start a new page for the three analytical plots
-        if title:
-            c.setFont("Helvetica-Bold", 14)
-            c.drawString(50, 750, title)
         count_plot_path = self.plot_file_base / plot_file_name
         if Path(count_plot_path).exists():
+            if newpage:
+                c.showPage()  # Start a new page for the three analytical plots
+            if title:
+                c.setFont("Helvetica-Bold", 14)
+                c.drawString(50, 750, title)
             c.drawImage(count_plot_path, x, y, width=width*2.0, height=height*2.0, preserveAspectRatio=True)
 
     def _add_errors_and_warnings(self, c: canvas.Canvas) -> None:
@@ -433,10 +435,11 @@ class ImageReport:
         # --------------------------------------------------------
         # Section 2: Metashape Report Image Page 1
         # --------------------------------------------------------
-        self._add_metashape_page(c, "page_001.jpg", -150, -125, 850, 1000)
-        self._add_metashape_page(c, "page_002.jpg", -115, -120, 850, 1000)
-        self._add_metashape_page(c, "page_003.jpg", -115, -120, 850, 1000)
-        self._add_metashape_page(c, "page_004.jpg", -115, -120, 850, 1000)
+        if self.is_reconstructed:
+            self._add_metashape_page(c, "page_001.jpg", -150, -125, 850, 1000)
+            self._add_metashape_page(c, "page_002.jpg", -115, -120, 850, 1000)
+            self._add_metashape_page(c, "page_003.jpg", -115, -120, 850, 1000)
+            self._add_metashape_page(c, "page_004.jpg", -115, -120, 850, 1000)
         # --------------------------------------------------------
         # Section 5: Sample Images
         # --------------------------------------------------------
@@ -540,7 +543,8 @@ def main(cfg: DictConfig):
         cfg (DictConfig): Hydra config with paths and batch settings.
     """
     try:
-        image_report = ImageReport(cfg)
+        is_batch_reconstructed = is_reconstructed(cfg)
+        image_report = ImageReport(cfg, is_batch_reconstructed=is_batch_reconstructed)
         image_report.generate_report()
         log.info(f"Report generated for batch: {cfg.batch_id}")
     except Exception as e:

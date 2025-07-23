@@ -16,30 +16,17 @@ import seaborn as sns
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from src.utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir, is_reconstructed
 log = logging.getLogger(__name__)
 
 random.seed(42)  # For reproducibility
-GITHUB_REPO_URL = "https://github.com/precision-sustainable-ag/SemiF-Preprocessing/issues"
 
-LABEL_OPTIONS = {
-    "1": "Pass",
-    "2": "Preprocessing Quality",
-    "3": "Potting Area Cleanliness",
-    "4": "Non-Target",
-    "5": "Plant Spacing",
-    "6": "Incorrect Species",
-    "7": "Bad size estimate",
-    "0": "Other",
-    "q": "Quit",
-    "b": "Back"
-}
 class AnnotationPlotter:
     """
     A class for loading annotation metadata and generating summary plots
     such as species counts, area histograms, and centroid density heatmaps.
     """
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, is_batch_reconstructed: bool = True):
         self.batch_id = cfg.batch_id
         self.lts_locations = cfg.paths.lts_locations
         self.lts_dir = find_lts_dir(self.batch_id, self.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
@@ -59,7 +46,7 @@ class AnnotationPlotter:
             for species in species_data["species"].values()
         }
 
-        self.assign_rates = None # Goes to True if any annotation has a 'experiment_info' field.
+        self.is_reconstructed = is_batch_reconstructed
 
     def load_annotation_data(self) -> pd.DataFrame:
         """
@@ -75,35 +62,20 @@ class AnnotationPlotter:
                     data = json.load(f)
                     annotations = data.get("annotations", [])
                     for ann in annotations:
-                        species_id = ann.get("category_class_id")
+                        species_id = ann.get("category_class_id", None)
                         species_id = self.species_info[str(species_id)].lower()
                         x, y, w, h = ann.get("bbox_xywh", [None]*4)
-                        centroid = ann.get("local_coordinates", {}).get("local_centroid")
-                        x_centroid, y_centroid  = centroid[0], centroid[1]
-                        area = ann.get("global_coordinates", {}).get("area_sqm") * 10000  # Convert to square cm
+                        centroid = ann.get("local_coordinates", {}).get("local_centroid", [None, None])
+                        area = ann.get("global_coordinates", {}).get("area_sqm", None)  # Convert to square cm
+                        
                         if species_id is not None and area is not None:
-                            if "experiment_info" in ann:
-                                self.assign_rates = True
-                                rate = ann["experiment_info"].get("rate_gAE_A", None)
-                                dap_id = ann["experiment_info"].get("dap_id", None)
-                                plot_id = ann["experiment_info"].get("plot_id", None)
-                                
-                                if rate is not None and plot_id is not None:
-                                    records.append({
-                                        "species_id": species_id,
-                                        "rate_gAE_A": str(round(rate, 2)),
-                                        "plot_id": str(plot_id),
-                                        "dap_id": str(dap_id),
-                                        "area_sqcm": area,
-                                        "x": x,
-                                        "y": y,
-                                        "w": w,
-                                        "h": h,
-                                        "x_centroid": x_centroid,
-                                        "y_centroid": y_centroid
-                                    })
-                            else:
-                                records.append({"species_id": species_id, "area_sqcm": area, "x": x, "y": y, "w": w, "h": h, "x_centroid": x_centroid, "y_centroid": y_centroid})
+                            species_id = self.species_info[str(species_id)].lower()
+                            area_sqcm = area * 10000
+                            x_centroid, y_centroid  = centroid[0], centroid[1]
+                            records.append({"species_id": species_id, "area_sqcm": area_sqcm, "x": x, "y": y, "w": w, "h": h, "x_centroid": x_centroid, "y_centroid": y_centroid})
+                        else:
+                            records.append({"species_id": species_id, "area_sqcm": area, "x": x, "y": y, "w": w, "h": h, "x_centroid": centroid, "y_centroid": centroid})
+
             except Exception as e:
                 log.error(f"Failed to process {json_file.name}: {e}", exc_info=True)
         return pd.DataFrame(records)
@@ -114,7 +86,7 @@ class AnnotationPlotter:
         """
     
         plt.figure(figsize=(10, 8))
-        col = "rate_gAE_A" if self.assign_rates else "species_id"
+        col = "species_id"
         plt.figure(figsize=(10, 8))
         g = sns.FacetGrid(df, col=col, col_wrap=3, height=3.5)
 
@@ -153,7 +125,7 @@ class AnnotationPlotter:
         cbar = g.figure.colorbar(sm, cax=cbar_ax)
         cbar.set_label("Relative Density")
 
-        g.figure.suptitle(f"Centroid Density per {'Species' if not self.assign_rates else 'Rate (g AE/A)'} (Normalized)")
+        g.figure.suptitle(f"Centroid Density per Species (Normalized)")
         plt.tight_layout(rect=[0, 0, 0.9, 1])  # Leave space for colorbar
         plot_path = self.save_dir / "species_centroid_density.png"
         plt.savefig(plot_path, dpi=300)
@@ -164,12 +136,12 @@ class AnnotationPlotter:
         Creates log-scaled histograms of plant area (in cm²) for each species.
         """
         # Plot 2: Log-scaled histogram per species
-        col = "rate_gAE_A" if self.assign_rates else "species_id"
+        col = "species_id"
         g = sns.FacetGrid(df, col=col, col_wrap=3, sharey=False, height=3.5)
         g.map_dataframe(sns.histplot, x="area_sqcm", bins=bins, log_scale=(True, False))
         g.set_titles("{col_name}")
         g.set_axis_labels("Area (cm², log scale)", "Count")
-        g.figure.suptitle(f"Log-Scaled Histograms of Area per {'Species' if not self.assign_rates else 'Rate (g AE/A)'}")
+        g.figure.suptitle(f"Log-Scaled Histograms of Area per Species")
         plt.tight_layout()
         plot_path = self.save_dir / "area_log_scaled_histograms.png"
         plt.savefig(plot_path, dpi=300)
@@ -179,15 +151,12 @@ class AnnotationPlotter:
         """
         Creates a bar plot showing the number of annotations per species.
         """
-        if self.assign_rates:
-            species_counts = df["rate_gAE_A"].value_counts().sort_index()
-        else:
-            species_counts = df["species_id"].value_counts().sort_index()
+        species_counts = df["species_id"].value_counts().sort_index()
 
         plt.figure(figsize=(8, 5))
         ax = species_counts.plot(kind="bar")
-        plt.title(f"Number of Annotations per {'Species' if not self.assign_rates else 'Rate (g AE/A)'}")
-        plt.xlabel(f"{'Species' if not self.assign_rates else 'Rate (g AE/A)'} ID")
+        plt.title(f"Number of Annotations per Species")
+        plt.xlabel(f"Species ID")
         plt.ylabel("Count")
         plt.tight_layout()
         plt.grid(axis="y")
@@ -217,11 +186,13 @@ class AnnotationPlotter:
             return
 
         self.species_count(df)
-        self.log_scale_histogram(df)
-        self.plot_species_centroid_density(df)
+        
+        if self.is_reconstructed:
+            self.log_scale_histogram(df)
+            self.plot_species_centroid_density(df)
 
 class ImageReviewer:
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, is_batch_reconstructed: bool = True):
         self.cfg = cfg
         self.bbot_version = cfg.bbot_version
         self.batch_id = cfg.batch_id
@@ -255,6 +226,8 @@ class ImageReviewer:
         # Get the current timestamp and user
         self.timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.user = getpass.getuser()
+
+        self.is_reconstructed = is_batch_reconstructed
 
     def read_species_info(self, path: Path) -> dict[str, str]:
         """
@@ -304,6 +277,14 @@ class ImageReviewer:
         data_paths = sorted(random_sample + multi_spec_img_paths)
         return data_paths
 
+    def _label_text(self, bbox: dict, reconstructed: bool = True) -> str:
+        
+        if reconstructed:
+            label_text = f"{self.species_info.get(str(bbox['category_class_id']), 'Unknown')} ({bbox['area_sqcm']:.2f} cm2) {'P' if bbox['is_primary'] else ''}"
+        else:
+            label_text = f"{self.species_info.get(str(bbox['category_class_id']), 'Unknown')}"
+
+        return label_text
 
     def _create_bboxes_on_image(self, img_path, preview_only=False):
         """Displays bounding boxes on an image for visual inspection."""
@@ -338,26 +319,17 @@ class ImageReviewer:
         for bbox in metadata.get("annotations", []):
             x1, y1, w, h = bbox["bbox_xywh"]
             
+            # if x1, y1, w, h are not valid, skip
+            if x1 is None or y1 is None or w is None or h is None:
+                log.warning(f"Invalid bounding box in {metadata_path}: {bbox}")
+                continue
+
             x2, y2 = x1 + w, y1 + h
             x1, y1 = int(x1 * scale_x), int(y1 * scale_y)
             x2, y2 = int(x2 * scale_x), int(y2 * scale_y)
             cv2.rectangle(resized_image, (x1, y1), (x2, y2), (0, 15, 200), 2)
 
-            
-            area_sqm = bbox["global_coordinates"]["area_sqm"]
-            area_sqcm = area_sqm * 10000  # convert m² to cm²
-            is_primary = bbox.get("is_primary", False)
-            
-            # Prepare label text
-            if "experiment_info" in bbox:
-                rate = bbox.get("experiment_info", {}).get("rate_gAE_A", None)
-                plot_id = bbox.get("experiment_info", {}).get("plot_id", None)
-                if rate is None or plot_id is None:
-                    log.warning(f"Missing rate or plot_id in metadata for {img_path.name}.")
-                label_text = f"{plot_id} ({rate:.2f} g AE/A) | {area_sqcm:.2f} cm2 {'P' if is_primary else ''}"
-            else:
-                cat_class_id = str(bbox.get("category_class_id", "Unknown"))
-                label_text = f"{self.species_info.get(cat_class_id, 'Unknown')} ({area_sqcm:.2f} cm2) {'P' if is_primary else ''}"
+            label_text = self._label_text(bbox, reconstructed=self.is_reconstructed)
 
             bbox_height = max(y2 - y1, 1)
             bbox_width = max(x2 - x1, 1)
@@ -440,13 +412,6 @@ class ImageReviewer:
         
         return True
     
-    def _display_bboxes_on_image(self, img_path: Path):
-        """"""
-        if img_path.exists():
-            image = cv2.imread(str(img_path))
-            cv2.imshow("Inspection Viewer", image)
-        
-        return True
 
     def generate_all_sample_images(self):
         """Pre-generates and saves annotated sample images before user review."""
@@ -504,53 +469,6 @@ class PDFReviewer:
             log.error(f"Failed to extract PDF images: {e}", exc_info=True)
             return False
 
-    def review_pdf(self):
-        """Allows a user to review PDF pages as images using a manually set window size,
-        with an option to go back to the previous page."""
-        # Set desired window dimensions (adjust these values as needed)
-        manual_width, manual_height = 1000, 1200
-
-        window_name = "PDF Viewer"
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(window_name, manual_width, manual_height)
-        
-        pdf_images = sorted(self.output_dir.glob("*.jpg"))
-        if not pdf_images:
-            log.error("No PDF pages found for review.")
-            return
-
-        index = 0
-        log.info(f"Reviewing PDF pages.")
-
-        print("🖼️  Press any key to go to next page, 'b' to go back, 'q' to quit.")
-        while index < len(pdf_images):
-            image = cv2.imread(str(pdf_images[index]))
-            if image is None:
-                index += 1
-                continue
-
-            # Scale the image to fit within the manually set window dimensions.
-            h, w = image.shape[:2]
-            scale_factor = min(manual_width / w, manual_height / h, 1.0)
-            if scale_factor < 1.0:
-                image = cv2.resize(image, (int(w * scale_factor), int(h * scale_factor)))
-
-            cv2.imshow(window_name, image)
-            
-            key = cv2.waitKey(0) & 0xFF
-
-            if key == ord('q'):
-                break
-            elif key == ord('b'):
-                if index > 0:
-                    index -= 1
-                else:
-                    print("Already at the first page; cannot go back further.")
-            else:
-                index += 1
-
-        cv2.destroyAllWindows()
-        log.info("PDF review completed.")
 
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
@@ -558,18 +476,20 @@ def main(cfg: DictConfig):
 
     log.info("Creating inspection images...")
     try:
+        is_batch_reconstructed = is_reconstructed(cfg)
         log.info("Starting image review...")
-        image_reviewer = ImageReviewer(cfg)
+        image_reviewer = ImageReviewer(cfg, is_batch_reconstructed)
         image_reviewer.generate_all_sample_images()
         log.info("Sample images generated.")
         
-        log.info("Starting image review...")
-        pdf_reviewer = PDFReviewer(cfg)
-        pdf_reviewer.extract_pdf_images()
-        log.info("PDF pages extracted.")
+        if is_batch_reconstructed:
+            log.info("Starting image review...")
+            pdf_reviewer = PDFReviewer(cfg)
+            pdf_reviewer.extract_pdf_images()
+            log.info("PDF pages extracted.")
 
         log.info("Starting annotation summary plots...")
-        plotter = AnnotationPlotter(cfg)
+        plotter = AnnotationPlotter(cfg, is_batch_reconstructed)
         plotter.plot_summary()
         log.info("Summary plots generated.")
     except Exception as e:
