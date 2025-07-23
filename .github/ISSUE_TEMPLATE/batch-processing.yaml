@@ -26,8 +26,8 @@ body:
       label: Perform Reconstruction
       description: Specify whether to perform reconstruction on the images.
       options:
-        - true
-        - false
+        - 'true'
+        - 'false'
     validations:
       required: true
 
