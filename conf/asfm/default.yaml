@@ -24,6 +24,7 @@ export_report: True
 ## Main processing settings
 # Electives
 skip_first_n_images: # Skip first n images encase of bad images during testing and bbot setup
+skip_last_n_images: # Skip last n images encase of bad images during testing and bbot setup
 
 downscale:
   enabled: True

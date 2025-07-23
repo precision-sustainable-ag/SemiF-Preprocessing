@@ -58,6 +58,11 @@ tasks: # task for each mode
 ############################################
 ############################################
 
+assign_species:
+  assign_all_bboxes:
+    enabled: true
+    label: "Soybean"
+    
 inspection:
   inspect: false
   use_lts_images: false  # set true to inspect from LTS

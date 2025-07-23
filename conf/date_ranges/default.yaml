@@ -28,22 +28,22 @@ MD:
     start: "2024-07-08"
     end: "2024-09-08"
     bbot_version: 3.0
-    crs: EPSG:4326
+    crs: 4326
   cover crops 2024/2025_MDbbotv3.0:
     start: "2024-10-16"
     end: "2024-11-18"
     bbot_version: 3.0
-    crs: EPSG:4326
+    crs: 4326
   cover crops 2024/2025:
     start: "2025-04-16"
     end: "2025-05-16"
     bbot_version: 3.1
-    crs: EPSG:4326
+    crs: 4326
   weeds_2025:
     start: "2025-06-06"
     end: "2025-09-16"
     bbot_version: 3.1
-    crs: EPSG:32618
+    crs: 32618
     pipeline_season: summer_weeds_2025
     gh_reviewer: nnotaba
   
@@ -77,31 +77,31 @@ NC:
     start: "2024-07-08"
     end: "2024-10-08"
     bbot_version: 3.0
-    crs: EPSG:4326
+    crs: 4326
   cover crops 2024/2025:
     start: "2024-12-02"
     end: "2025-04-15"
     bbot_version: 3.1
-    crs: EPSG:4326
+    crs: 4326
   cash crops 2025:
     start: "2025-06-01"
     end: "2025-07-01"
     bbot_version: 3.1
-    crs: EPSG:32617
+    crs: 32617
     pipeline_season: cash_crop_dicamba_2025
     gh_reviewer: map0425
   cash crops 2025_1:
     start: "2025-07-02"
     end: "2025-07-16"
     bbot_version: 3.1
-    crs: EPSG:32617
+    crs: 32617
     pipeline_season: cash_crop_dicamba_2025_dap30
     gh_reviewer: map0425
   cash crops 2025_2:
     start: "2025-07-17"
     end: "2025-10-16"
     bbot_version: 3.1
-    crs: EPSG:32617
+    crs: 32617
     pipeline_season: cash_crop_dicamba_2025_dap30_v2
     gh_reviewer: map0425
 
@@ -140,7 +140,7 @@ TX:
     start: "2025-06-09"
     end: "2025-11-16"
     bbot_version: 3.1
-    crs: EPSG:32614
+    crs: 32614
     pipeline_season: summer_weeds_2025
     gh_reviewer: mkutu
 
