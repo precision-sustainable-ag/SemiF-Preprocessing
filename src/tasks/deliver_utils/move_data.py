@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 import hydra
 from omegaconf import DictConfig
-from src.utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir, is_reconstructed
 from hydra.core.hydra_config import HydraConfig
 
 log = logging.getLogger(__name__)
@@ -17,6 +17,7 @@ class CleanUpLocalTemp:
         self.local_batch_dir = Path(cfg.paths.batch_dir)
         self.lts_batch_dir = find_lts_dir(batch_id, cfg.paths.lts_locations, local=False, developed=True, dngs=False, jpgs=True) / "semifield-developed-images" / batch_id
         self.setup_src_dst_paths()
+        self.is_reconstructed = is_reconstructed(cfg)
 
     def setup_src_dst_paths(self):
         # Source paths
@@ -72,18 +73,31 @@ class CleanUpLocalTemp:
         lts_inspection_results_exists = self.dst_inspection_dir.exists()
         
         metadata_diff = len(temp_metadata) - len(lts_metadata)
-        if metadata_diff > 0 or not lts_cam_references_exists or not lts_inspection_results_exists:
-            if metadata_diff:
-                log.error(f"Metadata files in local batch directory not found in LTS directory: {metadata_diff}")
-            if not lts_cam_references_exists:
-                log.error(f"Camera references not found in LTS directory: {self.dst_cam_references}")
-            if not lts_inspection_results_exists:
-                log.error(f"Inspection results not found in LTS directory: {self.dst_inspection_dir}")
-            log.error(f"Local batch directory {self.local_batch_dir} cannot be removed.")
-            can_remove_local_dir = False
+        if self.is_reconstructed:
+            if metadata_diff > 0 or not lts_cam_references_exists or not lts_inspection_results_exists:
+                if metadata_diff:
+                    log.error(f"Metadata files in local batch directory not found in LTS directory: {metadata_diff}")
+                if not lts_cam_references_exists:
+                    log.error(f"Camera references not found in LTS directory: {self.dst_cam_references}")
+                if not lts_inspection_results_exists:
+                    log.error(f"Inspection results not found in LTS directory: {self.dst_inspection_dir}")
+                log.error(f"Local batch directory {self.local_batch_dir} cannot be removed.")
+                can_remove_local_dir = False
+        
+            else:
+                log.info(f"All files in temp directories are in the LTS directories for batch {self.batch_id}.")
+                can_remove_local_dir = True
         else:
-            log.info(f"All files in temp directories are in the LTS directories for batch {self.batch_id}.")
-            can_remove_local_dir = True
+            if metadata_diff > 0 or not lts_inspection_results_exists:
+                if metadata_diff:
+                    log.error(f"Metadata files in local batch directory not found in LTS directory: {metadata_diff}")
+                if not lts_inspection_results_exists:
+                    log.error(f"Inspection results not found in LTS directory: {self.dst_inspection_dir}")
+                log.error(f"Local batch directory {self.local_batch_dir} cannot be removed.")
+                can_remove_local_dir = False
+            else:
+                log.info(f"All files in temp directories are in the LTS directories for batch {self.batch_id}.")
+                can_remove_local_dir = True
         return can_remove_local_dir
     
     def cleanup_temp(self):
