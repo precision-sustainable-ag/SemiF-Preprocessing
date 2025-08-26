@@ -78,7 +78,7 @@ def build_failure_body():
     )
 
 def build_non_first_success_body():
-    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_report.pdf"
+    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_{START_TIME}_report.pdf"
     globus_asfm_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_asfm_report.pdf"
     globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}.yaml"
     return (
@@ -91,7 +91,7 @@ def build_non_first_success_body():
     )
 
 def build_first_success_body():
-    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_report.pdf"
+    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_{START_TIME}_report.pdf"
     globus_asfm_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_asfm_report.pdf"
     globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}.yaml"
     return (
