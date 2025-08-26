@@ -63,18 +63,16 @@ class AnnotationPlotter:
                     annotations = data.get("annotations", [])
                     for ann in annotations:
                         species_id = ann.get("category_class_id", None)
-                        species_id = self.species_info[str(species_id)].lower()
+                        species_common_name = self.species_info[str(species_id)].lower()
                         x, y, w, h = ann.get("bbox_xywh", [None]*4)
                         centroid = ann.get("local_coordinates", {}).get("local_centroid", [None, None])
                         area = ann.get("global_coordinates", {}).get("area_sqm", None)  # Convert to square cm
-                        
-                        if species_id is not None and area is not None:
-                            species_id = self.species_info[str(species_id)].lower()
+                        if species_common_name is not None and area is not None:
                             area_sqcm = area * 10000
                             x_centroid, y_centroid  = centroid[0], centroid[1]
-                            records.append({"species_id": species_id, "area_sqcm": area_sqcm, "x": x, "y": y, "w": w, "h": h, "x_centroid": x_centroid, "y_centroid": y_centroid})
+                            records.append({"species_id": species_common_name, "area_sqcm": area_sqcm, "x": x, "y": y, "w": w, "h": h, "x_centroid": x_centroid, "y_centroid": y_centroid})
                         else:
-                            records.append({"species_id": species_id, "area_sqcm": area, "x": x, "y": y, "w": w, "h": h, "x_centroid": centroid, "y_centroid": centroid})
+                            records.append({"species_id": species_common_name, "area_sqm": area, "x": x, "y": y, "w": w, "h": h, "x_centroid": centroid, "y_centroid": centroid})
 
             except Exception as e:
                 log.error(f"Failed to process {json_file.name}: {e}", exc_info=True)
@@ -280,7 +278,10 @@ class ImageReviewer:
     def _label_text(self, bbox: dict, reconstructed: bool = True) -> str:
         
         if reconstructed:
-            label_text = f"{self.species_info.get(str(bbox['category_class_id']), 'Unknown')} ({bbox['area_sqcm']:.2f} cm2) {'P' if bbox['is_primary'] else ''}"
+            area_sqm = bbox.get("global_coordinates", {}).get("area_sqm", 0)
+            # Convert squared meters to squared centimeters
+            area_sqcm = area_sqm * 10000
+            label_text = f"{self.species_info.get(str(bbox['category_class_id']), 'Unknown')} ({area_sqcm:.2f} cm2) {'P' if bbox['is_primary'] else ''}"
         else:
             label_text = f"{self.species_info.get(str(bbox['category_class_id']), 'Unknown')}"
 
