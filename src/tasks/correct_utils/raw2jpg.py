@@ -117,8 +117,17 @@ class Raw2Jpg:
         if self.cfg.timestamp:
             raw_files = self.filter_files_by_timestamp(raw_files, self.cfg.timestamp)
             log.info(f"Filtered {len(raw_files)} RAW files based on timestamp: {self.cfg.timestamp}")
-        return raw_files
-    
+
+        # Get only files that haven't already been developed
+        undeveloped_raw_files = []
+        for raw_file in raw_files:
+            raw_file_stem = raw_file[0].stem
+            developed_jpg = self.lts_jpg_dst / f"{raw_file_stem}.jpg"
+            if not developed_jpg.exists():
+                undeveloped_raw_files.append(raw_file)
+        log.info(f"Found {len(undeveloped_raw_files)} RAW files.")
+        return undeveloped_raw_files
+
     def remove_local_dng(self, dng_file: Path) -> None:
         """
         Remove a DNG file after conversion, if flagged.
