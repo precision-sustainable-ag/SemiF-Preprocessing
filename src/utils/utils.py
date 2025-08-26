@@ -8,7 +8,7 @@ import re
 import shutil
 import subprocess
 import time
-from datetime import date, datetime, timezone
+from datetime import datetime, date, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -39,10 +39,35 @@ def filter_files_by_timestamp(files: list, start_epoch: int, end_epoch: int, ima
                 filtered_files.append(path)
     return filtered_files
 
+def normalize_time_str(time_str: str) -> str:
+    """
+    Detects if the time string is in 12-hour (AM/PM) or 24-hour format
+    and normalizes it into 24-hour 'HH:MM:SS'.
+    
+    Accepts both '1:25:18 PM' and '1:25:18PM'.
+    """
+    time_str = time_str.strip().upper()
+
+    # Fix cases like '1:25:18PM' -> '1:25:18 PM'
+    time_str = re.sub(r'(?<=\d)(AM|PM)$', r' \1', time_str)
+
+    try:
+        # Try parsing as 12-hour format (AM/PM)
+        dt = datetime.strptime(time_str, "%I:%M:%S %p")
+    except ValueError:
+        try:
+            # Try parsing as 24-hour format
+            dt = datetime.strptime(time_str, "%H:%M:%S")
+        except ValueError as e:
+            raise ValueError(f"Unrecognized time format: {time_str}") from e
+
+    return dt.strftime("%H:%M:%S")
+
 def prep_start_and_end_times(
-    start_str: str, 
-    end_str: str, 
-    when: Optional[date] = None
+    start_str: str,
+    end_str: str,
+    when: Optional[date] = None,
+    allow_rollover: bool = True,
 ) -> Tuple[int, int]:
     """
     Convert 'HH:MM:SS AM/PM' strings to UTC epoch timestamps.
@@ -50,21 +75,20 @@ def prep_start_and_end_times(
     """
     if when is None:
         when = datetime.now(timezone.utc).date()
-    
-    def to_epoch(hms_ampm: str) -> int:
-        # Parse 12-hour time with AM/PM
-        dt = datetime.strptime(hms_ampm, "%I:%M:%S %p")
-        # Attach the correct date and UTC timezone
-        dt_utc = datetime(
-            when.year, when.month, when.day,
-            dt.hour, dt.minute, dt.second,
-            tzinfo=timezone.utc
-        )
-        return int(dt_utc.timestamp())
-    
-    return to_epoch(start_str), to_epoch(end_str)
 
+    def parse_hms(hms: str) -> datetime:
+        t = datetime.strptime(hms, "%H:%M:%S").time()
+        return datetime(when.year, when.month, when.day, t.hour, t.minute, t.second, tzinfo=timezone.utc)
+    
+    norm_start_str = normalize_time_str(start_str)
+    norm_end_str = normalize_time_str(end_str)
+    start_dt = parse_hms(norm_start_str)
+    end_dt = parse_hms(norm_end_str)
 
+    if allow_rollover and end_dt < start_dt:
+        end_dt += timedelta(days=1)
+    
+    return int(start_dt.timestamp()), int(end_dt.timestamp())
 
 def get_only_undeveloped_raw_files(lts_jpg_dst: Path, raw_files: list[Path]) -> list[Path]:
     undeveloped_raw_files = []
