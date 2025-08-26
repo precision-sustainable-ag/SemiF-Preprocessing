@@ -33,8 +33,11 @@ class CleanUpLocalTemp:
         self.dst_cam_references = self.lts_batch_dir / "reference"
         self.dst_cam_references.mkdir(parents=True, exist_ok=True)
 
-        self.dst_inspection_dir = self.lts_batch_dir / "inspection"
-    
+        if self.src_inspection_dir.name != "inspection":
+            self.dst_inspection_dir = self.lts_batch_dir / "inspection" / self.src_inspection_dir.name
+        else:
+            self.dst_inspection_dir = self.lts_batch_dir / "inspection"
+
     def move_data(self):
         """Move the metadata and inspection results to the LTS directory."""
         # Move metadata

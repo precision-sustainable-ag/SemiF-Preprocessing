@@ -25,12 +25,16 @@ class ImageReport:
         self.cfg = cfg
         self.batch_id = cfg.batch_id
         
+        self.start_time = cfg.start_time
+        self.end_time = cfg.end_time
         self.bbot_version = str(cfg.bbot_version)
         self.lts_dir = find_lts_dir(self.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
         self.upload_directory = Path(self.lts_dir) / "semifield-upload" / self.batch_id
         self.developed_directory = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
         self.output_report_dir = Path(cfg.paths.inspection_dir)
         self.output_report_dir.mkdir(parents=True, exist_ok=True)
+
+        self.pdf_output_path = self.output_report_dir / f"{self.batch_id}_{self.start_time}_{self.end_time}_report.pdf"
 
         self.plot_file_base = self.output_report_dir / "plots"
         self.plot_file_base.mkdir(parents=True, exist_ok=True)
@@ -248,20 +252,20 @@ class ImageReport:
 
         c.setFont("Helvetica", 12)
 
-        c.drawString(50, 750, f"SemiField Bbot V{self.bbot_version} Collection Report")
-        c.drawString(50, 730, f"Batch ID: {batch_id}")
-        c.drawString(50, 710, f"Total Raw Images: {total_images}")
-        c.drawString(50, 690, f"Total Raw Size: {total_size / (1024 ** 3):.2f} GiB")
-        c.drawString(50, 670, f"Average Raw Image Size: {avg_size / (1024 ** 2):.2f} MiB")
-        c.drawString(50, 650, f"Total Developed Size: {developed_total_size / (1024 ** 3):.2f} GiB")
-        c.drawString(50, 630, f"Average Developed Image Size: {avg_developed_size / (1024 ** 2):.2f} MiB")
-        
+        c.drawString(50, 750, f"SemiField Bbot V{self.bbot_version} Collection Report ({self.start_time} - {self.end_time})")
+        c.drawString(50, 710, f"Batch ID: {batch_id}")
+        c.drawString(50, 690, f"Total Raw Images: {total_images}")
+        c.drawString(50, 670, f"Total Raw Size: {total_size / (1024 ** 3):.2f} GiB")
+        c.drawString(50, 650, f"Average Raw Image Size: {avg_size / (1024 ** 2):.2f} MiB")
+        c.drawString(50, 630, f"Total Developed Size: {developed_total_size / (1024 ** 3):.2f} GiB")
+        c.drawString(50, 610, f"Average Developed Image Size: {avg_developed_size / (1024 ** 2):.2f} MiB")
+
         if first_upload and last_upload:
-            c.drawString(50, 610, f"First Upload: {first_upload}")
-            c.drawString(50, 590, f"Last Upload: {last_upload}")
+            c.drawString(50, 590, f"First Upload: {first_upload}")
+            c.drawString(50, 570, f"Last Upload: {last_upload}")
         
         if partial_uploads:
-            c.drawString(50, 570, f"Partial Uploads: {partial_uploads}")
+            c.drawString(50, 550, f"Partial Uploads: {partial_uploads}")
 
         # Add the line plot to the PDF
         capture_plot_path = self.plot_file_base / f"capture_time_plot_{batch_id}.png"
@@ -429,8 +433,7 @@ class ImageReport:
         if not self.image_data:
             self.extract_image_metadata()
 
-        pdf_output_path = self.output_report_dir / f"{self.batch_id}_report.pdf"
-        c = canvas.Canvas(str(pdf_output_path), pagesize=letter)
+        c = canvas.Canvas(str(self.pdf_output_path), pagesize=letter)
         # ----------------------------------------------------
         # Section 1: Summary Information
         # ----------------------------------------------------
@@ -461,7 +464,7 @@ class ImageReport:
 
         # Save the PDF
         c.save()
-        log.info(f"PDF report saved to {pdf_output_path}")
+        log.info(f"PDF report saved to {self.pdf_output_path}")
 
     def generate_report(self) -> None:
         """
@@ -557,9 +560,14 @@ def main(cfg: DictConfig):
     if cfg.report.save2lts:
         try:
             # Copy report to LTS developed inspection directory
-            report_dst = image_report.developed_directory / "inspection"
-            report_src = str(image_report.output_report_dir / f"{image_report.batch_id}_report.pdf")
-            shutil.copy(report_src, report_dst)
+            report_src = image_report.pdf_output_path
+
+            if report_src.name != "inspection":
+                report_dst = image_report.developed_directory / "inspection" / report_src.name
+            else:
+                report_dst = image_report.developed_directory / "inspection"
+
+            shutil.copy(str(report_src), report_dst)
             log.info(f"Report copied to LTS directory: {report_dst}")
         except Exception as e:
             log.error(f"Error copying report to LTS directory: {e}")
