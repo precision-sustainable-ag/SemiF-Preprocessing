@@ -25,6 +25,8 @@ crs:
 gh_reviewer: # nnotaba or mkutu, map0425
 timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be ignored in the batch
 run_mode: single # single or batch
+start_time:
+end_time:
 
 # Toggle the modes you want to run
 modes:

@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 import Metashape
 from src.tasks.label_utils.filter_bboxes import BBoxFilter
-from src.utils.utils import safe_save_json, extract_season_info
+from src.utils.utils import safe_save_json, extract_season_info, get_files
 from src.utils.datasets import (
     BBoxCoordinates,
     BoundingBox,
@@ -579,7 +579,7 @@ class RemapLabels:
         try:
             h, w = self._get_image_shape()
             log.debug(f"Detected downscaled image shape: height={h}, width={w}")
-            unique_image_ids = sorted(self.metadata["image_id"].unique())
+            unique_image_ids = get_files(self.cfg, task="remap_labels")
             log.info(f"Found {len(unique_image_ids)} unique image IDs.")
             images = [self._build_metadata(iid, h, w) for iid in unique_image_ids]
             log.info("Successfully built ImageMetadata objects.")

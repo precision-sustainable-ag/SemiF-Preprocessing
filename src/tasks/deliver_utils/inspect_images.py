@@ -16,7 +16,7 @@ import seaborn as sns
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from src.utils.utils import find_lts_dir, is_reconstructed
+from src.utils.utils import find_lts_dir, is_reconstructed, get_files
 log = logging.getLogger(__name__)
 
 random.seed(42)  # For reproducibility
@@ -27,6 +27,7 @@ class AnnotationPlotter:
     such as species counts, area histograms, and centroid density heatmaps.
     """
     def __init__(self, cfg: DictConfig, is_batch_reconstructed: bool = True):
+        self.cfg = cfg
         self.batch_id = cfg.batch_id
         self.lts_locations = cfg.paths.lts_locations
         self.lts_dir = find_lts_dir(self.batch_id, self.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
@@ -56,7 +57,8 @@ class AnnotationPlotter:
             pd.DataFrame: A DataFrame with species ID, area (cm²), bounding box, and centroid coordinates.
         """
         records = []
-        for json_file in sorted(self.metadata_dir.glob("*.json")):
+        metadata_files = sorted(get_files(self.cfg, task="inspect_images_jsons"))
+        for json_file in metadata_files:
             try:
                 with open(json_file, "r") as f:
                     data = json.load(f)
@@ -251,7 +253,8 @@ class ImageReviewer:
             List[str]: Image IDs with more than one species.
         """
         multiple_species_images = []
-        for file in self.metadata_dir.glob("*.json"):
+        metadata_jsons = get_files(self.cfg, task="inspect_images_jsons")
+        for file in metadata_jsons:
             try:
                 with open(file, 'r') as f:
                     data = json.load(f)
@@ -265,7 +268,7 @@ class ImageReviewer:
 
     def _get_image_paths(self) -> list[Path]:
         """Load images and return a sorted list of (a subset of) unlabeled ones."""
-        images = sorted(self.image_dir.glob("*.jpg"))
+        images = get_files(self.cfg, task="inspect_images")
         # Find images with multiple species. These help confirm species group separation is accurate.
         multi_species_images = self._find_multiple_species_images()
         multi_spec_img_paths = [self.image_dir / f"{img_id}.jpg" for img_id in multi_species_images]

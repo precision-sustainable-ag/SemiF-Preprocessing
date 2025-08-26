@@ -11,6 +11,8 @@ from .callbacks import percentage_callback
 from .dataframe import DataFrame
 from .estimation import CameraStats, MarkerStats
 
+from src.utils.utils import get_files
+
 log = logging.getLogger(__name__)
 
 
@@ -177,7 +179,7 @@ class SfM:
 
     def add_photos(self):
         """Adds a directory to the project"""
-        photos = sorted([str(x) for x in list(self.down_photos.glob("*.jpg")) + list(self.down_photos.glob("*.JPG"))])
+        photos = get_files(self.cfg, task="auto_sfm")
         # check of self.skip_first_n_images is an int or None
         if isinstance(self.skip_first_n_images, int):
             photos = photos[self.skip_first_n_images:]

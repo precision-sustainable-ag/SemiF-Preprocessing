@@ -15,13 +15,14 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 
-from src.utils.utils import find_lts_dir, is_reconstructed
+from src.utils.utils import find_lts_dir, is_reconstructed, get_files
 from src.utils.artifact_utils import read_artifact
 
 log = logging.getLogger(__name__)
 
 class ImageReport:
     def __init__(self, cfg: DictConfig, is_batch_reconstructed: bool):
+        self.cfg = cfg
         self.batch_id = cfg.batch_id
         
         self.bbot_version = str(cfg.bbot_version)
@@ -35,7 +36,7 @@ class ImageReport:
         self.plot_file_base.mkdir(parents=True, exist_ok=True)
 
         self.raw_image_files = self.find_raw_image_files()
-        self.developed_image_files = list(Path(self.developed_directory, "images").glob("*.jpg"))
+        self.developed_image_files = list(get_files(cfg, task="report"))
         self.image_data = []
 
         self.local_sample_dir = self.output_report_dir / "remapped_samples"
@@ -56,11 +57,13 @@ class ImageReport:
             else:
                 # If 'SONY' directory does not exist, use the default extension
                 extension = "*.ARW"
-        raw_image_files = sorted(self.upload_directory.glob(extension))
+        # raw_image_files = sorted(self.upload_directory.glob(extension))
+        raw_image_files = get_files(self.cfg, task="report_uploads")
         log.debug(f"Found {len(raw_image_files)} raw image files in {self.upload_directory}")
         if not raw_image_files:
             extension = "*.jpg"
-            jpg_image_files = sorted(Path(self.developed_directory, "images").glob(extension))
+            # jpg_image_files = sorted(Path(self.developed_directory, "images").glob(extension))
+            jpg_image_files = get_files(self.cfg, task="report_developed")
             if jpg_image_files:
                 log.info(f"Using developed JPGs from {self.developed_directory} instead of raw images.")
                 raw_image_files = jpg_image_files

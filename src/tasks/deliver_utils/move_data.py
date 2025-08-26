@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 import hydra
 from omegaconf import DictConfig
-from src.utils.utils import find_lts_dir, is_reconstructed
+from src.utils.utils import find_lts_dir, is_reconstructed, get_files
 from hydra.core.hydra_config import HydraConfig
 
 log = logging.getLogger(__name__)
@@ -65,9 +65,11 @@ class CleanUpLocalTemp:
     def can_remove_local_dir(self):
         """ Check that all the files in the temp directories are in the LTS directories. """
         can_remove_local_dir = False
-        temp_metadata = [mdata for mdata in self.local_batch_dir.glob("metadata/*.json")]
+        # temp_metadata = [mdata for mdata in self.local_batch_dir.glob("metadata/*.json")]
+        temp_metadata = get_files(self.cfg, task="move_data_temp_data")
         
-        lts_metadata = [mdata for mdata in self.lts_batch_dir.glob("metadata/*.json")]
+        # lts_metadata = [mdata for mdata in self.lts_batch_dir.glob("metadata/*.json")]
+        lts_metadata = get_files(self.cfg, task="move_data_lts_data")
         
         lts_cam_references_exists = len(list(self.dst_cam_references.glob("*.csv"))) == 5
         lts_inspection_results_exists = self.dst_inspection_dir.exists()
