@@ -41,12 +41,19 @@ MD:
     crs: 4326
   weeds_2025:
     start: "2025-06-06"
-    end: "2025-09-16"
+    end: "2025-07-28"
     bbot_version: 3.1
     crs: 32618
     pipeline_season: summer_weeds_2025
     gh_reviewer: nnotaba
-  
+  beets_2025:
+    start: "2025-08-29"
+    end: "2025-10-10"
+    bbot_version: 3.1
+    crs: 32618
+    pipeline_season: beets_2025
+    gh_reviewer: nnotaba
+
 NC:
   weeds 2022:
     start: "2022-03-04"
@@ -99,10 +106,17 @@ NC:
     gh_reviewer: map0425
   cash crops 2025_2:
     start: "2025-07-17"
-    end: "2025-10-16"
+    end: "2025-08-08"
     bbot_version: 3.1
     crs: 32617
     pipeline_season: cash_crop_dicamba_2025_dap30_v2
+    gh_reviewer: map0425
+  zoysia_2025:
+    start: "2025-08-25"
+    end: "2025-09-30"
+    bbot_version: 3.1
+    crs: 32617
+    pipeline_season: zoysia_2025
     gh_reviewer: map0425
 
 TX:
