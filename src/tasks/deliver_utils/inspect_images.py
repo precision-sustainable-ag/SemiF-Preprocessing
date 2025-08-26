@@ -441,9 +441,10 @@ class PDFReviewer:
         self.lts_dir = find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, local=False, developed=True, dngs=False, jpgs=True)
         self.lts_batch_dir = Path(self.lts_dir) / "semifield-developed-images" / cfg.batch_id
 
-        self.ms_pdf_report = self.lts_batch_dir / "inspection" / Path(cfg.paths.pdf_report).name if self.use_lts_images else Path(cfg.paths.pdf_report)
-        self.inspection_dir = self.lts_batch_dir / "inspection" if self.use_lts_images else Path(cfg.paths.inspection_dir)
-        
+        self.start = cfg.start_time
+        self.ms_pdf_report = self.lts_batch_dir / "inspection" / self.start / Path(cfg.paths.pdf_report).name if self.use_lts_images else Path(cfg.paths.pdf_report)
+        self.inspection_dir = self.lts_batch_dir / "inspection" / self.start if self.use_lts_images else Path(cfg.paths.inspection_dir)
+
         self.output_dir = self.inspection_dir / "metashape_report_pages"
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True, exist_ok=True)

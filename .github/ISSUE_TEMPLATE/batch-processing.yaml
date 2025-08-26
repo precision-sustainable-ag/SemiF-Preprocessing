@@ -2,6 +2,18 @@ name: Batch Processing Request
 description: Submit a new batch processing task
 labels: [batch-request]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Quick start
+        Fill in **Batch ID**, optional **Start/End Time** in **H:MM:SS AM/PM** (BenchBot local time), choose **Single Species** (and a name if true), and whether to **Perform Reconstruction**.
+        If you're a BenchBot operator, make sure to fill in all the camera and bbot settings.
+
+  # --- Core ---
+  - type: markdown
+    attributes:
+      value: "### Core"
+
   - type: input
     id: template_id
     attributes:
@@ -10,39 +22,55 @@ body:
       value: Batch Processing Request Form
     validations:
       required: true
-    
+
   - type: input
     id: batch_id
     attributes:
       label: Batch ID
-      description: Unique batch identifier (e.g., MD_2025-07-09)
+      description: Use STATE_YYYY-MM-DD (e.g., MD_2025-07-09)
       placeholder: e.g., MD_2025-07-09
     validations:
       required: true
+      pattern: '^[A-Z]{2}_[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      message: "Format must be STATE_YYYY-MM-DD (e.g., MD_2025-07-09)."
+
+  # --- Scheduling (optional) ---
+  - type: markdown
+    attributes:
+      value: "### Scheduling (optional)"
 
   - type: input
     id: start_time
     attributes:
       label: Start Time
-      description: Start time for the batch (HH:MM:SS, 12-hour format using Bbot time)
+      description: Start time (H:MM:SS AM/PM) using BenchBot local time
       placeholder: e.g., 1:30:37 AM
     validations:
       required: false
+      pattern: '^\s*([1-9]|1[0-2]):[0-5][0-9]:[0-5][0-9]\s?(AM|PM)\s*$'
+      message: "Use H:MM:SS AM/PM (e.g., 1:30:37 AM)."
 
   - type: input
     id: end_time
     attributes:
       label: End Time
-      description: End time for the batch (HH:MM:SS, 24-hour format using Bbot time)
+      description: End time (H:MM:SS AM/PM) using BenchBot local time
       placeholder: e.g., 12:15:45 PM
     validations:
       required: false
+      pattern: '^\s*([1-9]|1[0-2]):[0-5][0-9]:[0-5][0-9]\s?(AM|PM)\s*$'
+      message: "Use H:MM:SS AM/PM (e.g., 12:15:45 PM)."
+
+  # --- Processing options ---
+  - type: markdown
+    attributes:
+      value: "### Processing options"
 
   - type: dropdown
     id: single_species
     attributes:
       label: Single Species
-      description: Specify whether to process a single species.
+      description: Process a single species (sets a default label).
       options:
         - 'true'
         - 'false'
@@ -53,7 +81,7 @@ body:
     id: single_species_name
     attributes:
       label: Single Species Common Name
-      description: Specify the common name of the single species if applicable.
+      description: Select if **Single Species** is true (otherwise leave blank).
       options:
         - 'soybean'
         - 'zoysia'
@@ -63,7 +91,7 @@ body:
     id: reconstruct
     attributes:
       label: Perform Reconstruction
-      description: Specify whether to perform reconstruction on the images.
+      description: Whether to run 3D reconstruction on the images.
       options:
         - 'true'
         - 'false'
@@ -74,84 +102,73 @@ body:
     id: skip_first_n_images
     attributes:
       label: Skip First N Images
-      description: Specify the number of images to skip at the beginning.
+      description: Number of images to skip at the beginning
       placeholder: e.g., 3
     validations:
       required: false
+      pattern: '^\d+$'
+      message: "Enter a non-negative integer."
 
   - type: input
     id: skip_last_n_images
     attributes:
       label: Skip Last N Images
-      description: Specify the number of images to skip at the end.
+      description: Number of images to skip at the end
       placeholder: e.g., 3
     validations:
       required: false
+      pattern: '^\d+$'
+      message: "Enter a non-negative integer."
 
-  - type: dropdown
-    id: season
+  # --- Context (optional) ---
+  - type: markdown
     attributes:
-      label: Season
-      description: Select the season for this batch
-      options:
-        - summer_weeds_2025
-        - cover_crops_2025_2026
-        # Add more as needed
-    validations:
-      required: false
+      value: "### Notes (please provide any relevant information)"
 
-  - type: dropdown
-    id: bbot_version
-    attributes:
-      label: BBot Version
-      description: |
-        Select the BenchBot version used for this batch.
-  
-        **Options:**
-        - 3.5: Rails + SVCam
-        - 3.1: Amiga + SVCam
-        - 3.0: Amiga + SonyCam
-        - 2.0: Vention + SonyCam
-      options:
-        - 3.5
-        - 3.1
-        - 3.0
-        - 2.0
-    validations:
-      required: false
 
   - type: textarea
     id: notes
     attributes:
       label: Notes
-      description: Any relevant notes, observations, or issues for this batch
+      description: Any relevant notes, observations, or issues
+
+  # --- Capture details (optional) ---
+  - type: markdown
+    attributes:
+      value: "### Capture details (optional)"
 
   - type: input
     id: num_images
     attributes:
       label: Number of Images Taken
-      description: Total number of images collected for this batch
+      description: Total number of images collected
       placeholder: e.g., 684
     validations:
       required: false
+      pattern: '^\d+$'
+      message: "Enter a non-negative integer."
 
   - type: input
     id: x_axis_start
     attributes:
       label: X-axis Start (cm)
-      description: X-axis starting position in centimeters
+      description: X-axis starting position
       placeholder: e.g., 40
     validations:
       required: false
+      pattern: '^\d+(\.\d+)?$'
+      message: "Enter a number (integer or decimal)."
 
   - type: input
     id: z_axis_start
     attributes:
       label: Z-axis Start (cm)
-      description: Z-axis starting position in centimeters
+      description: Z-axis starting position
       placeholder: e.g., 170
     validations:
       required: false
+      pattern: '^\d+(\.\d+)?$'
+      message: "Enter a number (integer or decimal)."
 
   - type: input
     id: pots_per_row
@@ -161,24 +178,30 @@ body:
       placeholder: e.g., 12
     validations:
       required: false
+      pattern: '^\d+$'
+      message: "Enter a non-negative integer."
 
   - type: input
     id: row_spacing
     attributes:
       label: Row Spacing (cm)
-      description: Spacing between rows in centimeters
+      description: Spacing between rows
       placeholder: e.g., 40
     validations:
       required: false
+      pattern: '^\d+(\.\d+)?$'
+      message: "Enter a number (integer or decimal)."
 
   - type: input
     id: pot_spacing
     attributes:
       label: Pot Spacing (cm)
-      description: Spacing between pots in centimeters
+      description: Spacing between pots
       placeholder: e.g., 43
     validations:
       required: false
+      pattern: '^\d+(\.\d+)?$'
+      message: "Enter a number (integer or decimal)."
 
   - type: input
     id: num_rows_imaged
@@ -188,15 +211,24 @@ body:
       placeholder: e.g., 57
     validations:
       required: false
+      pattern: '^\d+$'
+      message: "Enter a non-negative integer."
+
+  # --- Camera settings (optional) ---
+  - type: markdown
+    attributes:
+      value: "### Camera settings (optional)"
 
   - type: input
     id: aperture
     attributes:
-      label: Aperture
-      description: Camera aperture setting (e.g., 13.5)
+      label: Aperture (f/)
+      description: Camera aperture (e.g., 13.5)
       placeholder: e.g., 13.5
     validations:
       required: false
+      pattern: '^\d+(\.\d+)?$'
+      message: "Enter a number (integer or decimal)."
 
   - type: input
     id: focus
@@ -206,6 +238,8 @@ body:
       placeholder: e.g., 20.3
     validations:
       required: false
+      pattern: '^\d+(\.\d+)?$'
+      message: "Enter a number (integer or decimal)."
 
   - type: input
     id: flash_power

@@ -62,7 +62,7 @@ species_info: ${paths.semif_util_dir}/species_information/species_info.json
 marker_file:
 
 # Main batch inspection directory
-inspection_dir: ${paths.batch_dir}/inspection
+inspection_dir: ${paths.batch_dir}/inspection/${start_time}
 
 # Temp stats directories
 season_stats_dir: ${paths.data_dir}/season_stats
