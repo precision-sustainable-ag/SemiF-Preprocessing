@@ -50,8 +50,6 @@ jobs:
             }
             const start24 = normalizeStart(startRaw);
 
-            let newTitle = batchId;
-            newTitle += " Batch Processing Request";
             let newTitle = `${batchId}${start24 ? ` [Start ${start24}]` : ""} Batch Processing Request`;
 
             // Update the issue title
