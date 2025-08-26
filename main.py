@@ -28,7 +28,8 @@ from src.utils.utils import (
     retry_nfs_access,
     save_log_to_lts,
     set_cpu_affinity,
-    extract_season_info
+    extract_season_info,
+    normalize_time_str
 )
 
 # Define a registry of tasks
@@ -48,7 +49,8 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
     if batch_cfg:
         cfg.batch_id = batch_cfg["batch_id"]
     cfg = extract_season_info(cfg)
-    
+    cfg.start_time = normalize_time_str(cfg.start_time)
+    cfg.end_time = normalize_time_str(cfg.end_time)
     modes = cfg.modes
     log.info(f"Running pipeline for batch {cfg.batch_id} in {','.join(modes)} mode.")
 
