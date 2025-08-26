@@ -17,7 +17,7 @@ import hydra
 import pytz
 from omegaconf import DictConfig
 
-from src.utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir, get_files
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ def batch_update(cfg: DictConfig, image_dir: Path):
         log.warning("No EXIF tags found in config. Skipping update.")
         return
 
-    images = sorted(image_dir.glob("*.jpg"))
+    images = get_files(cfg, task="update_exif")
     if not images:
         log.warning(f"No .jpg images found in {image_dir}")
         return

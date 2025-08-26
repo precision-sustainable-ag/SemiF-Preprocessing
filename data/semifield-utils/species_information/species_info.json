@@ -2030,6 +2030,35 @@
                 117
             ],
             "alias": []
+        },
+        "ZOJA": {
+            "class_id": 69,
+            "USDA_symbol": "ZOJA",
+            "EPPO": "ZOYJA",
+            "group": "Monocot",
+            "class": "Liliopsida",
+            "subclass": "Commelinidae",
+            "order": "Cyperales",
+            "family": "Poaceae",
+            "genus": "Zoysia",
+            "species": "japonica",
+            "common_name": "zoysia",
+            "authority": "Steudel",
+            "growth_habit": "Graminoid",
+            "duration": "Perennial",
+            "collection_location": null,
+            "category": "turf grass",
+            "collection_timing": null,
+            "multi_species_USDA_symbol": null,
+            "link": "https://plants.usda.gov/plant-profile/ZOJA",
+            "note": "May also be Zoysia matrella (EPPO: ZOYMA)",
+            "hex": "#e57fa7",
+            "rgb": [
+                229,
+                127,
+                167
+            ],
+            "alias": ["zoysia grass", "zoysiagrass"]
         }
     },
     "Notes": {

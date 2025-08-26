@@ -18,7 +18,7 @@ from omegaconf import DictConfig
 
 from src.tasks.correct_utils.dng2jpg import DNGToJpgConverter
 from src.tasks.correct_utils.raw2dng import RawToDNGConverter
-from src.utils.utils import find_lts_dir, find_raw_dir
+from src.utils.utils import find_lts_dir, find_raw_dir, get_files
 
 log = logging.getLogger(__name__)
 
@@ -51,8 +51,6 @@ class Raw2Jpg:
         # Local JPG sample directory
         self.lts_sample_dir = self.lts_dir / "semifield-developed-images" / self.batch_id / "preprocessing_samples"
         self.lts_sample_dir.mkdir(parents=True, exist_ok=True) if self.sample_count > 0 else None
-        # File masks
-        self.file_masks = self.cfg.file_masks
         # Image Development paths (.pp3)
         self.rt_pp3_name = f"{self.cfg.rt_pp3_name}.pp3"
         self.local_pp3_path = Path(self.cfg.paths.image_development) / "dev_profiles" / self.rt_pp3_name
@@ -63,8 +61,6 @@ class Raw2Jpg:
         # CCM Path
         self.ccm_name = f"{self.cfg.ccm_name}.npy"
         self.local_ccm_path = Path(self.cfg.paths.image_development) / "color_matrices" / self.ccm_name
-
-        
 
     def setup_profiling_paths(self) -> None:
         """
@@ -86,39 +82,6 @@ class Raw2Jpg:
             raise FileNotFoundError(
                 f"RawTherapee CLI validation script not found: {self.validate_rt_cli_script.name}")
 
-    def filter_files_by_timestamp(self, files: list[tuple[Path, bool]], timestamp: str) -> list[tuple[Path, bool]]:
-        """
-        Filter files based on an input timestamp and file name timestamps which are in epoch and formatted like MD_1746025934.RAW.
-        """
-        filtered_files = []
-        for path, flag in files:
-            # Extract the timestamp from the file name
-            file_timestamp = path.stem.split("_")[-1]
-            # Check if the timestamp is in the file name
-            if len(file_timestamp) == 10 and file_timestamp.isdigit():
-                # Compare with the input timestamp
-                if int(file_timestamp) >= int(timestamp):
-                    filtered_files.append((path, flag))
-        return filtered_files
-    
-    def get_raw_files(self) -> list[tuple[Path, bool]]:
-        """
-        Retrieve all raw image files for the batch and sample a subset for quality check.
-
-        Returns:
-            list[tuple[Path, bool]]: List of file paths and flags for sample resizing.
-        """
-        self.raw_dir = find_raw_dir(self.local_data_dir, self.batch_id, self.lts_dir)
-        raw_files = [file for file_mask in self.file_masks.raw_files for file in self.raw_dir.glob(f"*{file_mask}")]
-        sampled_files = set(random.sample(raw_files, min(len(raw_files), self.sample_count)))
-        raw_files = [(file, file in sampled_files) for file in raw_files]
-        log.info(f"Found {len(raw_files)} RAW files.")
-        # Filter files based on timestamp
-        if self.cfg.timestamp:
-            raw_files = self.filter_files_by_timestamp(raw_files, self.cfg.timestamp)
-            log.info(f"Filtered {len(raw_files)} RAW files based on timestamp: {self.cfg.timestamp}")
-        return raw_files
-    
     def remove_local_dng(self, dng_file: Path) -> None:
         """
         Remove a DNG file after conversion, if flagged.
@@ -192,7 +155,7 @@ class Raw2Jpg:
         """
         Process all RAW files by converting them to JPG using multiprocessing.
         """
-        raw_files = self.get_raw_files()
+        raw_files = get_files(self.cfg, task="raw2jpg")
 
         # Validate RawTherapee profile and CLI script
         dng2jpg = DNGToJpgConverter(None, None, self.local_pp3_path, self.validate_rt_cli_script)

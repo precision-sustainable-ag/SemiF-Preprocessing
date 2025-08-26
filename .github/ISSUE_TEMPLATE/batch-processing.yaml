@@ -20,6 +20,45 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: start_time
+    attributes:
+      label: Start Time
+      description: Start time for the batch (HH:MM:SS, 12-hour format using Bbot time)
+      placeholder: e.g., 1:30:37 AM
+    validations:
+      required: false
+
+  - type: input
+    id: end_time
+    attributes:
+      label: End Time
+      description: End time for the batch (HH:MM:SS, 24-hour format using Bbot time)
+      placeholder: e.g., 12:15:45 PM
+    validations:
+      required: false
+
+  - type: dropdown
+    id: single_species
+    attributes:
+      label: Single Species
+      description: Specify whether to process a single species.
+      options:
+        - 'true'
+        - 'false'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: single_species_name
+    attributes:
+      label: Single Species Common Name
+      description: Specify the common name of the single species if applicable.
+      options:
+        - 'soybean'
+        - 'zoysia'
+        - 'beet'
+
   - type: dropdown
     id: reconstruct
     attributes:

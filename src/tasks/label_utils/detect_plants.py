@@ -8,7 +8,7 @@ import hydra
 from omegaconf import DictConfig
 import logging
 from pathlib import Path
-from src.utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir, get_files
 
 log = logging.getLogger(__name__)
 
@@ -111,12 +111,9 @@ def main(cfg: DictConfig):
     source = cfg.paths.down_photos
     batch_name = cfg.batch_id
     lts_dir = find_lts_dir(batch_name, cfg.paths.lts_locations, developed=True, jpgs=True)
-    source = Path(lts_dir) / "semifield-developed-images" / batch_name / "images"
+    source = (Path(lts_dir) / "semifield-developed-images" / batch_name / "images", cfg)
     model_path = Path(cfg.paths.local_detection_model)
     
-    if not source.exists():
-        log.error(f"Source path {source} does not exist.")
-        raise FileNotFoundError(f"Source path {source} does not exist.")
     
     if not model_path.exists():
         log.error(f"Model path {model_path} does not exist.")

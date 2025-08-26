@@ -1,22 +1,170 @@
-from pathlib import Path
-from PIL import Image
+# Standard library
+import json
 import logging
-import piexif
 import math
-import numpy as np
-import yaml
+import os
+import random
+import re
 import shutil
-from datetime import datetime
+import subprocess
+import time
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+# Third-party
+import numpy as np
+import pandas as pd
+import piexif
+import yaml
+from PIL import Image
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
-import re
-from typing import Dict, Any, List
-import subprocess
-import json
-import os
-import time
 
 log = logging.getLogger(__name__)
+
+
+def filter_files_by_timestamp(files: list, start_epoch: int, end_epoch: int, image_ids: bool = False) -> list[tuple[Path, bool]]:
+    """
+    Filter files based on a start and end time stamp
+    """
+    filtered_files = []
+    for path in files:
+        # Extract the timestamp from the file name
+        file_timestamp = Path(path).stem.split("_")[-1]
+        # Check if the timestamp is in the file name
+        if len(file_timestamp) == 10 and file_timestamp.isdigit():
+            # Compare with the input timestamp
+            if int(file_timestamp) >= start_epoch and int(file_timestamp) <= end_epoch:
+                filtered_files.append(path)
+    return filtered_files
+
+def prep_start_and_end_times(
+    start_str: str, 
+    end_str: str, 
+    when: Optional[date] = None
+) -> Tuple[int, int]:
+    """
+    Convert 'HH:MM:SS AM/PM' strings to UTC epoch timestamps.
+    If `when` is None, uses today's date (UTC).
+    """
+    if when is None:
+        when = datetime.now(timezone.utc).date()
+    
+    def to_epoch(hms_ampm: str) -> int:
+        # Parse 12-hour time with AM/PM
+        dt = datetime.strptime(hms_ampm, "%I:%M:%S %p")
+        # Attach the correct date and UTC timezone
+        dt_utc = datetime(
+            when.year, when.month, when.day,
+            dt.hour, dt.minute, dt.second,
+            tzinfo=timezone.utc
+        )
+        return int(dt_utc.timestamp())
+    
+    return to_epoch(start_str), to_epoch(end_str)
+
+
+
+def get_only_undeveloped_raw_files(lts_jpg_dst: Path, raw_files: list[Path]) -> list[Path]:
+    undeveloped_raw_files = []
+    for raw_file in raw_files:
+        raw_file_stem = raw_file.stem
+        developed_jpg = lts_jpg_dst / f"{raw_file_stem}.jpg"
+        if not developed_jpg.exists():
+            undeveloped_raw_files.append(raw_file)
+    return undeveloped_raw_files
+    
+def get_files(cfg: DictConfig, task: str) -> List[Path]:
+    """
+    Retrieve files for the specified task and optional time range.
+    """
+    batch_id = cfg.batch_id
+    date_str = batch_id.split("_")[-1]
+    date_split = date_str.split("-")
+    date_time = date(int(date_split[0]), int(date_split[1]), int(date_split[2]))
+    local_data_dir = Path(cfg.paths.data_dir)
+    lts_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations, local=False))
+    raw_dir = find_raw_dir(local_data_dir, batch_id, lts_dir)
+    lts_jpg_dst = lts_dir / "semifield-developed-images" / batch_id / "images"
+
+    start_time, end_time = cfg.get("start_time").upper(), cfg.get("end_time").upper()
+    log.info(f"Filtering files between {start_time} and {end_time}")
+
+    def _filter_by_time(files):
+        if start_time and end_time:
+            start_epoch, end_epoch = prep_start_and_end_times(start_time, end_time, date_time)
+            log.info(f"Filtering files between epochs {start_epoch} and {end_epoch}")
+            return filter_files_by_timestamp(files, start_epoch, end_epoch)
+        return files
+
+    if task == "raw2jpg":
+        raw_files = sorted([f for mask in cfg.file_masks.raw_files for f in raw_dir.glob(f"*{mask}")])
+        log.info(f"Found {len(raw_files)} RAW files.")
+        raw_files = _filter_by_time(raw_files)
+        log.info(f"Found {len(raw_files)} RAW files (filtered).")
+        undeveloped = get_only_undeveloped_raw_files(lts_jpg_dst, raw_files)
+        sampled = set(random.sample(undeveloped, min(len(undeveloped), cfg.raw2jpg.jpg_samples)))
+        sample_org = [(f, f in sampled) for f in raw_files]
+        
+        return sample_org
+
+    elif task in {"update_exif", "report", "report_developed"}:
+        images = _filter_by_time(sorted(lts_jpg_dst.glob("*.jpg")))
+        return images
+
+    elif task == "auto_sfm":
+        down_photos = Path(cfg.paths.down_photos)
+        photos = _filter_by_time(sorted(down_photos.glob("*.jpg")) + sorted(down_photos.glob("*.JPG")))
+        return [str(p) for p in photos]
+
+    elif task == "detect_plants":
+        images = _filter_by_time(list(lts_jpg_dst.glob("*.jpg")) + list(lts_jpg_dst.glob("*.JPG")))
+        return images
+
+    elif task == "remap_labels":
+        batch_dir = Path(cfg.paths.batch_dir)
+        metadata_path = Path(cfg.paths.autosfm) / "reference" / f"{batch_dir.name}_metadata.csv"
+        metadata = pd.read_csv(metadata_path)
+        image_ids = _filter_by_time(sorted(metadata["image_id"].unique()))
+        return image_ids
+
+    elif task == "assign_species":
+        metadata_files = _filter_by_time(sorted((Path(cfg.paths.batch_dir) / "metadata").glob("*.json")))
+        return metadata_files
+
+    elif task == "no_remap_label":
+        csv_files = _filter_by_time(list(Path(cfg.paths.plant_detection_dir).glob("*.csv")))
+        return csv_files
+
+    elif task == "inspect_images":
+        return _filter_by_time(sorted(lts_jpg_dst.glob("*.jpg")))
+
+    elif task == "inspect_images_jsons":
+        lts_meta = lts_dir / "semifield-developed-images" / batch_id / "metadata"
+        local_meta = Path(cfg.paths.batch_dir) / "metadata"
+        metadata_dir = local_meta if local_meta.exists() else lts_meta
+        return _filter_by_time(sorted(metadata_dir.glob("*.json")))
+
+    elif task == "move_data_temp_data":
+        return _filter_by_time(sorted((Path(cfg.paths.batch_dir) / "metadata").glob("*.json")))
+
+    elif task == "move_data_lts_data":
+        lts_meta = lts_dir / "semifield-developed-images" / batch_id / "metadata"
+        return _filter_by_time(sorted(lts_meta.glob("*.json")))
+
+    elif task == "report_uploads":
+        remote_raw_dir = lts_dir / "semifield-upload" / batch_id
+        if "3.1" in str(cfg.bbot_version):
+            ext = "*.RAW"
+        elif (remote_raw_dir / "SONY").exists():
+            ext = "SONY/*.ARW"
+        else:
+            ext = "*.ARW"
+        return _filter_by_time(sorted(remote_raw_dir.glob(ext)))
+
+    else:
+        raise ValueError(f"Unknown task: {task}")
 
 def is_reconstructed(cfg: DictConfig) -> bool:
     """

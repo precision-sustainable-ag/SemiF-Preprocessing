@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional , Tuple
 import pandas as pd
 from omegaconf import DictConfig
 import hydra
+from src.utils.utils import get_files
 from src.utils.datasets import (
     CameraCoefficients,
     FOV,
@@ -112,7 +113,6 @@ class RemapLabelsPipeline:
         self.batch_id = cfg.batch_id
         self.bbot_version = str(cfg.bbot_version)
 
-        self.detections_dir = self._init_detections_dir(cfg)
         self.output_dir = self._init_output_dir(cfg)
         self.species_info_remapped = self._remap_species_info(cfg.paths.species_info)
         
@@ -120,11 +120,6 @@ class RemapLabelsPipeline:
         
         self.species_class = cfg.assign_species.assign_all_bboxes.label
         self.df = self._load_detections()
-    
-    @staticmethod
-    def _init_detections_dir(cfg: DictConfig) -> Path:
-        # Returns the path to the detection CSV directory based on configuration.
-        return Path(cfg.paths.plant_detection_dir)
 
     @staticmethod
     def _init_output_dir(cfg: DictConfig) -> Path:
@@ -161,7 +156,7 @@ class RemapLabelsPipeline:
             raise ValueError("Manual species assignment is not enabled.")
 
     def _load_detections(self) -> pd.DataFrame:
-        csv_files = list(self.detections_dir.glob("*.csv"))
+        csv_files = get_files(self.cfg, task="no_remap_label")
         dfs = []
         for f in csv_files:
             df = pd.read_csv(f)

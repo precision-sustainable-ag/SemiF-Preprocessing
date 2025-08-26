@@ -14,7 +14,7 @@ import numpy as np
 import requests
 import torch
 from PIL import Image
-
+from src.utils.utils import get_files
 from ultralytics.yolo.data.augment import LetterBox
 from ultralytics.yolo.data.utils import IMG_FORMATS, VID_FORMATS
 from ultralytics.yolo.utils import LOGGER, ROOT, is_colab, is_kaggle, ops
@@ -171,7 +171,9 @@ class LoadScreenshots:
 
 class LoadImages:
     # YOLOv8 image/video dataloader, i.e. `yolo predict source=image.jpg/vid.mp4`
-    def __init__(self, path, imgsz=640, stride=32, auto=True, transforms=None, vid_stride=1):
+    def __init__(self, cfg, imgsz=640, stride=32, auto=True, transforms=None, vid_stride=1):
+        path = cfg[0]
+        cfg = cfg[1]
         if isinstance(path, str) and Path(path).suffix == ".txt":  # *.txt file with img/vid/dir on each line
             path = Path(path).read_text().rsplit()
         files = []
@@ -180,7 +182,8 @@ class LoadImages:
             if '*' in p:
                 files.extend(sorted(glob.glob(p, recursive=True)))  # glob
             elif os.path.isdir(p):
-                files.extend(sorted(glob.glob(os.path.join(p, '*.*'))))  # dir
+                img_files = [str(x) for x in get_files(cfg, task="detect_plants")]
+                files.extend(sorted(img_files))  # dir
             elif os.path.isfile(p):
                 files.append(p)  # files
             else:

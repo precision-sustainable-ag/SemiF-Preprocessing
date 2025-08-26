@@ -9,7 +9,7 @@ import hydra
 from shapely.geometry import Point, Polygon
 from tqdm import tqdm
 
-from src.utils.utils import safe_save_json
+from src.utils.utils import safe_save_json, get_files
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class SpeciesAssigner :
         """
         Assign species labels to all bounding boxes found in image metadata.
         """
-        metadata_files = sorted(self.metadata_path.glob("*.json"))
+        metadata_files = get_files(self.cfg, task="assign_species")
         log.info(f"Found {len(metadata_files)} metadata files to process.")
         for file in tqdm(metadata_files, desc="Assigning labels"):
             self._process_file(file)

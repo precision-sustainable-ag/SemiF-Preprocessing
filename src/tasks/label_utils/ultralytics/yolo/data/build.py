@@ -161,14 +161,14 @@ def load_inference_source(source=None, transforms=None, imgsz=640, vid_stride=1,
     TODO: docs
     """
     # source
-    source, webcam, screenshot, from_img, in_memory = check_source(source)
-    source_type = source.source_type if in_memory else SourceTypes(webcam, screenshot, from_img)
+    new_source, webcam, screenshot, from_img, in_memory = check_source(source[0])
+    source_type = new_source.source_type if in_memory else SourceTypes(webcam, screenshot, from_img)
 
     # Dataloader
     if in_memory:
-        dataset = source
+        dataset = new_source
     elif webcam:
-        dataset = LoadStreams(source,
+        dataset = LoadStreams(new_source,
                               imgsz=imgsz,
                               stride=stride,
                               auto=auto,
@@ -176,9 +176,9 @@ def load_inference_source(source=None, transforms=None, imgsz=640, vid_stride=1,
                               vid_stride=vid_stride)
 
     elif screenshot:
-        dataset = LoadScreenshots(source, imgsz=imgsz, stride=stride, auto=auto, transforms=transforms)
+        dataset = LoadScreenshots(new_source, imgsz=imgsz, stride=stride, auto=auto, transforms=transforms)
     elif from_img:
-        dataset = LoadPilAndNumpy(source, imgsz=imgsz, stride=stride, auto=auto, transforms=transforms)
+        dataset = LoadPilAndNumpy(new_source, imgsz=imgsz, stride=stride, auto=auto, transforms=transforms)
     else:
         dataset = LoadImages(source,
                              imgsz=imgsz,
