@@ -24,6 +24,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.REPORT_BOT_PAT }}
         BATCH_ID: ${{ github.event.client_payload.batch_id }}
+        START_TIME: ${{ github.event.client_payload.start_time }}
         ASSIGNEE: ${{ github.event.client_payload.assignee }}
         REPO: ${{ github.repository }}
         GLOBUS_PREFIX: https://m-ae9b45.7ce1a.03c0.data.globus.org/rsstu/users/s/screberg/${{ github.event.client_payload.lts_developed }}/semifield-developed-images

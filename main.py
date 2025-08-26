@@ -49,8 +49,12 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
     if batch_cfg:
         cfg.batch_id = batch_cfg["batch_id"]
     cfg = extract_season_info(cfg)
-    cfg.start_time = normalize_time_str(cfg.start_time)
-    cfg.end_time = normalize_time_str(cfg.end_time)
+    if cfg.start_time:
+        cfg.start_time = normalize_time_str(cfg.start_time)
+        cfg.end_time = normalize_time_str(cfg.end_time)
+    else:
+        cfg.paths.inspection_dir = Path(cfg.paths.inspection_dir).parent
+
     modes = cfg.modes
     log.info(f"Running pipeline for batch {cfg.batch_id} in {','.join(modes)} mode.")
 
