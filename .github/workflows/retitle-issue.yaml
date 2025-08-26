@@ -31,8 +31,28 @@ jobs:
               return;
             }
 
+            // Extract Start Time (raw)
+            const startMatch = body.match(/### Start Time\s*\n([^\n]+)/);
+            const startRaw = startMatch ? startMatch[1].trim() : "";
+
+            // Normalize "H:MM:SS AM/PM" or "H:MM:SSAM/PM" to 24h "HH:MM:SS"
+            function normalizeStart(t) {
+              if (!t) return "";
+              const compact = t.replace(/\s+/g, "");
+              const m = compact.match(/^(\d{1,2}):([0-5]\d):([0-5]\d)([APap][Mm])$/);
+              if (!m) return ""; // leave off if not present or invalid
+              let h = parseInt(m[1], 10);
+              const mm = m[2], ss = m[3], ap = m[4].toLowerCase();
+              if (h < 1 || h > 12) return "";
+              if (ap === "pm" && h < 12) h += 12;
+              if (ap === "am" && h === 12) h = 0;
+              return `${String(h).padStart(2,"0")}:${mm}:${ss}`;
+            }
+            const start24 = normalizeStart(startRaw);
+
             let newTitle = batchId;
             newTitle += " Batch Processing Request";
+            let newTitle = `${batchId}${start24 ? ` [Start ${start24}]` : ""} Batch Processing Request`;
 
             // Update the issue title
             await github.rest.issues.update({

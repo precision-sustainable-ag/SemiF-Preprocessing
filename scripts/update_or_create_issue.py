@@ -5,6 +5,7 @@ GITHUB_API = "https://api.github.com"
 TOKEN = os.environ["GH_TOKEN"]
 REPO = os.environ["REPO"]
 BATCH_ID = os.environ["BATCH_ID"]
+START_TIME = os.environ.get("START_TIME", "").strip()
 ASSIGNEE = os.environ["ASSIGNEE"]
 GLOBUS_PREFIX = os.environ["GLOBUS_PREFIX"]
 
@@ -68,7 +69,7 @@ def create_issue(title, body, assignee):
     print("Created issue:", resp.json()["html_url"])
 
 def build_failure_body():
-    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.log"
+    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}.log"
     return (
         f"### Task `{TASK_NAME}` failed for batch `{BATCH_ID}`\n\n"
         f"**Error message:**\n```\n{ERROR_MSG}\n```\n\n"
@@ -77,9 +78,9 @@ def build_failure_body():
     )
 
 def build_non_first_success_body():
-    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_report.pdf"
-    globus_asfm_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_asfm_report.pdf"
-    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.yaml"
+    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_report.pdf"
+    globus_asfm_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_asfm_report.pdf"
+    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}.yaml"
     return (
         "### New Inspection Report Available\n\n"
         f"The inspection report for batch `{BATCH_ID}` is ready for review.\n\n"
@@ -90,9 +91,9 @@ def build_non_first_success_body():
     )
 
 def build_first_success_body():
-    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_report.pdf"
-    globus_asfm_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}_asfm_report.pdf"
-    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{BATCH_ID}.yaml"
+    globus_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_report.pdf"
+    globus_asfm_pdf = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}_asfm_report.pdf"
+    globus_log = f"{GLOBUS_PREFIX}/{BATCH_ID}/inspection/{START_TIME}/{BATCH_ID}.yaml"
     return (
         "### New Inspection Report Available\n\n"
         f"The inspection report for batch `{BATCH_ID}` is ready for review.\n\n"
@@ -117,7 +118,9 @@ def build_first_success_body():
 def main():
     
     body = build_first_success_body() if IS_SUCCESS else build_failure_body()
-    title = f"{BATCH_ID} Batch Processing Request"
+    # Compose unique title per (batch_id, start_time)
+    start_suffix = f" [Start {START_TIME}]" if START_TIME else ""
+    title = f"{BATCH_ID}{start_suffix} Batch Processing Request"
     issue_number = find_existing_issue(BATCH_ID, title)
 
     if issue_number:
