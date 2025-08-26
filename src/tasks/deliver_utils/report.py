@@ -34,7 +34,7 @@ class ImageReport:
         self.output_report_dir = Path(cfg.paths.inspection_dir)
         self.output_report_dir.mkdir(parents=True, exist_ok=True)
 
-        self.pdf_output_path = self.output_report_dir / f"{self.batch_id}_{self.start_time}_{self.end_time}_report.pdf"
+        self.pdf_output_path = self.output_report_dir / f"{self.batch_id}_{self.start_time}_report.pdf"
 
         self.plot_file_base = self.output_report_dir / "plots"
         self.plot_file_base.mkdir(parents=True, exist_ok=True)

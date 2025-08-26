@@ -211,9 +211,8 @@ def is_reconstructed(cfg: DictConfig) -> bool:
     if remap_labels_status == "success" and no_remap_label_status != "success" and autosfm_status == "success":
         log.info("Remap label task detected. Using reconstructed labels.")
         return True
-
-    raise RuntimeError("Cannot determine reconstruction status from artifact YAML.")
-
+    
+    return None
 
 def extract_season_info(cfg: DictConfig):
     # Parse batch id
@@ -524,6 +523,7 @@ def create_issue(cfg, issue_type, tsk: str = None, error_msg: str = None):
                 "event_type": "report-generated",
                 "client_payload": {
                     "batch_id": batch_id,
+                    "start_time": cfg.start_time,
                     "assignee": user_id,  # from cfg.report.reviewers
                     "lts_developed": lts_dev_dir_name
                 }
@@ -534,6 +534,7 @@ def create_issue(cfg, issue_type, tsk: str = None, error_msg: str = None):
                 "event_type": "failure-reported",
                 "client_payload": {
                     "batch_id": batch_id,
+                    "start_time": cfg.start_time,
                     "assignee": user_id,
                     "task_name": tsk,
                     "error_msg": error_msg,
