@@ -560,14 +560,14 @@ def main(cfg: DictConfig):
     if cfg.report.save2lts:
         try:
             # Copy report to LTS developed inspection directory
-            report_src = image_report.pdf_output_path
+            report_src_dir = image_report.pdf_output_path.parent
 
-            if report_src.name != "inspection":
-                report_dst = image_report.developed_directory / "inspection" / report_src.name
+            if report_src_dir.name != "inspection":
+                report_dst = image_report.developed_directory / "inspection" / report_src_dir.name
             else:
                 report_dst = image_report.developed_directory / "inspection"
 
-            shutil.copy(str(report_src), report_dst)
+            shutil.copy(str(image_report.pdf_output_path), report_dst)
             log.info(f"Report copied to LTS directory: {report_dst}")
         except Exception as e:
             log.error(f"Error copying report to LTS directory: {e}")
