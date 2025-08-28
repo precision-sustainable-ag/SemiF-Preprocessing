@@ -2059,6 +2059,35 @@
                 167
             ],
             "alias": ["zoysia grass", "zoysiagrass"]
+        },
+        "BEVU2":{
+            "class_id": 70,
+            "USDA_symbol": "BEVU2",
+            "EPPO": "BEAVX",
+            "group": "Dicot",
+            "class": "Magnoliopsida",
+            "subclass": "Caryophyllidae",
+            "order": "Caryophyllales",
+            "family": "Chenopodiaceae",
+            "genus": "Beta",
+            "species": "vulgaris",
+            "common_name": "beet",
+            "authority": "Linnaeus",
+            "growth_habit": "forb/herb",
+            "duration": "annual biennial",
+            "collection_location": null,
+            "category": "beet",
+            "collection_timing": null,
+            "multi_species_USDA_symbol": null,
+            "link": "https://plants.usda.gov/plant-profile/BEVU2",
+            "note": null,
+            "hex": "#436e42",
+            "rgb": [
+                67,
+                110,
+                66
+            ],
+            "alias": ["common beet"]
         }
     },
     "Notes": {

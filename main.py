@@ -55,10 +55,11 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
         cfg.start_time = normalize_time_str(cfg.start_time)
         cfg.end_time = normalize_time_str(cfg.end_time)
     else:
+        log.info(f"Using default inspection directory: {cfg.paths.inspection_dir}")
         cfg.paths.inspection_dir = Path(cfg.paths.inspection_dir).parent
 
-    cfg.cam_angle = check_cam_angle(cfg.cam_angle)
-    cfg.z_axis = check_z_axis(cfg.z_axis)
+    cfg.cam_angle = check_cam_angle(str(cfg.cam_angle))
+    cfg.z_axis = check_z_axis(str(cfg.z_axis))
 
     modes = cfg.modes
     log.info(f"Running pipeline for batch {cfg.batch_id} in {','.join(modes)} mode.")

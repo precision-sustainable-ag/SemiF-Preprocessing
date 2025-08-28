@@ -25,7 +25,7 @@ class ImageReport:
         self.cfg = cfg
         self.batch_id = cfg.batch_id
         
-        self.start_time = cfg.start_time
+        self.start_time = cfg.start_time if cfg.start_time else ""
         self.end_time = cfg.end_time
         self.bbot_version = str(cfg.bbot_version)
         self.lts_dir = find_lts_dir(self.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
@@ -252,7 +252,13 @@ class ImageReport:
 
         c.setFont("Helvetica", 12)
 
-        c.drawString(50, 750, f"SemiField Bbot V{self.bbot_version} Collection Report ({self.start_time} - {self.end_time})")
+
+        if self.start_time:
+            c.drawString(50, 750, f"SemiField Bbot V{self.bbot_version} Collection Report ({self.start_time} - {self.end_time})")
+            c.drawString(50, 730, f"Start/End: {self.start_time} / {self.end_time}")
+        else:
+            c.drawString(50, 750, f"SemiField Bbot V{self.bbot_version} Collection Report")
+
         c.drawString(50, 710, f"Batch ID: {batch_id}")
         c.drawString(50, 690, f"Total Raw Images: {total_images}")
         c.drawString(50, 670, f"Total Raw Size: {total_size / (1024 ** 3):.2f} GiB")

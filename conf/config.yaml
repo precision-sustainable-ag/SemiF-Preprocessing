@@ -20,7 +20,7 @@ job_now: &nowdir ${now:%Y-%m-%d}/${now:%H:%M:%S}
 batch_id: ???
 bbot_version:
 season: # cash_crop_dicamba_2025, summer_weeds_2024  #cool_season_covers_2023_2024, cool_season_covers_2024_2025_bbotv30, cool_season_covers_2024_2025, cool_season_covers_2024_2025_NCpos2, summer_weeds_2024
-create_issue: false # set to true to create an issue in the bbot repo for this batch
+create_issue: # set to true to create an issue in the bbot repo for this batch
 crs:
 gh_reviewer: # nnotaba or mkutu, map0425
 timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be ignored in the batch
