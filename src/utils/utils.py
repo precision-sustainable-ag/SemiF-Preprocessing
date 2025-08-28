@@ -23,6 +23,31 @@ from omegaconf import DictConfig
 
 log = logging.getLogger(__name__)
 
+def check_z_axis(z_axis_str: str) -> str:
+    """
+    Check and normalize the Z-axis string.
+    """
+    if not z_axis_str:
+        return ""
+    z_axis_str = z_axis_str.strip().lower()
+    if z_axis_str.endswith("cm"):
+        z_axis_str = z_axis_str[:-len("cm")].strip()
+    return z_axis_str
+
+def check_cam_angle(cam_angle_str: str) -> str:
+    """
+    Check and normalize the camera angle string.
+    """
+    # check if cam angle is none
+    if not cam_angle_str:
+        return ""
+    cam_angle_str = cam_angle_str.strip().lower()
+    if cam_angle_str.endswith("degrees"):
+        cam_angle_str = cam_angle_str[:-len("degrees")].strip()
+    if cam_angle_str.endswith("degree"):
+        cam_angle_str = cam_angle_str[:-len("degree")].strip()
+
+    return cam_angle_str
 
 def filter_files_by_timestamp(files: list, start_epoch: int, end_epoch: int, image_ids: bool = False) -> list[tuple[Path, bool]]:
     """

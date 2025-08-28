@@ -112,6 +112,8 @@ class RemapLabelsPipeline:
         self.season = cfg.season
         self.batch_id = cfg.batch_id
         self.bbot_version = str(cfg.bbot_version)
+        self.z_axis = float(cfg.z_axis)
+        self.cam_angle = float(cfg.cam_angle)
 
         self.output_dir = self._init_output_dir(cfg)
         self.species_info_remapped = self._remap_species_info(cfg.paths.species_info)
@@ -161,6 +163,8 @@ class RemapLabelsPipeline:
         for f in csv_files:
             df = pd.read_csv(f)
             df["image_id"] = f.stem
+            df["z_axis"] = self.z_axis
+            df["cam_angle"] = self.cam_angle
             dfs.append(df)
         return pd.concat(dfs, ignore_index=True)
 
@@ -226,6 +230,8 @@ class RemapLabelsPipeline:
                     fullres_height=self.fullres_height,
                     camera_info=CameraInfo(
                         fov=FOV(),
+                        cam_angle=self.cam_angle,
+                        z_axis=self.z_axis,
                         camera_coefficients=CameraCoefficients()
                         )
                 )
