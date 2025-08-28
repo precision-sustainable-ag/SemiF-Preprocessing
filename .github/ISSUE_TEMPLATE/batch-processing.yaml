@@ -5,9 +5,12 @@ body:
   - type: markdown
     attributes:
       value: |
-        ## Quick start
-        Fill in **Batch ID**, optional **Start/End Time** in **H:MM:SS AM/PM** (BenchBot local time), choose **Single Species** (and a name if true), and whether to **Perform Reconstruction**.
-        If you're a BenchBot operator, make sure to fill in all the camera and bbot settings.
+        ## **WARNING**
+         All images must be fully uploaded to the NCSU shared NFS storage before submitting this request. Upload time varies with dataset size; for more than ~200 images, allow at least 2 hours for the transfer to complete.
+        
+        ### **Info**
+        - BenchBot operators: please complete all fields.
+        - Unsure about "Perform Reconstruction" or any other option? Please contact @mkutu for guidance.
 
   # --- Core ---
   - type: markdown
@@ -34,10 +37,10 @@ body:
       pattern: '^[A-Z]{2}_[0-9]{4}-[0-9]{2}-[0-9]{2}$'
       message: "Format must be STATE_YYYY-MM-DD (e.g., MD_2025-07-09)."
 
-  # --- Scheduling (optional) ---
+  # --- Scheduling ---
   - type: markdown
     attributes:
-      value: "### Scheduling (optional)"
+      value: "### Scheduling "
 
   - type: input
     id: start_time
@@ -120,7 +123,7 @@ body:
       pattern: '^\d+$'
       message: "Enter a non-negative integer."
 
-  # --- Context (optional) ---
+  # --- Context ---
   - type: markdown
     attributes:
       value: "### Notes (please provide any relevant information)"
@@ -132,10 +135,10 @@ body:
       label: Notes
       description: Any relevant notes, observations, or issues
 
-  # --- Capture details (optional) ---
+  # --- Capture details ---
   - type: markdown
     attributes:
-      value: "### Capture details (optional)"
+      value: "### Capture details"
 
   - type: input
     id: num_images
@@ -147,6 +150,15 @@ body:
       required: false
       pattern: '^\d+$'
       message: "Enter a non-negative integer."
+
+  - type: dropdown
+    id: camera_angle
+    attributes:
+      label: Camera Angle
+      description: Select the camera angle used for imaging.
+      options:
+        - '0 degrees'
+        - '20 degrees'
 
   - type: input
     id: x_axis_start
@@ -182,10 +194,21 @@ body:
       message: "Enter a non-negative integer."
 
   - type: input
-    id: row_spacing
+    id: bbot_row_spacing
     attributes:
-      label: Row Spacing (cm)
-      description: Spacing between rows
+      label: BBot Settings Row Spacing (cm)
+      description: Row spacing you input into the Bbot control panel (might differ than what's actually used)
+      placeholder: e.g., 95
+    validations:
+      required: false
+      pattern: '^\d+(\.\d+)?$'
+      message: "Enter a number (integer or decimal)."
+
+  - type: input
+    id: ground_row_spacing
+    attributes:
+      label: On-the-ground Row Spacing (cm)
+      description: Actual row spacing on the ground
       placeholder: e.g., 40
     validations:
       required: false
@@ -214,10 +237,10 @@ body:
       pattern: '^\d+$'
       message: "Enter a non-negative integer."
 
-  # --- Camera settings (optional) ---
+  # --- Camera settings  ---
   - type: markdown
     attributes:
-      value: "### Camera settings (optional)"
+      value: "### Camera settings"
 
   - type: input
     id: aperture
