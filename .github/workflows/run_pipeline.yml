@@ -69,18 +69,22 @@ jobs:
           SKIP_FIRST_N=$(echo "$BODY" | awk '/### Skip First N Images/{flag=1; next} flag && NF {print; exit}' | xargs)
           SKIP_LAST_N=$(echo "$BODY" | awk '/### Skip Last N Images/{flag=1; next} flag && NF {print; exit}' | xargs)
 
+          # Start and end times
           START_TIME_RAW=$(echo "$BODY" | awk '/### Start Time/{flag=1; next} flag && NF {print; exit}')
           END_TIME_RAW=$(echo "$BODY" | awk '/### End Time/{flag=1; next} flag && NF {print; exit}')
 
-          
+          # Camera metadata
+          CAM_ANGLE=$(echo "$BODY" | awk '/### Camera Angle/{flag=1; next} flag && NF {print; exit}' | xargs)
+          Z_AXIS=$(echo "$BODY" | awk '/### Z-axis/{flag=1; next} flag && NF {print; exit}' | xargs)
+
           echo "Batch ID:               $BATCH_ID"
           echo "Perform Reconstruction: $PERFORM_RECON"
           echo "Single Species:         $SINGLE_SPECIES"
           echo "Species Name:           $SINGLE_SPECIES_NAME"
           echo "Skip First N:           ${SKIP_FIRST_N:-<none>}"
           echo "Skip Last N:            ${SKIP_LAST_N:-<none>}"
-          echo "Start Time (raw):       ${START_TIME_RAW:-<none>}"
-          echo "End Time (raw):         ${END_TIME_RAW:-<none>}"
+          echo "Camera Angle:           ${CAM_ANGLE:-<none>}"
+          echo "Z-axis:                 ${Z_AXIS:-<none>}"
 
           # -------- Validate H:MM:SS AM/PM and convert to 24h --------
           normalize_time() {
@@ -130,6 +134,8 @@ jobs:
           [[ -n "$SKIP_LAST_N"  ]] && BASE_ARGS+=("asfm.skip_last_n_images=$SKIP_LAST_N")
           [[ -n "$START_TIME"   ]] && BASE_ARGS+=("start_time=$START_TIME")
           [[ -n "$END_TIME"     ]] && BASE_ARGS+=("end_time=$END_TIME")
+          [[ -n "$CAM_ANGLE"   ]] && BASE_ARGS+=("cam_angle=$CAM_ANGLE")
+          [[ -n "$Z_AXIS" ]] && BASE_ARGS+=("z_axis=$Z_AXIS")
 
           if [[ "$PERFORM_RECON" == "false" ]]; then
             # ----- NO reconstruction path -----

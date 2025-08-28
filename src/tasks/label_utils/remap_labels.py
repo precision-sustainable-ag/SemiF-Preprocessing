@@ -35,6 +35,8 @@ log = logging.getLogger(__name__)
 
 class DataMerger:
     def __init__(self, cfg: DictConfig) -> None:
+        self.cam_angle = float(cfg.cam_angle)
+        self.z_axis = float(cfg.z_axis)
         self.batch_dir = Path(cfg.paths.batch_dir)
         self.reference_dir = Path(cfg.paths.autosfm) / "reference"
         self.detections_dir = Path(cfg.paths.plant_detection_dir)
@@ -64,11 +66,15 @@ class DataMerger:
                 if df.empty:
                     empty_data = {col: None for col in df.columns}
                     empty_data["image_id"] = f.stem
+                    empty_data["z_axis"] = self.z_axis
+                    empty_data["cam_angle"] = self.cam_angle
                     empty_row = pd.DataFrame([empty_data])
                     dfs.append(empty_row)
                     log.debug(f"Empty CSV found and placeholder inserted: {f.name}")
                 else:
                     df["image_id"] = f.stem
+                    df["z_axis"] = self.z_axis
+                    df["cam_angle"] = self.cam_angle
                     dfs.append(df)
             except Exception as e:
                 log.error(f"Failed to read CSV: {f.name} - {e}")
@@ -379,6 +385,8 @@ class RemapLabels:
             camera_info = CameraInfo(
                 aligned=rows["Alignment"].iloc[0],
                 fov=self._fov(rows),
+                z_axis=rows["z_axis"].iloc[0],
+                cam_angle=rows["cam_angle"].iloc[0],
                 estimated_xyz=self._camera_loc(rows),
                 estimated_yaw=rows["Estimated_Yaw"].iloc[0],
                 estimated_pitch=rows["Estimated_Pitch"].iloc[0],

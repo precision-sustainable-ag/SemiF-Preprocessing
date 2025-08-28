@@ -50,6 +50,8 @@ class CameraCoefficients:
 @dataclass
 class CameraInfo:
     fov: FOV
+    z_axis: float
+    cam_angle: float
     camera_coefficients: CameraCoefficients
     aligned: bool = None
     estimated_xyz: List[float] = None

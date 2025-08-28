@@ -27,6 +27,8 @@ timestamp: # epoch timestamp for raw2jpg. Anything before this timestamp will be
 run_mode: single # single or batch
 start_time:
 end_time:
+cam_angle:
+z_axis: 
 
 # Toggle the modes you want to run
 modes:

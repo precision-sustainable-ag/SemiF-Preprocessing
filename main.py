@@ -23,6 +23,8 @@ from src.deliver import main as deliver
 from src.label import main as label
 from src.sync_from_remote import main as sync
 from src.utils.utils import (
+    check_cam_angle,
+    check_z_axis,
     create_issue,
     read_yaml,
     retry_nfs_access,
@@ -54,6 +56,9 @@ def run_single_batch(cfg: DictConfig, batch_cfg: dict = None) -> None:
         cfg.end_time = normalize_time_str(cfg.end_time)
     else:
         cfg.paths.inspection_dir = Path(cfg.paths.inspection_dir).parent
+
+    cfg.cam_angle = check_cam_angle(cfg.cam_angle)
+    cfg.z_axis = check_z_axis(cfg.z_axis)
 
     modes = cfg.modes
     log.info(f"Running pipeline for batch {cfg.batch_id} in {','.join(modes)} mode.")
