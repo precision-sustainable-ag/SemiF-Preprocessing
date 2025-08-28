@@ -172,10 +172,10 @@ body:
       message: "Enter a number (integer or decimal)."
 
   - type: input
-    id: z_axis_start
+    id: z_axis
     attributes:
-      label: Z-axis Start (cm)
-      description: Z-axis starting position
+      label: Z-axis
+      description: Z-axis or camera height above potting surface in cm.
       placeholder: e.g., 170
     validations:
       required: false
