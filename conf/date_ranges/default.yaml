@@ -47,7 +47,7 @@ MD:
     pipeline_season: summer_weeds_2025
     gh_reviewer: nnotaba
   beets_2025:
-    start: "2025-08-29"
+    start: "2025-08-25"
     end: "2025-10-10"
     bbot_version: 3.1
     crs: 32618
