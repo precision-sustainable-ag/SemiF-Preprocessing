@@ -140,8 +140,8 @@ jobs:
           BASE_ARGS=(batch_id="$BATCH_ID" create_issue=true)
           [[ -n "$SKIP_FIRST_N" ]] && BASE_ARGS+=("asfm.skip_first_n_images=$SKIP_FIRST_N")
           [[ -n "$SKIP_LAST_N"  ]] && BASE_ARGS+=("asfm.skip_last_n_images=$SKIP_LAST_N")
-          [[ -n "$START_TIME"   ]] && BASE_ARGS+=("start_time=$START_TIME")
-          [[ -n "$END_TIME"     ]] && BASE_ARGS+=("end_time=$END_TIME")
+          [[ -n "$START_TIME"   ]] && BASE_ARGS+=("start_time=\"$START_TIME\"")
+          [[ -n "$END_TIME"     ]] && BASE_ARGS+=("end_time=\"$END_TIME\"")
           [[ -n "$CAM_ANGLE"   ]] && BASE_ARGS+=("cam_angle=$CAM_ANGLE")
           [[ -n "$Z_AXIS" ]] && BASE_ARGS+=("z_axis=$Z_AXIS")
 
