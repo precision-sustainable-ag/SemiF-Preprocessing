@@ -120,7 +120,7 @@ class RemapLabelsPipeline:
         
         self.fullres_width, self.fullres_height = self._determine_fullres_dims(cfg, self.bbot_version)
         
-        self.species_class = cfg.assign_species.assign_all_bboxes.label
+        self.species_class = cfg.assign_species.assign_all_bboxes.label.lower()
         self.df = self._load_detections()
 
     @staticmethod
@@ -141,7 +141,7 @@ class RemapLabelsPipeline:
         """
         with open(species_info_json, "r") as f:
             species_info = json.load(f)
-        return {v["common_name"]: v for _, v in species_info["species"].items()}
+        return {v["common_name"].lower(): v for _, v in species_info["species"].items()}
 
     @staticmethod
     def _determine_fullres_dims(cfg: DictConfig, bbot_version: str) -> Tuple[int, int]:
