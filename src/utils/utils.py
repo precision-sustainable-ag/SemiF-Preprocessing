@@ -433,19 +433,23 @@ def find_lts_dir(batch_id: str, nfs_locations: list[str], local: bool = False,
                     batch_location.glob("*.raw"))
             # Check if any RAW files are present
             if files:
+                files_found = True
                 # todo: md5 checksum for data verification?
                 log.info(
                     f"Batch {batch_id} found in {batch_location} with {len(files)} {'RAW' if not developed else ('JPG' if jpgs else 'PNG')} files")
                 return nfs_location
     if not dir_found:
-        log.error(
-            f"Batch {batch_id} not found in NFS locations: {nfs_locations}")
+        errorMessage = f"Batch {batch_id} not found in NFS locations: {nfs_locations}"
+        log.error(errorMessage)
+        raise FileNotFoundError(errorMessage)
     elif not files_found:
-        log.error(
-            f"Batch {batch_id} found in {batch_location} but no RAW files found")
+        errorMessage = f"Batch {batch_id} found in {batch_location} but no RAW files found"
+        log.error(errorMessage)
+        raise FileNotFoundError(errorMessage)
     elif not upload_complete:
-        log.error(
-            f"Batch {batch_id} found in {batch_location} but RAW files are not completely uploaded")
+        errorMessage = f"Batch {batch_id} found in {batch_location} but RAW files are not completely uploaded"
+        log.error(errorMessage)
+        raise FileNotFoundError(errorMessage)
     return None
 
 
