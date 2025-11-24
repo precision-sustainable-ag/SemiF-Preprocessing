@@ -42,6 +42,8 @@ from ultralytics.yolo.utils.checks import check_imgsz, check_imshow
 from ultralytics.yolo.utils.files import increment_path
 from ultralytics.yolo.utils.torch_utils import select_device, smart_inference_mode
 from ultralytics.yolo.data.augment import LetterBox
+from ultralytics.yolo.engine.results import Results
+from torchvision.ops import batched_nms
 import math
 
 def clip_coords(boxes, shape):
@@ -77,7 +79,135 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     #coords[:, :4] /= gain
     clip_coords(coords, img0_shape)
     return coords
-    
+
+def iou_xyxy(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """Pairwise IoU for [N,4] and [M,4] in xyxy format."""
+    tl = torch.max(a[:, None, :2], b[None, :, :2])
+    br = torch.min(a[:, None, 2:], b[None, :, 2:])
+    wh = (br - tl).clamp(min=0)
+    inter = wh[..., 0] * wh[..., 1]
+    area_a = ((a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1]))[:, None]
+    area_b = ((b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1]))[None, :]
+    union = area_a + area_b - inter + 1e-9
+    return inter / union
+
+
+@torch.no_grad()
+def weighted_boxes_fusion(
+    boxes_xyxy: torch.Tensor,
+    scores: torch.Tensor,
+    labels: torch.Tensor,
+    iou_thr: float = 0.55,
+    score_power: float = 1.0,
+    conf_type: str = "avg",
+    skip_box_thr: float = 0.0,
+) -> torch.Tensor:
+    """
+    Simple WBF that returns [M,6] (xyxy, conf, cls) after fusing duplicates per class.
+    """
+    device = boxes_xyxy.device
+    boxes_xyxy = boxes_xyxy.detach().float()
+    scores = scores.detach().float()
+    labels = labels.detach().float()
+
+    keep = scores >= skip_box_thr
+    boxes_xyxy, scores, labels = boxes_xyxy[keep], scores[keep], labels[keep]
+
+    out_boxes, out_scores, out_labels = [], [], []
+
+    for cls in labels.unique():
+        m = labels == cls
+        if m.sum() == 0:
+            continue
+        b = boxes_xyxy[m]
+        s = scores[m]
+
+        order = torch.argsort(s, descending=True)
+        b = b[order]
+        s = s[order]
+
+        clusters: list[list[int]] = []
+        for i in range(b.size(0)):
+            if not clusters:
+                clusters.append([i])
+                continue
+            reps = b[torch.tensor([c[0] for c in clusters], device=b.device)]
+            ious = iou_xyxy(b[i : i + 1], reps).squeeze(0)
+            j = torch.argmax(ious)
+            if ious[j] >= iou_thr:
+                clusters[j].append(i)
+            else:
+                clusters.append([i])
+
+        for idxs in clusters:
+            idxs_t = torch.tensor(idxs, device=b.device)
+            bb = b[idxs_t]
+            ss = s[idxs_t]
+            w = ss ** score_power
+            w = w / (w.sum() + 1e-9)
+            fused = (bb * w[:, None]).sum(dim=0)
+
+            conf = ss.max() if conf_type == "max" else ss.mean()
+            out_boxes.append(fused)
+            out_scores.append(conf)
+            out_labels.append(cls)
+
+    if not out_boxes:
+        return torch.zeros((0, 6), device=device, dtype=torch.float32)
+
+    out_boxes = torch.stack(out_boxes).to(device)
+    out_scores = torch.stack(out_scores).to(device)
+    out_labels = torch.stack(out_labels).to(device)
+    return torch.cat([out_boxes, out_scores[:, None], out_labels[:, None]], dim=1)
+
+
+def edge_aware_filter(
+    boxes_xyxy: np.ndarray,   # [N,4] absolute pixels
+    scores: np.ndarray,       # [N]
+    img_wh: tuple[int, int],  # (W, H)
+    *,
+    base_conf: float = 0.70,      # normal final conf
+    edge_band_rel: float = 0.08,  # within 8% of the nearest edge = edge zone
+    min_factor: float = 0.60,     # allow down to 60% of base_conf at the edge
+    taper_rel: float = 0.20       # linearly ramp back to base_conf by 20% distance
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Per-box dynamic threshold:
+        thr_i = base_conf * f(d_edge_rel)
+
+    Returns:
+      keep_mask: [N] bool
+      dyn_thr:   [N] per-box thresholds used (float32)
+    """
+    if len(boxes_xyxy) == 0:
+        return np.zeros((0,), dtype=bool), np.zeros((0,), dtype=np.float32)
+
+    W, H = map(float, img_wh)
+    cx = (boxes_xyxy[:, 0] + boxes_xyxy[:, 2]) * 0.5
+    cy = (boxes_xyxy[:, 1] + boxes_xyxy[:, 3]) * 0.5
+
+    d_left   = cx
+    d_right  = W - cx
+    d_top    = cy
+    d_bottom = H - cy
+    d_edge_px = np.minimum.reduce([d_left, d_right, d_top, d_bottom])
+
+    min_side = min(W, H)
+    d_edge_rel = d_edge_px / (min_side + 1e-9)
+
+    f = np.ones_like(d_edge_rel, dtype=np.float32)
+    near = d_edge_rel <= edge_band_rel
+    far  = d_edge_rel >= taper_rel
+    mid  = ~(near | far)
+
+    f[near] = float(min_factor)
+    if np.any(mid):
+        t = (d_edge_rel[mid] - edge_band_rel) / max(taper_rel - edge_band_rel, 1e-6)
+        f[mid] = min_factor + t * (1.0 - min_factor)
+
+    dyn_thr = (base_conf * f).astype(np.float32)
+    keep_mask = scores >= dyn_thr
+    return keep_mask, dyn_thr
 
 
 class BasePredictor:
@@ -134,6 +264,7 @@ class BasePredictor:
         self.annotator = None
         self.data_path = None
         self.source_type = None
+        self._logged_postprocess_once = False  # debug flag for postprocess logging
         
         self.callbacks = defaultdict(list, callbacks.default_callbacks)  # add callbacks
         callbacks.add_integration_callbacks(self)
@@ -148,7 +279,130 @@ class BasePredictor:
         raise NotImplementedError("print_results function needs to be implemented")
 
     def postprocess(self, preds, img, orig_img, classes=None):
-        return preds
+        """
+        Postprocess for multiscale fusion:
+
+        Expects:
+          preds: [K, 6] tensor (xyxy, conf, cls) in ORIGINAL image coordinates,
+                 merged across all scales.
+
+        Steps:
+          1. Optional class filter.
+          2. Edge-aware dynamic thresholding (per-box conf adjustment).
+          3. Weighted Boxes Fusion (WBF) across overlapping boxes.
+          4. Final class-aware NMS.
+          5. Return (results, results_raw).
+        """
+        device = preds.device if isinstance(preds, torch.Tensor) else torch.device("cpu")
+
+        if (not isinstance(preds, torch.Tensor)) or preds.numel() == 0:
+            LOGGER.info("[postprocess] No predictions; returning empty Results.")
+            img0 = orig_img[0] if isinstance(orig_img, list) else orig_img
+            final = torch.zeros((0, 6), device=device)
+            results = [Results(boxes=final.cpu(), orig_shape=img0.shape[:2])]
+            return results, final
+
+        if preds.ndim == 3:
+            LOGGER.warning(f"[postprocess] preds.ndim==3, using preds[0]. shape={tuple(preds.shape)}")
+            preds = preds[0]
+        if preds.shape[-1] < 6:
+            raise RuntimeError(f"[postprocess] Expected last dim >= 6, got {preds.shape}.")
+
+        img0 = orig_img[0] if isinstance(orig_img, list) else orig_img
+        H, W = img0.shape[:2]
+
+        boxes_xyxy = preds[:, :4]
+        scores = preds[:, 4]
+        labels = preds[:, 5]
+
+        LOGGER.info(f"[postprocess] Incoming merged boxes: {boxes_xyxy.shape[0]}")
+
+        if classes is not None:
+            keep_cls = torch.zeros_like(labels, dtype=torch.bool)
+            for c in classes:
+                keep_cls |= (labels == c)
+            before_cls = boxes_xyxy.shape[0]
+            boxes_xyxy = boxes_xyxy[keep_cls]
+            scores = scores[keep_cls]
+            labels = labels[keep_cls]
+            LOGGER.info(f"[postprocess] Class filter: {before_cls} -> {boxes_xyxy.shape[0]} boxes")
+
+        if boxes_xyxy.numel() == 0:
+            LOGGER.info("[postprocess] No boxes left after class filter.")
+            final = torch.zeros((0, 6), device=device)
+            results = [Results(boxes=final.cpu(), orig_shape=img0.shape[:2])]
+            return results, final
+
+        boxes_np = boxes_xyxy.detach().cpu().numpy().astype(np.float32)
+        scores_np = scores.detach().cpu().numpy().astype(np.float32)
+
+        keep_mask_np, _dyn_thr = edge_aware_filter(
+            boxes_np,
+            scores_np,
+            img_wh=(W, H),
+            base_conf=float(self.args.conf),
+            edge_band_rel=0.08,
+            min_factor=0.50,
+            taper_rel=0.20,
+        )
+        keep_mask = torch.from_numpy(keep_mask_np).to(device)
+
+        before_edge = boxes_xyxy.shape[0]
+        boxes_xyxy = boxes_xyxy[keep_mask]
+        scores = scores[keep_mask]
+        labels = labels[keep_mask]
+        LOGGER.info(f"[postprocess] Edge-aware filter: {before_edge} -> {boxes_xyxy.shape[0]} boxes")
+
+        if boxes_xyxy.numel() == 0:
+            LOGGER.info("[postprocess] No boxes left after edge-aware filter.")
+            final = torch.zeros((0, 6), device=device)
+            results = [Results(boxes=final.cpu(), orig_shape=img0.shape[:2])]
+            return results, final
+
+        fused = weighted_boxes_fusion(
+            boxes_xyxy,
+            scores,
+            labels,
+            iou_thr=0.65,
+            score_power=1.0,
+            conf_type="max",
+            skip_box_thr=0.0,
+        )
+        LOGGER.info(f"[postprocess] After WBF: {fused.shape[0]} fused boxes")
+
+        if fused.numel() == 0:
+            LOGGER.info("[postprocess] No boxes after WBF.")
+            final = torch.zeros((0, 6), device=device)
+            results = [Results(boxes=final.cpu(), orig_shape=img0.shape[:2])]
+            return results, final
+
+        fused[:, 5] = fused[:, 5].round()
+
+        keep = batched_nms(
+            fused[:, :4],
+            fused[:, 4],
+            fused[:, 5].to(torch.int64),
+            iou_threshold=float(self.args.iou),
+        )
+        before_nms2 = fused.shape[0]
+        fused = fused[keep]
+        LOGGER.info(f"[postprocess] Final NMS: {before_nms2} -> {fused.shape[0]} boxes")
+
+        max_det = getattr(self.args, "max_det", 3000)
+        if fused.shape[0] > max_det:
+            order = torch.argsort(fused[:, 4], descending=True)
+            fused = fused[order[:max_det]]
+            LOGGER.info(f"[postprocess] max_det clipping to {max_det} boxes")
+
+        final = fused 
+
+        results = [Results(
+            boxes=final.detach().cpu(),
+            orig_shape=img0.shape[:2],
+        )]
+
+        LOGGER.info(f"[postprocess] Finished; returning {final.shape[0]} boxes.")
+        return results, final
 
     @smart_inference_mode()
     def __call__(self, source=None, model=None, stream=False, batch_name=None, save_dir=None, dev_mode_write_path=None):
