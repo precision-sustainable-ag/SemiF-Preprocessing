@@ -49,7 +49,6 @@ tasks: # task for each mode
     - autosfm
   label:
     - detect_plants
-    - merge_overlapping_bboxes
     - remap_labels
     - assign_species
     # - no_remap_label # used for no remapping label task

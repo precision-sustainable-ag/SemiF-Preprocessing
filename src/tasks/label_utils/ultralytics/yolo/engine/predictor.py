@@ -595,26 +595,35 @@ class BasePredictor:
         cv2.waitKey(1)  # 1 millisecond
 
     def save_preds(self, vid_cap, idx, save_path):
-        im0 = self.annotator.result()
+        if self.annotator is not None:
+            im0 = self.annotator.result()
+        else:
+            try:
+                path, im, im0s, vid_cap_cur, s = self.batch
+                im0 = im0s[0] if isinstance(im0s, list) else im0s
+            except Exception:
+                LOGGER.warning("[save_preds] annotator is None and no batch image available; skipping save.")
+                return
+
         # save imgs
-        if True:#self.dataset.mode == 'image':
+        if True:  # self.dataset.mode == 'image'
             print("saving image...")
-            h,w = im0.shape[0:2]
+            h, w = im0.shape[0:2]
             resized_h, resized_w = h // 8, w // 8
-            im0 = cv2.resize(im0, (resized_w, resized_h), interpolation = cv2.INTER_CUBIC)
+            im0 = cv2.resize(im0, (resized_w, resized_h), interpolation=cv2.INTER_CUBIC)
             cv2.imwrite(save_path, im0)
-        else:  # 'video' or 'stream'
+        else:
             if self.vid_path[idx] != save_path:  # new video
                 self.vid_path[idx] = save_path
                 if isinstance(self.vid_writer[idx], cv2.VideoWriter):
-                    self.vid_writer[idx].release()  # release previous video writer
+                    self.vid_writer[idx].release()
                 if vid_cap:  # video
-                    fps = int(vid_cap.get(cv2.CAP_PROP_FPS))  # integer required, floats produce error in MP4 codec
+                    fps = int(vid_cap.get(cv2.CAP_PROP_FPS))
                     w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                     h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
                 else:  # stream
                     fps, w, h = 30, im0.shape[1], im0.shape[0]
-                save_path = str(Path(save_path).with_suffix('.mp4'))  # force *.mp4 suffix on results videos
+                save_path = str(Path(save_path).with_suffix('.mp4'))
                 self.vid_writer[idx] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
             self.vid_writer[idx].write(im0)
 

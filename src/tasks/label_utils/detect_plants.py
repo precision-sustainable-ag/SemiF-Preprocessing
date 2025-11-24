@@ -4,7 +4,9 @@ import torch
 from ultralytics.yolo.engine.predictor import BasePredictor
 from ultralytics.yolo.utils import DEFAULT_CFG
 from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
+import csv
 import hydra
+import numpy as np
 from omegaconf import DictConfig
 import logging
 from pathlib import Path
@@ -13,15 +15,35 @@ from src.utils.utils import find_lts_dir, get_files
 log = logging.getLogger(__name__)
 
 
+def save_csv_predictions(preds, save_path: str, class_names: dict):
+    """
+    preds: tensor Nx6  -> [xmin, ymin, xmax, ymax, conf, cls]
+    save_path: file path (.csv)
+    class_names: model.names mapping {cls_id: name}
+    """
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(save_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["bounding_box_id", "xmin", "ymin", "xmax", "ymax", "conf", "class", "classname"])
+
+        for i, det in enumerate(preds):
+            xmin, ymin, xmax, ymax, conf, cls_id = det.tolist()
+            cls_id = int(cls_id)
+            cls_name = class_names.get(cls_id, "unknown")
+
+            writer.writerow([i, xmin, ymin, xmax, ymax, conf, cls_id, cls_name])
+
 class DetectionPredictor(BasePredictor):
 
     def get_annotator(self, img):
         return Annotator(img, line_width=self.args.line_thickness, example=str(self.model.names))
 
     def preprocess(self, img):
-        img = torch.from_numpy(img).to(self.model.device)
-        img = img.half() if self.model.fp16 else img.float()  # uint8 to fp16/32
-        img /= 255  # 0 - 255 to 0.0 - 1.0
+        img = torch.from_numpy(img.copy()).to(self.model.device)
+        img = img.half() if self.model.fp16 else img.float()
+        img /= 255
         return img
 
     #def postprocess(self, preds, img, orig_img, classes=None):
@@ -88,7 +110,65 @@ class DetectionPredictor(BasePredictor):
                              BGR=True)
 
         return log_string
+    
+    def export_predictions(self, results_raw, save_dir, filename, names, im0):
+        """
+        Save detections in YOLO txt format:
+        one line per box:  cls x_center y_center width height conf
+        (all coords normalized to [0,1] w.r.t image size).
+        """
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
 
+        stem = Path(filename).stem
+        out_path = save_dir / f"{stem}.txt"
+
+        if results_raw is None or results_raw.numel() == 0:
+            out_path.touch()
+            return
+
+        boxes = results_raw.detach().cpu() 
+        xyxy = boxes[:, :4]
+        conf = boxes[:, 4]
+        cls = boxes[:, 5].to(torch.int64)
+
+        h, w = im0.shape[:2]
+
+        # xyxy → normalized xywh
+        x1 = xyxy[:, 0]
+        y1 = xyxy[:, 1]
+        x2 = xyxy[:, 2]
+        y2 = xyxy[:, 3]
+
+        xc = ((x1 + x2) / 2.0) / w
+        yc = ((y1 + y2) / 2.0) / h
+        bw = (x2 - x1) / w
+        bh = (y2 - y1) / h
+
+        with open(out_path, "w") as f:
+            for i in range(xc.shape[0]):
+                f.write(
+                    f"{int(cls[i])} "
+                    f"{xc[i]:.6f} {yc[i]:.6f} "
+                    f"{bw[i]:.6f} {bh[i]:.6f} "
+                    f"{conf[i]:.6f}\n"
+                )
+        
+        csv_path = save_dir / f"{stem}.csv"
+
+        xyxy_norm = boxes[:, :4].clone()
+        xyxy_norm[:, 0] /= w 
+        xyxy_norm[:, 2] /= w    
+        xyxy_norm[:, 1] /= h    
+        xyxy_norm[:, 3] /= h   
+
+        csv_preds = torch.cat([xyxy_norm, boxes[:, 4:6]], dim=1)
+
+        save_csv_predictions(
+            preds=csv_preds,
+            save_path=csv_path,
+            class_names=names
+        )
 
 def predict(opt, cfg=DEFAULT_CFG, use_python=True, save=True, save_dir="test_output", save_crop=True, save_txt=True, imgsz=3000):
     # model = "data/runs_yolov8/detect/train22/weights/last.pt"  #cfg.model or "yolov8n.pt"
