@@ -137,8 +137,16 @@ def get_files(cfg: DictConfig, task: str) -> List[Path]:
     raw_dir = find_raw_dir(local_data_dir, batch_id, lts_dir)
     lts_jpg_dst = lts_dir / "semifield-developed-images" / batch_id / "images"
 
-    start_time, end_time = cfg.get("start_time").upper(), cfg.get("end_time").upper()
-    log.info(f"Filtering files between {start_time} and {end_time}")
+    start_time_raw = cfg.get("start_time", None)
+    end_time_raw   = cfg.get("end_time", None)
+
+    start_time = (start_time_raw or "").upper()
+    end_time   = (end_time_raw or "").upper()
+
+    if not start_time or not end_time:
+        log.info("No start_time/end_time provided; using full time range (no filtering).")
+    else:
+        log.info(f"Filtering files between {start_time} and {end_time}")
 
     def _filter_by_time(files):
         if start_time and end_time:

@@ -201,92 +201,103 @@ class BasePredictor:
             self.batch = batch
             path, im, im0s, vid_cap, s = batch
             visualize = increment_path(self.save_dir / Path(path).stem, mkdir=True) if self.args.visualize else False
+
+            img0 = im0s[0] if isinstance(im0s, list) else im0s
+            print(img0.shape)
+
+            all_det = [] 
+
             for idx, im_scale in enumerate(self.multiscale_inference_scales):
                 with self.dt[0]:
-                    print(im0s.shape)
-                    
-                    fitted_im_width = check_imgsz(int(self.args.imgsz*im_scale))
-                    fitted_im_height = check_imgsz(int(self.args.imgsz*im_scale/im0s.shape[1]*im0s.shape[0]))
-                    #print(fitted_im_height, fitted_im_width)
-                    #im_multi_res_scaled = LetterBox(check_imgsz(int(self.args.imgsz*im_scale), stride=32, min_dim=2), True, stride=32)(image=im0s)
-                    #im_multi_res_scaled = cv2.resize(im0s, check_imgsz(int(self.args.imgsz*im_scale), stride=32, min_dim=2), True, stride=32)(image=im0s)
-                    im_multi_res_scaled = cv2.resize(im0s, (fitted_im_width,fitted_im_height) , interpolation = cv2.INTER_CUBIC)
-                    #print(im_multi_res_scaled.shape)
-                    im_multi_res_scaled = im_multi_res_scaled.transpose((2, 0, 1))[::-1]
-                    im_multi_res_scaled = self.preprocess(im_multi_res_scaled)
-                    if len(im_multi_res_scaled.shape) == 3:
-                        im_multi_res_scaled = im_multi_res_scaled[None]  # expand for batch dim
-                    #print(im_multi_res_scaled.shape)
-                # Inference
-                
-                with self.dt[1]:
-                    if(idx==0):
-                        preds = self.model(im_multi_res_scaled, augment=self.args.augment, visualize=visualize)[0]
-                        #print(preds.shape)
-                        #print(preds)
-                            #ops.scale_boxes(img.shape[2:], pred[:, :4], shape).round()
-                        preds_xyxy_all = ops.xywh2xyxy(preds)
-                        preds_xyxy_all[:,:4] = scale_coords( im_multi_res_scaled.shape[2:], preds_xyxy_all[:, :4], im0s.shape).round()
-                        preds[:, :4] = ops.xyxy2xywh(preds_xyxy_all)[:,:4]
-                        #print("box before scaling..", str(preds[:,:,1:3]))
-                        #preds[:,:4] = ops.scale_boxes(im_multi_res_scaled.shape[2:], preds[:, :4], im0s.shape).round()
-                        #print("box after scaling..", str(preds[:,:,1:3]))
-                        
-                        
-                        #    pred_xyxy_all = xywh2xyxy(pred[0,:,:])
-                        #    pred_xyxy_all[:,:4] = scale_coords( im.shape[2:], pred_xyxy_all[:, :4], im0s.shape).round()
-                        #    pred[0,:, :4] = xyxy2xywh(pred_xyxy_all)[:,:4]
-                    
-                    
-                        #yolov5: 
-                        #  pred_xyxy_all = xywh2xyxy(pred[0,:,:])
-                        #  pred_xyxy_all[:,:4] = scale_coords( im.shape[2:], pred_xyxy_all[:, :4], im0s.shape).round()
-                        #  pred[0,:, :4] = xyxy2xywh(pred_xyxy_all)[:,:4]
-                        #pred_xyxy_all = pred.boxes.xyxy
-                        #pred_xyxy_all[:,:4] = utils.ops.scale_boxes( im.shape, pred_xyxy_all[:, :4], im0s.shape).round()
-                        #pred.boxes.xyxy[:, :4] = pred_xyxy_all[:,:4]
-                        #predicted_boxes = pred.boxes.data
-                    else:
-                        preds_temp = self.model(im_multi_res_scaled, augment=self.args.augment, visualize=visualize)[0]
-                        preds_xyxy_temp = ops.xywh2xyxy(preds_temp)
-                        preds_xyxy_temp[:,:4] = scale_coords( im_multi_res_scaled.shape[2:], preds_xyxy_temp[:, :4], im0s.shape).round()
-                        preds_temp[:, :4] = ops.xyxy2xywh(preds_xyxy_temp)[:,:4]
-                        #print(pred.shape)
-                        #print(preds.shape, preds_temp.shape, im.shape[0:2])
-                        preds = torch.cat((preds, preds_temp), 2)
-                        #print(preds.shape)
+                    fitted_im_width = check_imgsz(int(self.args.imgsz * im_scale))
+                    fitted_im_height = check_imgsz(
+                        int(self.args.imgsz * im_scale / img0.shape[1] * img0.shape[0])
+                    )
 
-            # postprocess
+                    resized = cv2.resize(
+                        img0,
+                        (fitted_im_width, fitted_im_height),
+                        interpolation=cv2.INTER_CUBIC,
+                    )
+
+                    im_multi_res_scaled = resized.transpose((2, 0, 1))[::-1].copy()
+                    im_multi_res_scaled = self.preprocess(im_multi_res_scaled)
+                    if im_multi_res_scaled.ndim == 3:
+                        im_multi_res_scaled = im_multi_res_scaled[None]  # [1,3,H,W]
+
+                with self.dt[1]:
+                    raw = self.model(
+                        im_multi_res_scaled,
+                        augment=self.args.augment,
+                        visualize=visualize
+                    )[0]  # raw predictions for this scale
+
+                    # Run standard Ultralytics NMS at this scale
+                    nms_out = ops.non_max_suppression(
+                        raw,
+                        self.args.conf,
+                        self.args.iou,
+                        classes=self.args.classes,
+                        agnostic=self.args.agnostic_nms,
+                        max_det=self.args.max_det,
+                    )
+
+                    det = nms_out[0]
+                    if det is None or len(det) == 0:
+                        continue
+
+                    # det is [N,6] in scale-space coords (xyxy, conf, cls)
+                    # scale to original image coords
+                    det[:, :4] = scale_coords(
+                        img1_shape=(im_multi_res_scaled.shape[2], im_multi_res_scaled.shape[3]),
+                        coords=det[:, :4],
+                        img0_shape=img0.shape,
+                    ).round()
+
+                    all_det.append(det)
+
             with self.dt[2]:
-                self.results, self.results_raw = self.postprocess(preds, im_multi_res_scaled, im0s, self.classes)
-            #print("resulting bounding boxes..", str(self.results[0].boxes[1:3]))
-            #print(len(im_multi_res_scaled))
+                if len(all_det):
+                    merged = torch.cat(all_det, dim=0)  # [K,6]
+                else:
+                    merged = torch.zeros((0, 6), device=self.device)
+
+                self.results, self.results_raw = self.postprocess(
+                    merged, img0, im0s, self.classes
+                )
+
             self.args.save = True
-            #self.save_dir=Path("test_output")
-            self.save_txt=False
+            self.save_txt = False
             self.args.export_predictions = True
-            if("dev" in self.batch_name):
-                self.args.save_crop=True
+            if ("dev" in self.batch_name):
+                self.args.save_crop = True
+
             for i in range(1):
-                
-                #print(i)
                 p, im0 = (path[i], im0s[i]) if self.source_type.webcam or self.source_type.from_img else (path, im0s)
                 p = Path(p)
 
-                if self.args.verbose or self.args.save or self.args.save_txt or self.args.show or self.args.save_crop:
-                    s += self.write_results(i, self.results, (p, im0, im0))
+                if self.args.verbose:
+                    num_det = 0
+                    if hasattr(self, "results_raw") and self.results_raw is not None:
+                        try:
+                            num_det = int(self.results_raw.shape[0])
+                        except Exception:
+                            num_det = 0
+
+                    det_str = "" if num_det > 0 else "(no detections), "
+                    LOGGER.info(f"{s}{det_str}{self.dt[1].dt * 1E3:.1f}ms")
 
                 if self.args.show:
                     self.show(p)
 
                 if self.args.save:
                     print("Saving predictions.. " + str(self.save_dir / "inspection" / "prediction_images" / p.name))
-                    os.makedirs(str(self.save_dir / "inspection" / "prediction_images"), exist_ok = True) 
-                    self.save_preds(vid_cap, i, str(self.save_dir / "inspection" /  "prediction_images" / p.name))
+                    os.makedirs(str(self.save_dir / "inspection" / "prediction_images"), exist_ok=True)
+                    self.save_preds(vid_cap, i, str(self.save_dir / "inspection" / "prediction_images" / p.name))
 
                 if self.args.export_predictions:
                     print("Exporting predictions.. " + str(self.save_dir / "plant-detections" / p.name))
-                    os.makedirs(str(self.save_dir / "plant-detections"), exist_ok = True) 
+                    os.makedirs(str(self.save_dir / "plant-detections"), exist_ok=True)
                     self.export_predictions(self.results_raw, self.save_dir / "plant-detections", p.name, self.model.names, im0)
 
             self.run_callbacks("on_predict_batch_end")
@@ -294,7 +305,7 @@ class BasePredictor:
 
             # Print time (inference-only)
             if self.args.verbose:
-                LOGGER.info(f"{s}{'' if len(preds) else '(no detections), '}{self.dt[1].dt * 1E3:.1f}ms")
+                LOGGER.info(f"{s}{self.dt[1].dt * 1E3:.1f}ms")  
 
         # Release assets
         if isinstance(self.vid_writer[-1], cv2.VideoWriter):

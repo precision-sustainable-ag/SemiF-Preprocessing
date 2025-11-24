@@ -60,8 +60,13 @@ class DetectionPredictor(BasePredictor):
         if len(det) == 0:
             return log_string
         for c in det.cls.unique():
-            n = (det.cls == c).sum()  # detections per class
-            log_string += f"{n} {self.model.names[int(c)]}{'s' * (n > 1)}, "
+            n = (det.cls == c).sum()
+            c_int = int(c)
+            if c_int in self.model.names:
+                cls_name = self.model.names[c_int]
+            else:
+                cls_name = f"cls{c_int}"
+            log_string += f"{n} {cls_name}{'s' * (n > 1)}, "
 
         # write
         for d in reversed(det):
@@ -96,9 +101,9 @@ def predict(opt, cfg=DEFAULT_CFG, use_python=True, save=True, save_dir="test_out
 #/home/psa_images/temp_data/semifield-upload/
     args = dict(model=model, source=source)
     if use_python:
-        from ultralytics import YOLO
         print("using python option...")
-        YOLO(save_dir, batch_name, model)(**args)
+        predictor = DetectionPredictor(overrides=args)
+        predictor(source=source, model=model, batch_name=batch_name, save_dir=save_dir)
     else:
         print("using cli option...")
         predictor = DetectionPredictor(overrides=args)
