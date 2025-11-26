@@ -59,8 +59,8 @@ class Raw2Jpg:
         self.validate_rt_cli_script = Path(self.cfg.paths.scripts) / "validate_rawtherapee.sh"
         self.setup_profiling_paths()
         # CCM Path
-        self.ccm_name = f"{self.cfg.ccm_name}.npy"
-        self.local_ccm_path = Path(self.cfg.paths.image_development) / "color_matrices" / self.ccm_name
+        self.color_profile_name = f"{self.cfg.color_profile_name}.npy"
+        self.local_ccm_path = Path(self.cfg.paths.image_development) / "color_matrices" / self.color_profile_name
 
     def setup_profiling_paths(self) -> None:
         """
