@@ -33,10 +33,10 @@ z_axis:
 # Toggle the modes you want to run
 modes:
   # - sync
-  - correct
-  - asfm
-  - label
-  - deliver
+  # - correct
+  # - asfm
+  # - label
+  # - deliver
 
 # Toggle the tasks you want to run in each mode
 tasks: # task for each mode
@@ -63,7 +63,7 @@ tasks: # task for each mode
 
 assign_species:
   assign_all_bboxes:
-    enabled: true
+    enabled: false
     label: "Soybean"
     
 inspection:
