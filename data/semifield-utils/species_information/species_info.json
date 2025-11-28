@@ -1576,7 +1576,7 @@
       "genus": "Cirsium",
       "species": "arvensis",
       "common_name": "canada thistle",
-      "authority": "Linnaeus, Scopoli",
+      "authority": "Linnaeus, Scopoli",   
       "growth_habit": "forb/herb",
       "duration": "perennial",
       "collection_location": null,
@@ -2094,7 +2094,39 @@
       "alias": [
         "common beet"
       ]
+    },
+    "SCAR7": {
+      "class_id": 71,
+      "USDA_symbol": "SCAR7",
+      "EPPO": "FESAR",
+      "group": "monocot",
+      "class": "Liliopsida",
+      "subclass": "Commelinidae",
+      "order": "Cyperales",
+      "family": "Poaceae",
+      "genus": "Festuca",
+      "species": "arundinacea",
+      "common_name": "tall fescue",
+      "authority": "Linnaeus",
+      "growth_habit": "graminoid",
+      "duration": "perennial",
+      "collection_location": null,
+      "category": "cover crop",
+      "collection_timing": null,
+      "multi_species_USDA_symbol": null,
+      "link": "https://plants.usda.gov/plant-profile/SCAR7",
+      "note": "USDA accepts Schedonorus arundinaceus; Festuca arundinacea is retained here as a widely used synonym in agronomy and applied plant science.",
+      "hex": "#e87159",
+      "rgb": [
+        232,
+        113,
+        89
+      ],
+      "alias": [
+        "tall fescue grass"
+      ]
     }
+
   },
   "Notes": {
     "1": "USDA symbols are used as species index key.",
