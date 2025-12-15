@@ -99,6 +99,66 @@ def iou_xyxy(a: np.ndarray, b: np.ndarray) -> float:
     union = area_a + area_b - inter + 1e-9
     return inter / union
 
+def edge_aware_filter(
+    boxes_xyxy: np.ndarray,   # [N,4] absolute pixels
+    scores: np.ndarray,       # [N]
+    img_wh: tuple[int, int],  # (W, H)
+    *,
+    base_conf: float = 0.70,      # normal final conf
+    edge_band_rel: float = 0.08,  # within 8% of the nearest edge = edge zone
+    min_factor: float = 0.60,     # allow down to 60% of base_conf at the edge
+    taper_rel: float = 0.20       # linearly ramp back to base_conf by 20% distance
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Per-box dynamic threshold:
+        thr_i = base_conf * f(d_edge_rel)
+      where d_edge_rel in [0, inf) is the center's normalized distance to the closest edge.
+      If d_edge_rel <= edge_band_rel:
+          thr_i = base_conf * min_factor
+      If d_edge_rel >= taper_rel:
+          thr_i = base_conf
+      Else linearly interpolate between those.
+
+    Returns:
+      keep_mask: [N] bool
+      dyn_thr:   [N] per-box thresholds used (float32)
+    """
+    if len(boxes_xyxy) == 0:
+        return np.zeros((0,), dtype=bool), np.zeros((0,), dtype=np.float32)
+
+    W, H = map(float, img_wh)
+    cx = (boxes_xyxy[:, 0] + boxes_xyxy[:, 2]) * 0.5
+    cy = (boxes_xyxy[:, 1] + boxes_xyxy[:, 3]) * 0.5
+
+    # distance (in pixels) from box center to the nearest frame edge
+    d_left   = cx
+    d_right  = W - cx
+    d_top    = cy
+    d_bottom = H - cy
+    d_edge_px = np.minimum.reduce([d_left, d_right, d_top, d_bottom])
+
+    # normalize by the smaller image dimension so it’s scale-invariant
+    min_side = min(W, H)
+    d_edge_rel = d_edge_px / (min_side + 1e-9)  # in [0, ~0.5]
+
+    # piecewise-linear threshold factor
+    #   close to edge → min_factor
+    #   far from edge → 1.0
+    #   between edge_band_rel and taper_rel → linear ramp
+    f = np.ones_like(d_edge_rel, dtype=np.float32)
+    near = d_edge_rel <= edge_band_rel
+    far  = d_edge_rel >= taper_rel
+    mid  = ~(near | far)
+
+    f[near] = float(min_factor)
+    if np.any(mid):
+        # linear interpolation from (edge_band_rel -> min_factor) to (taper_rel -> 1.0)
+        t = (d_edge_rel[mid] - edge_band_rel) / max(taper_rel - edge_band_rel, 1e-6)
+        f[mid] = min_factor + t * (1.0 - min_factor)
+
+    dyn_thr = (base_conf * f).astype(np.float32)
+    keep_mask = scores >= dyn_thr
+    return keep_mask, dyn_thr
 
 def weighted_box_fusion_single_class(
     boxes: np.ndarray,
@@ -284,6 +344,38 @@ def run_multiscale(model: YOLO, im0_bgr, cfg_detect, device=None) -> torch.Tenso
     boxes_norm = np.concatenate(all_boxes_norm, axis=0)
     scores = np.concatenate(all_scores, axis=0)
     classes = np.concatenate(all_classes, axis=0)
+
+    ea_cfg = getattr(cfg_detect, "edge_aware", None)
+    if ea_cfg is not None and bool(getattr(ea_cfg, "enabled", False)):
+        boxes_abs = boxes_norm.copy()
+        boxes_abs[:, 0] *= w
+        boxes_abs[:, 2] *= w
+        boxes_abs[:, 1] *= h
+        boxes_abs[:, 3] *= h
+
+        keep_mask, dyn_thr = edge_aware_filter(
+            boxes_xyxy=boxes_abs,
+            scores=scores,
+            img_wh=(int(w), int(h)),
+            base_conf=float(cfg_detect.conf), 
+            edge_band_rel=float(getattr(ea_cfg, "edge_band_rel", 0.08)),
+            min_factor=float(getattr(ea_cfg, "min_factor", 0.60)),
+            taper_rel=float(getattr(ea_cfg, "taper_rel", 0.20)),
+        )
+
+        before_ea = int(scores.shape[0])
+        boxes_norm = boxes_norm[keep_mask]
+        scores = scores[keep_mask]
+        classes = classes[keep_mask]
+        after_ea = int(scores.shape[0])
+
+        log.info(
+            f"[edge_aware] {before_ea} -> {after_ea} "
+            f"(base_conf={float(cfg_detect.conf)}, edge_band_rel={float(getattr(ea_cfg,'edge_band_rel',0.08))}, "
+            f"min_factor={float(getattr(ea_cfg,'min_factor',0.60))}, taper_rel={float(getattr(ea_cfg,'taper_rel',0.20))})"
+        )
+    else:
+        log.info("[edge_aware] disabled")
 
     raw_n = int(boxes_norm.shape[0])
     log.info(
