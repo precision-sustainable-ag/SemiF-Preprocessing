@@ -15,9 +15,9 @@ log = logging.getLogger(__name__)
 # Define a registry of tasks
 TASK_REGISTRY = {
     "detect_plants": artifact_updater("detect_plants")(detect_plants),
-    "remap_labels": artifact_updater("remap_labels")(remap_labels),
-    "assign_species": artifact_updater("assign_species")(assign_species),
-    "no_remap_label": artifact_updater("no_remap_label")(no_remap_label),
+    # "remap_labels": artifact_updater("remap_labels")(remap_labels),
+    # "assign_species": artifact_updater("assign_species")(assign_species),
+    # "no_remap_label": artifact_updater("no_remap_label")(no_remap_label),
 }
 
 

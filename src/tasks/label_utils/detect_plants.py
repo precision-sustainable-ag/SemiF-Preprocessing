@@ -1,23 +1,25 @@
 # Ultralytics YOLO 🚀, GPL-3.0 license
-import torch
+from __future__ import annotations
 
-from ultralytics.yolo.engine.predictor import BasePredictor
-from ultralytics.yolo.utils import DEFAULT_CFG
-from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
 import csv
-import hydra
-import numpy as np
-from omegaconf import DictConfig
 import logging
 from pathlib import Path
+
+import cv2
+import hydra
+import numpy as np
+import torch
+from omegaconf import DictConfig
+from torchvision.ops import batched_nms
+from ultralytics import YOLO
+
 from src.utils.utils import find_lts_dir, get_files
 
 log = logging.getLogger(__name__)
 
-
 def save_csv_predictions(preds, save_path: str, class_names: dict):
     """
-    preds: tensor Nx6  -> [xmin, ymin, xmax, ymax, conf, cls]
+    preds: tensor Nx6  -> [xmin, ymin, xmax, ymax, conf, cls]  (all normalized to [0,1])
     save_path: file path (.csv)
     class_names: model.names mapping {cls_id: name}
     """
@@ -32,196 +34,382 @@ def save_csv_predictions(preds, save_path: str, class_names: dict):
             xmin, ymin, xmax, ymax, conf, cls_id = det.tolist()
             cls_id = int(cls_id)
             cls_name = class_names.get(cls_id, "unknown")
-
             writer.writerow([i, xmin, ymin, xmax, ymax, conf, cls_id, cls_name])
 
-class DetectionPredictor(BasePredictor):
 
-    def get_annotator(self, img):
-        return Annotator(img, line_width=self.args.line_thickness, example=str(self.model.names))
+def export_predictions(results_raw_xyxy_abs: torch.Tensor, save_dir, filename, names, im0):
+    """
+    Save detections in YOLO txt format:
+    one line per box:  cls x_center y_center width height conf
+    (all coords normalized to [0,1] w.r.t image size).
 
-    def preprocess(self, img):
-        img = torch.from_numpy(img.copy()).to(self.model.device)
-        img = img.half() if self.model.fp16 else img.float()
-        img /= 255
-        return img
+    Also saves CSV: normalized xyxy + conf + cls.
+    """
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
 
-    #def postprocess(self, preds, img, orig_img, classes=None):
-    #    preds = ops.non_max_suppression(preds,
-    #                                    self.args.conf,
-    #                                    self.args.iou,
-    #                                    agnostic=self.args.agnostic_nms,
-    #                                    max_det=self.args.max_det,
-    #                                    classes=self.args.classes)
-#
-#        results = []
-#        for i, pred in enumerate(preds):
-#            shape = orig_img[i].shape if isinstance(orig_img, list) else orig_img.shape
-#            pred[:, :4] = ops.scale_boxes(img.shape[2:], pred[:, :4], shape).round()
-#            results.append(Results(boxes=pred, orig_shape=shape[:2]))
-#        return results
+    stem = Path(filename).stem
+    out_path = save_dir / f"{stem}.txt"
+    csv_path = save_dir / f"{stem}.csv"
 
-    def write_results(self, idx, results, batch):
-        p, im, im0 = batch
-        log_string = ""
-        if len(im.shape) == 3:
-            im = im[None]  # expand for batch dim
-        self.seen += 1
-        imc = im0.copy() if self.args.save_crop else im0
-        if self.source_type.webcam or self.source_type.from_img:  # batch_size >= 1
-            log_string += f'{idx}: '
-            frame = self.dataset.count
-        else:
-            frame = getattr(self.dataset, 'frame', 0)
-        self.data_path = p
-        self.txt_path = str(self.save_dir / 'labels' / p.stem) + ('' if self.dataset.mode == 'image' else f'_{frame}')
-        log_string += '%gx%g ' % im.shape[2:]  # print string
-        self.annotator = self.get_annotator(im0)
+    if results_raw_xyxy_abs is None or results_raw_xyxy_abs.numel() == 0:
+        out_path.touch()
+        csv_path.touch()
+        return
 
-        det = results[idx].boxes  # TODO: make boxes inherit from tensors
-        if len(det) == 0:
-            return log_string
-        for c in det.cls.unique():
-            n = (det.cls == c).sum()
-            c_int = int(c)
-            if c_int in self.model.names:
-                cls_name = self.model.names[c_int]
-            else:
-                cls_name = f"cls{c_int}"
-            log_string += f"{n} {cls_name}{'s' * (n > 1)}, "
+    boxes = results_raw_xyxy_abs.detach().cpu().float()
+    xyxy = boxes[:, :4]
+    conf = boxes[:, 4]
+    cls = boxes[:, 5].to(torch.int64)
 
-        # write
-        for d in reversed(det):
-            cls, conf = d.cls.squeeze(), d.conf.squeeze()
-            if self.args.save_txt:  # Write to file
-                line = (cls, *(d.xywhn.view(-1).tolist()), conf) \
-                    if self.args.save_conf else (cls, *(d.xywhn.view(-1).tolist()))  # label format
-                with open(f'{self.txt_path}.txt', 'a') as f:
-                    f.write(('%g ' * len(line)).rstrip() % line + '\n')
-            if self.args.save or self.args.save_crop or self.args.show:  # Add bbox to image
-                c = int(cls)  # integer class
-                label = None if self.args.hide_labels else (
-                    self.model.names[c] if self.args.hide_conf else f'{self.model.names[c]} {conf:.2f}')
-                self.annotator.box_label(d.xyxy.squeeze(), label, color=colors(c, True))
-            if self.args.save_crop:
-                save_one_box(d.xyxy,
-                             imc,
-                             file=self.save_dir / 'crops' / self.model.model.names[c] / f'{self.data_path.stem}.jpg',
-                             BGR=True)
+    h, w = im0.shape[:2]
 
-        return log_string
-    
-    def export_predictions(self, results_raw, save_dir, filename, names, im0):
-        """
-        Save detections in YOLO txt format:
-        one line per box:  cls x_center y_center width height conf
-        (all coords normalized to [0,1] w.r.t image size).
-        """
-        save_dir = Path(save_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
+    x1, y1, x2, y2 = xyxy[:, 0], xyxy[:, 1], xyxy[:, 2], xyxy[:, 3]
+    xc = ((x1 + x2) / 2.0) / w
+    yc = ((y1 + y2) / 2.0) / h
+    bw = (x2 - x1) / w
+    bh = (y2 - y1) / h
 
-        stem = Path(filename).stem
-        out_path = save_dir / f"{stem}.txt"
+    with open(out_path, "w") as f:
+        for i in range(xc.shape[0]):
+            f.write(
+                f"{int(cls[i])} "
+                f"{xc[i]:.6f} {yc[i]:.6f} "
+                f"{bw[i]:.6f} {bh[i]:.6f} "
+                f"{conf[i]:.6f}\n"
+            )
 
-        if results_raw is None or results_raw.numel() == 0:
-            out_path.touch()
-            return
+    xyxy_norm = xyxy.clone()
+    xyxy_norm[:, 0] /= w
+    xyxy_norm[:, 2] /= w
+    xyxy_norm[:, 1] /= h
+    xyxy_norm[:, 3] /= h
 
-        boxes = results_raw.detach().cpu() 
-        xyxy = boxes[:, :4]
-        conf = boxes[:, 4]
-        cls = boxes[:, 5].to(torch.int64)
+    csv_preds = torch.cat([xyxy_norm, conf[:, None], cls[:, None].float()], dim=1)
+    save_csv_predictions(preds=csv_preds, save_path=str(csv_path), class_names=names)
 
-        h, w = im0.shape[:2]
+def iou_xyxy(a: np.ndarray, b: np.ndarray) -> float:
+    x1 = max(float(a[0]), float(b[0]))
+    y1 = max(float(a[1]), float(b[1]))
+    x2 = min(float(a[2]), float(b[2]))
+    y2 = min(float(a[3]), float(b[3]))
+    inter = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+    area_a = max(0.0, float(a[2]) - float(a[0])) * max(0.0, float(a[3]) - float(a[1]))
+    area_b = max(0.0, float(b[2]) - float(b[0])) * max(0.0, float(b[3]) - float(b[1]))
+    union = area_a + area_b - inter + 1e-9
+    return inter / union
 
-        # xyxy → normalized xywh
-        x1 = xyxy[:, 0]
-        y1 = xyxy[:, 1]
-        x2 = xyxy[:, 2]
-        y2 = xyxy[:, 3]
 
-        xc = ((x1 + x2) / 2.0) / w
-        yc = ((y1 + y2) / 2.0) / h
-        bw = (x2 - x1) / w
-        bh = (y2 - y1) / h
+def weighted_box_fusion_single_class(
+    boxes: np.ndarray,
+    scores: np.ndarray,
+    iou_thr: float,
+    score_thr: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    boxes:  Nx4 normalized xyxy
+    scores: N
+    returns: fused_boxes (Mx4), fused_scores (M)
+    """
+    if boxes is None or len(boxes) == 0:
+        return np.zeros((0, 4), dtype=np.float32), np.zeros((0,), dtype=np.float32)
 
-        with open(out_path, "w") as f:
-            for i in range(xc.shape[0]):
-                f.write(
-                    f"{int(cls[i])} "
-                    f"{xc[i]:.6f} {yc[i]:.6f} "
-                    f"{bw[i]:.6f} {bh[i]:.6f} "
-                    f"{conf[i]:.6f}\n"
-                )
-        
-        csv_path = save_dir / f"{stem}.csv"
+    boxes = np.asarray(boxes, dtype=np.float32)
+    scores = np.asarray(scores, dtype=np.float32)
 
-        xyxy_norm = boxes[:, :4].clone()
-        xyxy_norm[:, 0] /= w 
-        xyxy_norm[:, 2] /= w    
-        xyxy_norm[:, 1] /= h    
-        xyxy_norm[:, 3] /= h   
+    keep = scores >= float(score_thr)
+    boxes, scores = boxes[keep], scores[keep]
+    if len(boxes) == 0:
+        return np.zeros((0, 4), dtype=np.float32), np.zeros((0,), dtype=np.float32)
 
-        csv_preds = torch.cat([xyxy_norm, boxes[:, 4:6]], dim=1)
+    order = np.argsort(-scores)
+    boxes, scores = boxes[order], scores[order]
 
-        save_csv_predictions(
-            preds=csv_preds,
-            save_path=csv_path,
-            class_names=names
+    fused_boxes = []
+    fused_scores = []
+    used = np.zeros(len(boxes), dtype=bool)
+
+    for i in range(len(boxes)):
+        if used[i]:
+            continue
+
+        cluster = [i]
+        used[i] = True
+
+        for j in range(i + 1, len(boxes)):
+            if used[j]:
+                continue
+            if iou_xyxy(boxes[i], boxes[j]) >= float(iou_thr):
+                cluster.append(j)
+                used[j] = True
+
+        cb = boxes[cluster]
+        cs = scores[cluster]
+
+        w = cs / (cs.sum() + 1e-9)
+        fused = (cb * w[:, None]).sum(axis=0)
+        fused_score = float((cs * w).sum())
+
+        fused_boxes.append(fused)
+        fused_scores.append(fused_score)
+
+    return np.stack(fused_boxes, axis=0).astype(np.float32), np.asarray(fused_scores, dtype=np.float32)
+
+
+def weighted_box_fusion_all_classes(
+    boxes_xyxy_norm: np.ndarray,
+    scores: np.ndarray,
+    classes: np.ndarray,
+    iou_thr: float,
+    score_thr: float,
+) -> torch.Tensor:
+    """
+    returns: tensor Mx6 [x1,y1,x2,y2,conf,cls] in normalized coords
+    """
+    boxes_xyxy_norm = np.asarray(boxes_xyxy_norm, dtype=np.float32)
+    scores = np.asarray(scores, dtype=np.float32)
+    classes = np.asarray(classes, dtype=np.int64)
+
+    out = []
+    for cls_id in np.unique(classes):
+        m = classes == cls_id
+        fb, fs = weighted_box_fusion_single_class(
+            boxes_xyxy_norm[m],
+            scores[m],
+            iou_thr=iou_thr,
+            score_thr=score_thr,
+        )
+        if len(fb):
+            cls_col = np.full((len(fb), 1), cls_id, dtype=np.float32)
+            conf_col = fs.reshape(-1, 1).astype(np.float32)
+            out.append(np.concatenate([fb, conf_col, cls_col], axis=1))
+
+    if not out:
+        return torch.zeros((0, 6), dtype=torch.float32)
+
+    out = np.concatenate(out, axis=0)
+    out = out[np.argsort(-out[:, 4])]
+    return torch.from_numpy(out).float()
+
+def nms_xyxy_abs(dets_xyxy_conf_cls: torch.Tensor, iou_thr: float, max_det: int) -> torch.Tensor:
+    """
+    dets: Nx6 [x1,y1,x2,y2,conf,cls] absolute coords
+    returns: Mx6 after class-aware NMS
+    """
+    if dets_xyxy_conf_cls is None or dets_xyxy_conf_cls.numel() == 0:
+        return torch.zeros((0, 6), dtype=torch.float32)
+
+    dets = dets_xyxy_conf_cls.float()
+    boxes = dets[:, :4]
+    scores = dets[:, 4]
+    cls = dets[:, 5].to(torch.int64)
+
+    keep = batched_nms(boxes, scores, cls, float(iou_thr))
+    keep = keep[: int(max_det)]
+    return dets[keep]
+
+def run_multiscale(model: YOLO, im0_bgr, cfg_detect, device=None) -> torch.Tensor:
+    """
+    cfg_detect should contain:
+      base_imgsz: int
+      scales: list[float]
+      per_scale_conf: float
+      per_scale_iou: float
+      per_scale_max_det: int
+      conf: float
+      iou: float
+      final_max_det: int
+      post_fusion_nms:
+        enabled: bool
+        iou: float
+
+    Optional (recommended, but not required):
+      wbf_iou: float
+      wbf_score_thr: float
+    """
+    h, w = im0_bgr.shape[:2]
+
+    base_imgsz = int(cfg_detect.base_imgsz)
+    scale_factors = list(cfg_detect.scales)
+    imgszs = [max(32, int(round(base_imgsz * float(s)))) for s in scale_factors]
+
+    per_conf = float(cfg_detect.per_scale_conf)
+    per_iou = float(cfg_detect.per_scale_iou)
+    per_max_det = int(cfg_detect.per_scale_max_det)
+
+    final_conf = float(cfg_detect.conf)
+    final_iou = float(cfg_detect.iou)
+    final_max_det = int(cfg_detect.final_max_det)
+
+    wbf_iou = float(getattr(cfg_detect, "wbf_iou", 0.55))
+    wbf_score_thr = float(getattr(cfg_detect, "wbf_score_thr", 0.001))
+
+    all_boxes_norm, all_scores, all_classes = [], [], []
+
+    im_rgb = cv2.cvtColor(im0_bgr, cv2.COLOR_BGR2RGB)
+
+    for imgsz in imgszs:
+        preds = model.predict(
+            source=im_rgb,
+            imgsz=int(imgsz),
+            conf=per_conf,
+            iou=per_iou,
+            max_det=per_max_det,
+            device=device,
+            verbose=False,
+            save=False,
         )
 
-def predict(opt, cfg=DEFAULT_CFG, use_python=True, save=True, save_dir="test_output", save_crop=True, save_txt=True, imgsz=3000):
-    # model = "data/runs_yolov8/detect/train22/weights/last.pt"  #cfg.model or "yolov8n.pt"
-    model = opt["model_path"] #cfg.model or "yolov8n.pt"
+        r = preds[0]
+        if r.boxes is None or len(r.boxes) == 0:
+            continue
+
+        xyxy_abs = r.boxes.xyxy.detach().cpu().float().numpy()
+        scores = r.boxes.conf.detach().cpu().float().numpy()
+        classes = r.boxes.cls.detach().cpu().float().numpy().astype(np.int64)
+
+        xyxy_norm = xyxy_abs.copy()
+        xyxy_norm[:, 0] /= w
+        xyxy_norm[:, 2] /= w
+        xyxy_norm[:, 1] /= h
+        xyxy_norm[:, 3] /= h
+
+        all_boxes_norm.append(xyxy_norm)
+        all_scores.append(scores)
+        all_classes.append(classes)
+
+    if not all_boxes_norm:
+        return torch.zeros((0, 6), dtype=torch.float32)
+
+    boxes_norm = np.concatenate(all_boxes_norm, axis=0)
+    scores = np.concatenate(all_scores, axis=0)
+    classes = np.concatenate(all_classes, axis=0)
+
+    raw_n = int(boxes_norm.shape[0])
+    log.info(
+        f"[multiscale] raw_concat={raw_n} "
+        f"(scales={len(imgszs)}, per_conf={per_conf}, per_iou={per_iou}, per_max_det={per_max_det})"
+    )
+
+    fused_norm = weighted_box_fusion_all_classes(
+        boxes_xyxy_norm=boxes_norm,
+        scores=scores,
+        classes=classes,
+        iou_thr=wbf_iou,
+        score_thr=wbf_score_thr,
+    )
+
+    wbf_n = int(fused_norm.shape[0])
+    log.info(
+        f"[wbf] fused={wbf_n} "
+        f"(wbf_iou={wbf_iou}, wbf_score_thr={wbf_score_thr})"
+    )
+
+    if fused_norm.numel() == 0:
+        return fused_norm
+
+    fused_abs = fused_norm.clone()
+    fused_abs[:, 0] *= w
+    fused_abs[:, 2] *= w
+    fused_abs[:, 1] *= h
+    fused_abs[:, 3] *= h
+
+    # optional post-fusion NMS
+    if hasattr(cfg_detect, "post_fusion_nms") and bool(cfg_detect.post_fusion_nms.enabled):
+        fused_abs = nms_xyxy_abs(
+            fused_abs,
+            iou_thr=float(cfg_detect.post_fusion_nms.iou),
+            max_det=final_max_det,
+        )
+
+    if fused_abs.numel() == 0:
+        return fused_abs
+
+    fused_abs = fused_abs[fused_abs[:, 4] >= final_conf]
+    fused_abs = nms_xyxy_abs(fused_abs, iou_thr=final_iou, max_det=final_max_det)
+
+    return fused_abs
+
+def predict(opt, cfg: DictConfig):
+    model_path = opt["model_path"]
     batch_name = opt["batch_name"]
-    source = opt["source"] #Path("test_images/"  #cfg.source if cfg.source is not None else ROOT / "assets" if (ROOT / "assets").exists() \
-        #else "https://ultralytics.com/images/bus.jpg"
-    save_dir = opt["save_dir"]
-    
-#/home/psa_images/temp_data/semifield-upload/
-    args = dict(model=model, source=source)
-    if use_python:
-        print("using python option...")
-        predictor = DetectionPredictor(overrides=args)
-        predictor(source=source, model=model, batch_name=batch_name, save_dir=save_dir)
+    source = opt["source"]
+    save_dir = Path(opt["save_dir"])
+
+    if isinstance(source, tuple):
+        source_path = Path(source[0])
     else:
-        print("using cli option...")
-        predictor = DetectionPredictor(overrides=args)
-        predictor.predict_cli()
+        source_path = Path(source)
+
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source path does not exist: {source_path}")
+
+    model = YOLO(model_path)
+    names = model.names if isinstance(model.names, dict) else {i: n for i, n in enumerate(model.names)}
+
+    out_det_dir = save_dir / "detections" / batch_name
+    out_det_dir.mkdir(parents=True, exist_ok=True)
+
+    device = cfg.detect.device if "detect" in cfg and "device" in cfg.detect else None
+
+    img_files = get_files(cfg, "detect_plants")
+    if not img_files:
+        log.warning(f"No images found under {source_path}")
+        return
+
+    for img_path in img_files:
+        im0 = cv2.imread(str(img_path))
+        if im0 is None:
+            log.warning(f"Failed to read {img_path}")
+            continue
+
+        det_abs = run_multiscale(
+            model=model,
+            im0_bgr=im0,
+            cfg_detect=cfg.detect,
+            device=device,
+        )
+
+        export_predictions(
+            results_raw_xyxy_abs=det_abs,
+            save_dir=out_det_dir,
+            filename=str(img_path),
+            names=names,
+            im0=im0,
+        )
+
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):
     log.info(f"Starting detection for batch {cfg.batch_id}")
-    
-    source = cfg.paths.down_photos
+
     batch_name = cfg.batch_id
     lts_dir = find_lts_dir(batch_name, cfg.paths.lts_locations, developed=True, jpgs=True)
+
     source = (Path(lts_dir) / "semifield-developed-images" / batch_name / "images", cfg)
     model_path = Path(cfg.paths.local_detection_model)
-    
-    
+
     if not model_path.exists():
         log.error(f"Model path {model_path} does not exist.")
         raise FileNotFoundError(f"Model path {model_path} does not exist.")
-    
+
     save_dir = Path(cfg.paths.batch_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
-    
+
     try:
         opt = {
             "model_path": str(model_path),
             "source": source,
             "batch_name": batch_name,
-            "save_dir": save_dir}
+            "save_dir": save_dir,
+        }
 
-        predict(opt)
+        predict(opt, cfg)
         log.info("Detection completed.")
     except Exception as e:
         log.error(f"An error occurred during detection: {e}", exc_info=True)
-        raise 
-    
-    return
-    
-    
+        raise
+
+
 if __name__ == "__main__":
     main()
