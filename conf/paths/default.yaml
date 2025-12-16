@@ -1,5 +1,5 @@
 # workdir: ${hydra:runtime.cwd}  # where the code is executed
-workdir: /home/ajajoo3/SemiF-Preprocessing
+workdir: /home/mkutuga/SemiF-Preprocessing
 
 log_dir: ${paths.workdir}/.logs/ 
 data_dir: ${paths.workdir}/data/
@@ -19,7 +19,6 @@ lts_locations:
   - /mnt/research-projects/s/screberg/longterm_images
   - /mnt/research-projects/s/screberg/GROW_DATA
   - /mnt/research-projects/s/screberg/longterm_images2
-  # - /home/ajajoo3/SemiF-Preprocessing/data/longterm_images2
 
 # ASFM directories
 images: ${paths.batch_dir}/images
