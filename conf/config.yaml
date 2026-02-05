@@ -33,10 +33,10 @@ z_axis:
 # Toggle the modes you want to run
 modes:
   # - sync
-  - correct
-  - asfm
-  - label
-  - deliver
+  # - correct
+  # - asfm
+  # - label
+  # - deliver
 
 # Toggle the tasks you want to run in each mode
 tasks: # task for each mode
@@ -63,15 +63,15 @@ tasks: # task for each mode
 
 assign_species:
   assign_all_bboxes:
-    enabled: true
+    enabled: false
     label: "Soybean"
     
 inspection:
   inspect: false
   use_lts_images: false  # set true to inspect from LTS
 
-rt_pp3_name: NC_2025-02-21
-ccm_name:
+rt_pp3_name: MD_shr661_raw16 # RawTherapee pp3 profile name without extension to use in raw2jpg
+color_profile_name: MD_calibration_matrix_optimized # Npy file stem without extension for the color profile to use in raw2jpg
 
 file_masks:
   raw_files:

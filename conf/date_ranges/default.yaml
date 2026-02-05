@@ -48,10 +48,17 @@ MD:
     gh_reviewer: nnotaba
   beets_2025:
     start: "2025-08-25"
-    end: "2025-10-10"
+    end: "2025-10-17"
     bbot_version: 3.1
     crs: 32618
     pipeline_season: beets_2025
+    gh_reviewer: nnotaba
+  cover crops 2025/2026:
+    start: "2025-10-07"
+    end: "2026-04-01"
+    bbot_version: 3.1
+    crs: 32618
+    pipeline_season: cover_crops_2025_2026
     gh_reviewer: nnotaba
 
 NC:
@@ -111,12 +118,19 @@ NC:
     crs: 32617
     pipeline_season: cash_crop_dicamba_2025_dap30_v2
     gh_reviewer: map0425
-  zoysia_2025:
+  zoysia 2025:
     start: "2025-08-25"
-    end: "2025-09-30"
+    end: "2025-09-27"
     bbot_version: 3.1
     crs: 32617
     pipeline_season: zoysia_2025
+    gh_reviewer: map0425
+  cover crops 2025/2026:
+    start: "2025-11-10"
+    end: "2026-04-01"
+    bbot_version: 3.1
+    crs: 32617
+    pipeline_season: cover_crops_2025_2026
     gh_reviewer: map0425
 
 TX:
@@ -173,3 +187,14 @@ season_mappings:
   cash_crop_dicamba_2025:
     - "cash_crop_dicamba_2025_dap30"
     - "cash_crop_dicamba_2025_dap30_v2"
+    - "dicamba_2025"
+  cover_crops_2025_2026:
+    - "cover crops 2025/2026"
+    - "cover_crops_2025_2026"
+    - "cover crops 2025 2026"
+    - "cool season covers 2025 2026"
+    - "cool_season_covers_2025_2026"
+  zoysia_2025:
+    - "zoysia_2025"
+  beets_2025:
+    - "beets_2025"

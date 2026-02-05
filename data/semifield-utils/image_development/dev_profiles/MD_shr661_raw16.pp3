@@ -1,20 +1,19 @@
 [Version]
-AppVersion=5.10
-Version=350
+AppVersion=5.12
+Version=352
 
 [General]
-Rank=0
 ColorLabel=0
 InTrash=false
 
 [Exposure]
-Auto=false
+Auto=true
 Clip=0.02
-Compensation=0.030000000000000007
-Brightness=1
-Contrast=20
-Saturation=10
-Black=567
+Compensation=1.869920551776886
+Brightness=2
+Contrast=29
+Saturation=0
+Black=210
 HighlightCompr=100
 HighlightComprThreshold=0
 ShadowCompr=50
@@ -23,7 +22,7 @@ CurveFromHistogramMatching=false
 ClampOOG=true
 CurveMode=FilmLike
 CurveMode2=Standard
-Curve=1;0;0;1;1;
+Curve=0;
 Curve2=0;
 
 [HLRecovery]
@@ -67,7 +66,7 @@ TransmissionCurve=1;0;0.5;0.34999999999999998;0.34999999999999998;0.599999999999
 GainTransmissionCurve=1;0;0.10000000000000001;0.34999999999999998;0;0.25;0.25;0.34999999999999998;0.34999999999999998;0.69999999999999996;0.25;0.34999999999999998;0.34999999999999998;1;0.10000000000000001;0;0;
 
 [Local Contrast]
-Enabled=true
+Enabled=false
 Radius=80
 Amount=0.20000000000000001
 Darkness=1
@@ -76,7 +75,7 @@ Lightness=1
 [Channel Mixer]
 Enabled=false
 Red=1000;0;0;
-Green=0;815;183;
+Green=0;1000;0;
 Blue=0;0;1000;
 
 [Black & White]
@@ -105,10 +104,10 @@ BeforeCurve=0;
 AfterCurve=0;
 
 [Luminance Curve]
-Enabled=true
+Enabled=false
 Brightness=0
-Contrast=10
-Chromaticity=25
+Contrast=0
+Chromaticity=0
 Gamutmunse=MUN
 RedAndSkinTonesProtection=0
 LCredsk=true
@@ -123,7 +122,7 @@ LcCurve=0;
 ClCurve=0;
 
 [Sharpening]
-Enabled=true
+Enabled=false
 Contrast=20
 Method=usm
 Radius=0.5
@@ -165,9 +164,9 @@ Uniformity=5
 
 [White Balance]
 Enabled=true
-Setting=Custom
-Temperature=7652
-Green=0.45400000000000001
+Setting=Camera
+Temperature=6575
+Green=0.98275801203512803
 Equal=1
 TemperatureBias=0
 StandardObserver=TWO_DEGREES
@@ -280,13 +279,25 @@ Amount=20
 Anchor=50
 
 [Shadows & Highlights]
-Enabled=true
+Enabled=false
 Highlights=0
 HighlightTonalWidth=70
-Shadows=23
+Shadows=0
 ShadowTonalWidth=30
 Radius=40
 Lab=false
+
+[Compression gamut]
+Enabled=false
+th_c=0.81499999999999995
+th_m=0.80300000000000005
+th_y=0.88
+d_c=1.147
+d_m=1.264
+d_y=1.3120000000000001
+pwr=1.2
+colorspace=acesp1
+rolloff=true
 
 [ToneEqualizer]
 Enabled=false
@@ -295,6 +306,7 @@ Band1=0
 Band2=0
 Band3=0
 Band4=0
+Band5=0
 Regularization=0
 Pivot=0
 
@@ -316,6 +328,7 @@ VerticalFlip=false
 
 [Common Properties for Transformations]
 Method=log
+Scale=1
 AutoFill=true
 
 [Rotation]
@@ -323,6 +336,8 @@ Degree=0
 
 [Distortion]
 Amount=0
+FocalLength=12
+Defish=false
 
 [LensProfile]
 LcMode=lfauto
@@ -339,7 +354,7 @@ Method=simple
 Horizontal=0
 Vertical=0
 CameraCropFactor=0
-CameraFocalLength=60
+CameraFocalLength=0
 CameraPitch=0
 CameraRoll=0
 CameraShiftHorizontal=0
@@ -367,7 +382,7 @@ Selspot=0
 
 [PCVignette]
 Enabled=true
-Strength=-1.00
+Strength=-0.34999999999999998
 Feather=50
 Roundness=50
 
@@ -394,12 +409,32 @@ LongEdge=900
 ShortEdge=900
 AllowUpscaling=false
 
+[Framing]
+Enabled=false
+FramingMethod=Standard
+AspectRatio=0
+Orientation=AsImage
+FramedWidth=800
+FramedHeight=600
+AllowUpscaling=false
+BorderSizingMethod=Percentage
+Basis=Auto
+RelativeBorderSize=0.10000000000000001
+MinSizeEnabled=false
+MinWidth=0
+MinHeight=0
+AbsWidth=0
+AbsHeight=0
+BorderRed=255
+BorderGreen=255
+BorderBlue=255
+
 [PostDemosaicSharpening]
 Enabled=true
-Contrast=14
+Contrast=13
 AutoContrast=true
 AutoRadius=true
-DeconvRadius=0.53000000000000003
+DeconvRadius=0.48999999999999999
 DeconvRadiusOffset=0
 DeconvIterCheck=true
 DeconvIterations=20
@@ -422,7 +457,7 @@ DeconvDamping=0
 DeconvIterations=100
 
 [Color Management]
-InputProfile=(none)
+InputProfile=(camera)
 ToneCurve=false
 ApplyLookTable=true
 ApplyBaselineExposureOffset=true
@@ -432,14 +467,25 @@ WorkingProfile=ProPhoto
 WorkingTRC=none
 Will=D50
 Wprim=def
+Wcat=brad
+OpacityCurveWLI=1;0;0.5;0.34999999999999998;0.34999999999999998;0.5;0.69999999999999996;0.34999999999999998;0.34999999999999998;1;0.5;0.34999999999999998;0.34999999999999998;
 WorkingTRCGamma=2.3999999999999999
 WorkingTRCSlope=12.92
+Wmidtcie=0
+Sigmatrc=1
+Offstrc=1
+Residtrc=0
+Pyrwavtrc=2
+Wsmoothcie=false
 Redx=0.73470000000000002
 Redy=0.26529999999999998
 Grex=0.15959999999999999
 Grey=0.84040000000000004
 Blux=0.036600000000000001
 Bluy=0.0001
+Refi=0
+Shiftx=0
+Shifty=0
 LabGridcieALow=0.51763000000000003
 LabGridcieBLow=-0.33582000000000001
 LabGridcieAHigh=-0.75163000000000002
@@ -448,9 +494,13 @@ LabGridcieGx=-0.69164000000000003
 LabGridcieGy=-0.70909
 LabGridcieWx=-0.18964
 LabGridcieWy=-0.16636000000000001
+LabGridcieMx=0
+LabGridcieMy=0
 Preser=0
 Fbw=false
-Gamut=false
+TrcExp=false
+WavExp=false
+Gamut=true
 OutputProfile=RTv4_sRGB
 aIntent=Relative
 OutputProfileIntent=Relative
@@ -714,14 +764,15 @@ PreExposure=1
 
 [RAW Bayer]
 Method=amaze
-Border=4
+Border=0
 ImageNum=1
-CcSteps=2
+CcSteps=0
 PreBlack0=0
 PreBlack1=0
 PreBlack2=0
 PreBlack3=0
 PreTwoGreen=true
+Dehablack=false
 LineDenoise=0
 LineDenoiseDirection=3
 GreenEqThreshold=0
@@ -729,7 +780,7 @@ DCBIterations=2
 DCBEnhance=true
 LMMSEIterations=2
 DualDemosaicAutoContrast=true
-DualDemosaicContrast=12
+DualDemosaicContrast=20
 PixelShiftMotionCorrectionMethod=1
 PixelShiftEperIso=0
 PixelShiftSigma=1
@@ -756,6 +807,7 @@ CcSteps=0
 PreBlackRed=0
 PreBlackGreen=0
 PreBlackBlue=0
+Dehablackx=false
 
 [MetaData]
 Mode=1

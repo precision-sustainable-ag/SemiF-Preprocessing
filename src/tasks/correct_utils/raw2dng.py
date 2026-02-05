@@ -1,9 +1,9 @@
+from datetime import datetime, timezone
 import numpy as np
 from pathlib import Path
 import logging
 from omegaconf import DictConfig
 from pidng.core import RAW2DNG, DNGTags, Tag
-from pidng.defs import DNGVersion, PreviewColorSpace, Orientation, PhotometricInterpretation, CFAPattern, CalibrationIlluminant
 
 from typing import List, Tuple
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -37,12 +37,14 @@ class RawToDNGConverter:
         self.lts_dir = lts_dir
         self.developed_dng_dir = developed_dng_dir
         self.developed_dng_dir.mkdir(parents=True, exist_ok=True)
-        self.ccm_file = ccm_file  # Path to CCM file
-
+        self.color_profile = ccm_file  # Path to CCM file
+        self.matrix_den = 100000  # Denominator for rational representation
         
         self.height = self.exif_cfgs.DNG_ImageLength
         self.width = self.exif_cfgs.DNG_ImageWidth
 
+        self._load_color_profile()
+        
     def load_raw_image(self, file_path):
         """
         Load raw data from file into a 16-bit numpy array.
@@ -54,76 +56,96 @@ class RawToDNGConverter:
         log.debug(f"Loaded raw image from {file_path.name}")
         return raw_image
 
-    def load_ccm(self):
+    def _load_color_profile(self):
         """Loads the CCM from a NumPy `.npy` file if provided."""
-        if self.ccm_file and self.ccm_file.exists():
-            log.debug(f"Loading CCM from {self.ccm_file}")
-            ccm = np.load(self.ccm_file)
-            return self.format_ccm4pidng(ccm)
-        else:
-            log.debug("CCM file not found or not provided. Using default color matrix.")
-            return [[19549, 10000], [-7877, 10000], [-2582, 10000],    
-                    [-5724, 10000], [10121, 10000], [1917, 10000],
-                    [-1267, 10000], [-110, 10000], [6621, 10000]]  # Default matrix
+        if not self.color_profile or not self.color_profile.exists():
+            # Raise error if CCM file is not found
+            raise FileNotFoundError(f"CCM file not found: {self.color_profile}")
+        log.debug(f"Loading Color profile from {self.color_profile}")
+        # Load the color profile
+        color_profile = np.load(self.color_profile, allow_pickle=True).item()
+        # Extract matrices and gains
+        ccm = color_profile["color_matrix"]
+        fm = color_profile["forward_matrix"]
+        wb_gains = color_profile["wb_gains"]
+        
+        # Transpose and reshape matrices
+        t_ccm = ccm.T
+        t_fm = fm.T
+        r, g, b = wb_gains
+        
+        # Convert to rational representation
+        self.ccm_rational = [
+            [int(round(v * self.matrix_den)), self.matrix_den]
+            for v in t_ccm.reshape(-1)
+        ]
+        self.fm_rational = [
+            [int(round(v * self.matrix_den)), self.matrix_den]
+            for v in t_fm.reshape(-1)
+        ]
+
+        self.as_shot_neutral = [
+            [int(round(self.matrix_den / r)), self.matrix_den],
+            [int(round(self.matrix_den / g)), self.matrix_den],
+            [int(round(self.matrix_den / b)), self.matrix_den],
+        ]
 
 
-    def format_ccm4pidng(self, ccm):
-        # Not implemented yet
-        ccm1 = []
-        for row in ccm:
-            row_sum = sum(row)
-            normalized_row = [
-                (int((value / row_sum) * 10000),
-                    10000) for
-                value in row]
-            ccm1.extend(normalized_row)
-        return ccm1
-
+    @staticmethod
+    def calculate_dt_from_epoch_gmt(file_stem: int) -> str:
+        epoch_gmt = int(file_stem.split('_')[-1])
+        dt = datetime.fromtimestamp(epoch_gmt, tz=timezone.utc)
+        return dt.strftime("%Y:%m:%d %H:%M:%S")
+    
+    
     def configure_dng_tags(self) -> DNGTags:
         """Set DNG tags for the conversion."""
         t = DNGTags()
-        # DNG metadata details
-        t.set(Tag.Make, self.exif_cfgs.Make)
-        t.set(Tag.Model, self.exif_cfgs.Model)
-        t.set(Tag.DNGVersion, getattr(DNGVersion, self.exif_cfgs.DNGVersion))
-        t.set(Tag.DNGBackwardVersion, getattr(DNGVersion, self.exif_cfgs.DNGBackwardVersion))
-        t.set(Tag.PreviewColorSpace, getattr(PreviewColorSpace, self.exif_cfgs.PreviewColorSpace))
-        
-        # Basic image details
-        t.set(Tag.ImageWidth, self.width)
-        t.set(Tag.ImageLength, self.height)
-        t.set(Tag.TileWidth, self.width)
-        t.set(Tag.TileLength, self.height)
-        t.set(Tag.Orientation, getattr(Orientation, self.exif_cfgs.Orientation))
-        t.set(Tag.FocalLength, [[self.exif_cfgs.FocalLength, 1]])
-        t.set(Tag.FocalLengthIn35mmFilm, self.exif_cfgs.FocalLengthIn35mmFilm)
-
-        # t.set(Tag.SamplesPerPixel, 1)
-        t.set(Tag.SamplesPerPixel, self.exif_cfgs.SamplesPerPixel)
+        # Imagespecific tags
+        t.set(Tag.ImageWidth,  self.exif_cfgs.SVCamImageWidth)
+        t.set(Tag.ImageLength, self.exif_cfgs.SVCamImageHeight)
         t.set(Tag.BitsPerSample, self.exif_cfgs.BitsPerSample)
-        
-        # Photometric interpretation
-        t.set(Tag.PhotometricInterpretation, getattr(PhotometricInterpretation, self.exif_cfgs.PhotometricInterpretation))
+        t.set(Tag.PhotometricInterpretation, self.exif_cfgs.PhotometricInterpretation)
+        t.set(Tag.Orientation, self.exif_cfgs.Orientation)
+        t.set(Tag.SamplesPerPixel, self.exif_cfgs.SamplesPerPixel)
         t.set(Tag.CFARepeatPatternDim, self.exif_cfgs.CFARepeatPatternDim)
-        t.set(Tag.CFAPattern, getattr(CFAPattern, self.exif_cfgs.CFAPattern))
-        # Image calibration
+        t.set(Tag.CFAPattern, self.exif_cfgs.CFAPattern)
+        t.set(Tag.RowsPerStrip, self.exif_cfgs.RowsPerStrip)
+
+        # Camera specific tags
+        t.set(Tag.Make,  self.exif_cfgs.Make)
+        t.set(Tag.Model, self.exif_cfgs.Model)
+        t.set(Tag.EXIFPhotoBodySerialNumber, self.exif_cfgs.SerialNumber)
+        t.set(Tag.EXIFPhotoLensModel, self.exif_cfgs.LensModel)
+        t.set(Tag.FocalLength, [[int(self.exif_cfgs.FocalLength * self.matrix_den), self.matrix_den]])  # rational
+        # t.set(Tag.FocalLengthIn35mmFormat, self.exif_cfgs.FocalLengthIn35mmFormat)
+        t.set(Tag.FocalLengthIn35mmFilm, self.exif_cfgs.FocalLengthIn35mmFilm)  # rational
+        t.set(Tag.FNumber, [[int(self.exif_cfgs.FNumber * self.matrix_den), self.matrix_den]])
+        t.set(Tag.FocalPlaneXResolution, [[int(self.exif_cfgs.FocalPlaneXResolution * self.matrix_den), self.matrix_den]])
+        t.set(Tag.FocalPlaneYResolution, [[int(self.exif_cfgs.FocalPlaneYResolution * self.matrix_den), self.matrix_den]])
+        t.set(Tag.FocalPlaneResolutionUnit, [self.exif_cfgs.FocalPlaneResolutionUnit])
+        # t.set(Tag.PixelSize, ccfg.PixelSize)
+
+        # DNG Core tags
+        t.set(Tag.DNGVersion, self.exif_cfgs.DNGVersion)
+        t.set(Tag.DNGBackwardVersion, self.exif_cfgs.DNGBackwardVersion)
+        # 16-bit black and white levels
         t.set(Tag.BlackLevel, self.exif_cfgs.BlackLevel)
         t.set(Tag.WhiteLevel, self.exif_cfgs.WhiteLevel)
-        t.set(Tag.CalibrationIlluminant1, getattr(CalibrationIlluminant, self.exif_cfgs.CalibrationIlluminant1))
+
+        # Color
+        t.set(Tag.ColorMatrix1, self.ccm_rational)
+        t.set(Tag.ColorMatrix2, self.ccm_rational)
+        # Forward matrix
+        t.set(Tag.ForwardMatrix1, self.fm_rational)
+        t.set(Tag.ForwardMatrix2, self.fm_rational)
+        # WB settings
+        t.set(Tag.AsShotNeutral, self.as_shot_neutral)
+        # Other tags
+        t.set(Tag.CalibrationIlluminant1, self.exif_cfgs.CalibrationIlluminant1)
+        t.set(Tag.PreviewColorSpace, self.exif_cfgs.PreviewColorSpace)
         t.set(Tag.BaselineExposure, [self.exif_cfgs.BaselineExposure])
-        t.set(Tag.AsShotNeutral, self.exif_cfgs.AsShotNeutral)
         
-        # TODO: Implement our own ccm instead of this standard one
-        # uncalibrated color matrix, just for demo.
-        ccm1 = [[19549, 10000], [-7877, 10000], [-2582, 10000],	
-           [-5724, 10000], [10121, 10000], [1917, 10000],
-           [-1267, 10000], [ -110, 10000], [ 6621, 10000]]
-        
-
-        # **Load and set the ColorMatrix1**
-        ccm1 = self.load_ccm()
-        t.set(Tag.ColorMatrix1, ccm1)
-
         return t
 
     def convert_to_dng(self, raw_image: np.array, dng_tags: DNGTags,
@@ -141,6 +163,11 @@ class RawToDNGConverter:
             raise ValueError("Raw image data not loaded.")
         
         converter = RAW2DNG()
+
+        # Final tags having to do with time and file time stamp
+        dng_tags.set(Tag.DateTime, self.calculate_dt_from_epoch_gmt(raw_file.stem))
+        dng_tags.set(Tag.DateTimeOriginal, self.calculate_dt_from_epoch_gmt(raw_file.stem))
+
         converter.options(dng_tags, path=str(self.developed_dng_dir), compress=False)
         converter.convert(raw_image, filename=raw_file.stem)
         return self.developed_dng_dir / f"{raw_file.stem}.dng"

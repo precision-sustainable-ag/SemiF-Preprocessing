@@ -3,28 +3,55 @@
 # SubfileType:                              # Short   A general indication of the kind of data contained in this subfile. This field is deprecated. The NewSubfileType field should be used instead.
 DNG_ImageWidth: 13376     # DNG_* only used for processing SVCam images
 DNG_ImageLength: 9528
-SVCamImageWidth: 13368                           # Long    The number of columns of image data, equal to the number of pixels per row. In JPEG compressed data a JPEG marker is used instead of this tag.
-SVCamImageHeight: 9520                         # Long    The number of rows of image data. In JPEG compressed data a JPEG marker is used instead of this tag.
 SonyImageWidth: 9592     # image width in pixels
 SonyImageHeight: 6368     # image length in pixels ImageLength for DNG 
+SVCamImageWidth: 13376                           # Long    The number of columns of image data, equal to the number of pixels per row. In JPEG compressed data a JPEG marker is used instead of this tag.
+SVCamImageHeight: 9528                         # Long    The number of rows of image data. In JPEG compressed data a JPEG marker is used instead of this tag.
+BitsPerSample: 16                         # Short   The number of bits per image component. In this standard each component of the image is 8 bits, so the value for this tag is 8. See also <SamplesPerPixel>. In JPEG compressed data a JPEG marker is used instead of this tag.
+PhotometricInterpretation: 32803          # Short   The pixel composition. In JPEG compressed data a JPEG marker is used instead of this tag.  
+Orientation: 1 # string for DNG part else 1                            # Short   The image orientation viewed in terms of rows and columns.
+SamplesPerPixel: 1                        # Short   The number of components per pixel. Since this standard applies to RGB and YCbCr images, the value set for this tag is 3. In JPEG compressed data a JPEG marker is used instead of this tag.
+CFARepeatPatternDim: [2,2]                # Short   Contains two values representing the minimum rows and columns to define the repeating patterns of the color filter array.
+CFAPattern: [0, 1, 1, 2]                  # Byte    Indicates the color filter array (CFA) geometric pattern of the image sensor when a one-chip color area sensor is used. It does not apply to all sensing methods.
+RowsPerStrip: 9528                          # Long    The number of rows per strip. This is the number of rows in the image of one strip when an image is divided into strips. With JPEG compressed data this designation is not needed and is omitted. See also <StripOffsets> and <StripByteCounts>.
+TileWidth:                                # Long    The tile width in pixels. This is the number of columns in each tile.
+TileLength:                                # Long    The tile length (height) in pixels. This is the number of rows in each tile.
+
+Make: SVS_VISTEK                          # Ascii   The manufacturer of the recording equipment. This is the manufacturer of the DSC, scanner, video digitizer or other equipment that generated the image. When the field is left blank, it is treated as unknown.
+Model: shr661CXGE                         # Ascii   The model name or model number of the equipment. This is the model name or number of the DSC, scanner, video digitizer or other equipment that generated the image. When the field is left blank, it is treated as unknown.
+SerialNumber: "119885"
+LensModel: Linos Inspect XL 60mm            #	Ascii	This tag records the lens's model name and model number as an ASCII string.
+FocalLength: 60                           # Rational The actual focal length of the lens, in mm.
+FocalLengthIn35mmFormat: 46                 #	Short	This tag indicates the equivalent focal length assuming a 35mm film camera, in mm. A value of 0 means the focal length is unknown. Note that this tag differs from the <FocalLength> tag.
+FocalLengthIn35mmFilm: 46  # Rounded from 45.78 
+FNumber: 13                                 #	Rational	The F number.
+FocalPlaneXResolution: 289.6                     # 13376 / 46.2  # Rational Number of pixels per FocalPlaneResolutionUnit (37392) in ImageWidth direction for main image.
+FocalPlaneYResolution: 289.9                     # 9528 / 32.87  # Rational Number of pixels per FocalPlaneResolutionUnit (37391) in ImageLength direction for main image.
+FocalPlaneResolutionUnit: 3                      # Short   Unit of measurement for FocalPlaneXResolution(37390) and FocalPlaneYResolution(37391). 3 means millimeters.
+PixelSize: 3.45        # Pixel size in um (h and v are same)
+
+DNGVersion: [1, 4, 0, 0]                               # Byte     This tag encodes the DNG four-tier version number. For files compliant with version 1.1.0.0 of the DNG specification, this tag should contain the bytes: 1, 1, 0, 0.
+DNGBackwardVersion: [1, 2, 0, 0]                      # Byte     This tag specifies the oldest version of the Digital Negative specification for which a file is compatible. Readers should not attempt to read a file if this tag specifies a version number that is higher than the version number of the specification the reader was based on. In addition to checking the version tags, readers should, for all tags, check the types, counts, and values, to verify it is able to correctly read the file.
+BlackLevel: 368                               # Rational Specifies the zero light (a.k.a. thermal black or black current) encoding level, as a repeating pattern. The origin of this pattern is the top-left corner of the ActiveArea rectangle. The values are stored in row-column-sample scan order.
+BlackLevel_12bit: 23
+WhiteLevel: 65535                              # Long     This tag specifies the fully saturated encoding level for the raw sample values. Saturation is caused either by the sensor itself becoming highly non-linear in response, or by the camera's analog to digital converter clipping.
+AsShotNeutral:                             # Short    Specifies the selected white balance at time of capture, encoded as the coordinates of a perfectly neutral color in linear reference space values. The inclusion of this tag precludes the inclusion of the AsShotWhiteXY tag.
+BaselineExposure: [-150, 100]
+CalibrationIlluminant1: 21                   # Short      The illuminant used for the first set of color calibration tags (ColorMatrix1, CameraCalibration1, ReductionMatrix1). The legal values for this tag are the same as the legal values for the LightSource EXIF tag. If set to 255 (Other), then the IFD must also include a IlluminantData1 tag to specify the x-y chromaticity or spectral power distribution function for this illuminant.
+PreviewColorSpace: 2                      # Long       This tag specifies the color space in which the rendered preview in this IFD is stored. The default value for this tag is sRGB for color previews and Gray Gamma 2.2 for monochrome previews.
+TimeZoneOffset: -4                           # SShort   This optional tag encodes the time zone of the camera clock (relative to Greenwich Mean Time) used to create the DataTimeOriginal tag-value when the picture was taken. It may also contain the time zone offset of the clock used to create the DateTime tag-value when the image was modified.
+
 SensorHeight: 32.87   # Sensor height in mm
 SensorWidth: 46.2     # Sensor width in mm
-BitsPerSample: 16                         # Short   The number of bits per image component. In this standard each component of the image is 8 bits, so the value for this tag is 8. See also <SamplesPerPixel>. In JPEG compressed data a JPEG marker is used instead of this tag.
-#   Compression:                              # Short   The compression scheme used for the image data. When a primary image is JPEG compressed, this designation is not necessary and is omitted. When thumbnails use JPEG compression, this tag value is set to 6.
-# PhotometricInterpretation: 32803          # Short   The pixel composition. In JPEG compressed data a JPEG marker is used instead of this tag.
-PhotometricInterpretation: Color_Filter_Array
 
+#   Compression:                              # Short   The compression scheme used for the image data. When a primary image is JPEG compressed, this designation is not necessary and is omitted. When thumbnails use JPEG compression, this tag value is set to 6.
 #   Thresholding:                             # Short   For black and white TIFF files that represent shades of gray, the technique used to convert from gray to black and white pixels.
 #   CellWidth:                                # Short   The width of the dithering or halftoning matrix used to create a dithered or halftoned bilevel file.
 #   CellLength:                               # Short   The length of the dithering or halftoning matrix used to create a dithered or halftoned bilevel file.
 #   FillOrder:                                # Short   The logical order of bits within a byte.
 #   DocumentName:                             # Ascii   The name of the document from which this image was scanned.
 #   ImageDescription:                         # Ascii   A character string giving the title of the image. It may be a comment such as "1988 company picnic" or the like. Two-bytes character codes cannot be used. When a 2-bytes code is necessary, the Exif Private tag <UserComment> is to be used.
-Make: SVS_VISTEK                          # Ascii   The manufacturer of the recording equipment. This is the manufacturer of the DSC, scanner, video digitizer or other equipment that generated the image. When the field is left blank, it is treated as unknown.
-Model: shr661CXGE                         # Ascii   The model name or model number of the equipment. This is the model name or number of the DSC, scanner, video digitizer or other equipment that generated the image. When the field is left blank, it is treated as unknown.
 #   StripOffsets:                             # Long    For each strip, the byte offset of that strip. It is recommended that this be selected so the number of strip bytes does not exceed 64 Kbytes. With JPEG compressed data this designation is not needed and is omitted. See also <RowsPerStrip> and <StripByteCounts>.
-Orientation: Horizontal # string for DNG part else 1                            # Short   The image orientation viewed in terms of rows and columns.
-SamplesPerPixel: 1                        # Short   The number of components per pixel. Since this standard applies to RGB and YCbCr images, the value set for this tag is 3. In JPEG compressed data a JPEG marker is used instead of this tag.
 #   RowsPerStrip:                             # Long    The number of rows per strip. This is the number of rows in the image of one strip when an image is divided into strips. With JPEG compressed data this designation is not needed and is omitted. See also <StripOffsets> and <StripByteCounts>.
 #   StripByteCounts:                          # Long    The total number of bytes in each strip. With JPEG compressed data this designation is not needed and is omitted.
 #   XResolution:                              # Rational The number of pixels per <ResolutionUnit> in the <ImageWidth> direction. When the image resolution is unknown, 72 [dpi] is designated.
@@ -49,8 +76,8 @@ SamplesPerPixel: 1                        # Short   The number of components per
 #   PrimaryChromaticities:                    # Rational The chromaticity of the three primary colors of the image. Normally this tag is not necessary, since colorspace is specified in the colorspace information tag (<ColorSpace>).
 #   ColorMap:                                 # Short   A color map for palette color images. This field defines a Red-Green-Blue color map (often called a lookup table) for palette-color images. In a palette-color image, a pixel value is used to index into an RGB lookup table.
 #   HalftoneHints:                            # Short   The purpose of the HalftoneHints field is to convey to the halftone function the range of gray levels within a colorimetrically-specified image that should retain tonal detail.
-TileWidth: ${exif.SVCamImageWidth}                               # Long    The tile width in pixels. This is the number of columns in each tile.
-TileLength: ${exif.SVCamImageHeight}                               # Long    The tile length (height) in pixels. This is the number of rows in each tile.
+# TileWidth:                               # Long    The tile width in pixels. This is the number of columns in each tile.
+# TileLength:                               # Long    The tile length (height) in pixels. This is the number of rows in each tile.
 #   TileOffsets:                              # Short   For each tile, the byte offset of that tile, as compressed and stored on disk. The offset is specified with respect to the beginning of the TIFF file. Note that this implies that each tile has a location independent of the locations of other tiles.
 #   TileByteCounts:                           # Long    For each tile, the number of (compressed) bytes in that tile. See TileOffsets for a description of how the byte counts are ordered.
 #   SubIFDs:                                  # Long    Defined by Adobe Corporation to enable TIFF Trees within a TIFF file.
@@ -90,10 +117,6 @@ TileLength: ${exif.SVCamImageHeight}                               # Long    The
 #   ChromaticAberrationCorrParams:            # SShort  Sony chromatic aberration correction parameters.
 #   DistortionCorrParams:                     # SShort  Sony distortion correction parameters.
 #   ImageID:                                  # Ascii   ImageID is the full pathname of the original, high-resolution image, or any other identifying string that uniquely identifies the original image (Adobe OPI).
-CFARepeatPatternDim: [2,2]                # Short   Contains two values representing the minimum rows and columns to define the repeating patterns of the color filter array.
-# CFAPattern: [0, 1, 1, 2]                  # Byte    Indicates the color filter array (CFA) geometric pattern of the image sensor when a one-chip color area sensor is used. It does not apply to all sensing methods.
-CFAPattern: RGGB
-
 #   BatteryLevel:                             # Rational Contains a value of the battery level as a fraction or string.
 #   Copyright:                                # Ascii   Copyright information. In this standard the tag is used to indicate both the photographer and editor copyrights. It is the copyright notice of the person or organization claiming rights to the image. The Interoperability copyright statement including date and rights should be written in this field; e.g., "Copyright, John Smith, 19xx. All rights reserved.". In this standard the field records both the photographer and editor copyrights, with each recorded in a separate part of the statement. When there is a clear distinction between the photographer and editor copyrights, these are to be written in the order of photographer followed by editor copyright, separated by NULL (in this case since the statement also ends with a NULL, there are two NULL codes). When only the photographer copyright is given, it is terminated by one NULL code. When only the editor copyright is given, the photographer copyright part consists of one space followed by a terminating NULL code, then the editor copyright is given. When the field is left blank, it is treated as unknown.
 #   ExposureTime:                             # Rational Exposure time, given in seconds.
@@ -108,7 +131,6 @@ CFAPattern: RGGB
 #   ISOSpeedRatings:                          # Short   Indicates the ISO Speed and ISO Latitude of the camera or input device as specified in ISO 12232.
 #   OECF:                                     # Undefined Indicates the Opto-Electric Conversion Function (OECF) specified in ISO 14524.
 #   Interlace:                                # Short   Indicates the field number of multifield images.
-TimeZoneOffset: -4                           # SShort   This optional tag encodes the time zone of the camera clock (relative to Greenwich Mean Time) used to create the DataTimeOriginal tag-value when the picture was taken. It may also contain the time zone offset of the clock used to create the DateTime tag-value when the image was modified.
 #   SelfTimerMode:                            # Short    Number of seconds image capture was delayed from button press.
 #   DateTimeOriginal:                         # Ascii    The date and time when the original image data was generated.
 #   CompressedBitsPerPixel:                   # Rational Specific to compressed data; states the compressed bits per pixel.
@@ -121,7 +143,6 @@ TimeZoneOffset: -4                           # SShort   This optional tag encode
 #   MeteringMode:                             # Short    The metering mode.
 #   LightSource:                              # Short    The kind of light source.
 #   Flash:                                    # Short    Indicates the status of flash when the image was shot.
-FocalLength: 60                           # Rational The actual focal length of the lens, in mm.
 #   FlashEnergy:                              # Rational Amount of flash energy (BCPS).
 #   SpatialFrequencyResponse:                 # Undefined SFR of the camera.
 #   Noise:                                    # Undefined Noise measurement values.
@@ -141,18 +162,14 @@ FocalLength: 60                           # Rational The actual focal length of 
 #   XPKeywords:                               # Byte     Keywords tag used by Windows, encoded in UCS2.
 #   XPSubject:                                # Byte     Subject tag used by Windows, encoded in UCS2.
 #   PrintImageMatching:                       # Undefined Print Image Matching, description needed.
-DNGVersion: "V1_4"                               # Byte     This tag encodes the DNG four-tier version number. For files compliant with version 1.1.0.0 of the DNG specification, this tag should contain the bytes: 1, 1, 0, 0.
-DNGBackwardVersion: "V1_2"                      # Byte     This tag specifies the oldest version of the Digital Negative specification for which a file is compatible. Readers should not attempt to read a file if this tag specifies a version number that is higher than the version number of the specification the reader was based on. In addition to checking the version tags, readers should, for all tags, check the types, counts, and values, to verify it is able to correctly read the file.
 #   UniqueCameraModel:                        # Ascii    Defines a unique, non-localized name for the camera model that created the image in the raw file. This name should include the manufacturer's name to avoid conflicts, and should not be localized, even if the camera name itself is localized for different markets (see LocalizedCameraModel). This string may be used by reader software to index into per-model preferences and replacement profiles.
 #   LocalizedCameraModel:                     # Byte     Similar to the UniqueCameraModel field, except the name can be localized for different markets to match the localization of the camera name.
 #   CFAPlaneColor:                            # Byte     Provides a mapping between the values in the CFAPattern tag and the plane numbers in LinearRaw space. This is a required tag for non-RGB CFA images.
 #   CFALayout:                                # Short    Describes the spatial layout of the CFA.
 #   LinearizationTable:                       # Short    Describes a lookup table that maps stored values into linear values. This tag is typically used to increase compression ratios by storing the raw data in a non-linear, more visually uniform space with fewer total encoding levels. If SamplesPerPixel is not equal to one, this single table applies to all the samples for each pixel.
 #   BlackLevelRepeatDim:                      # Short    Specifies repeat pattern size for the BlackLevel tag.
-BlackLevel: 0                               # Rational Specifies the zero light (a.k.a. thermal black or black current) encoding level, as a repeating pattern. The origin of this pattern is the top-left corner of the ActiveArea rectangle. The values are stored in row-column-sample scan order.
 #   BlackLevelDeltaH:                         # SRational If the zero light encoding level is a function of the image column, BlackLevelDeltaH specifies the difference between the zero light encoding level for each column and the baseline zero light encoding level. If SamplesPerPixel is not equal to one, this single table applies to all the samples for each pixel.
 #   BlackLevelDeltaV:                         # SRational If the zero light encoding level is a function of the image row, this tag specifies the difference between the zero light encoding level for each row and the baseline zero light encoding level. If SamplesPerPixel is not equal to one, this single table applies to all the samples for each pixel.
-WhiteLevel: 65535                              # Long     This tag specifies the fully saturated encoding level for the raw sample values. Saturation is caused either by the sensor itself becoming highly non-linear in response, or by the camera's analog to digital converter clipping.
 #   DefaultScale:                             # Rational DefaultScale is required for cameras with non-square pixels. It specifies the default scale factors for each direction to convert the image to square pixels. Typically these factors are selected to approximately preserve total pixel count. For CFA images that use CFALayout equal to 2, 3, 4, or 5, such as the Fujifilm SuperCCD, these two values should usually differ by a factor of 2.0.
 #   DefaultCropOrigin:                        # Long     Raw images often store extra pixels around the edges of the final image. These extra pixels help prevent interpolation artifacts near the edges of the final image. DefaultCropOrigin specifies the origin of the final image area, in raw image coordinates (i.e., before the DefaultScale has been applied), relative to the top-left corner of the ActiveArea rectangle.
 #   DefaultCropSize:                          # Long     Raw images often store extra pixels around the edges of the final image. These extra pixels help prevent interpolation artifacts near the edges of the final image. DefaultCropSize specifies the size of the final image area, in raw image coordinates (i.e., before the DefaultScale has been applied).
@@ -163,11 +180,7 @@ WhiteLevel: 65535                              # Long     This tag specifies the
 #   ReductionMatrix1:                         # SRational ReductionMatrix1 defines a dimensionality reduction matrix for use as the first stage in converting color camera native space values to XYZ values, under the first calibration illuminant. This tag may only be used if ColorPlanes is greater than 3. The matrix is stored in row scan order.
 #   ReductionMatrix2:                         # SRational ReductionMatrix2 defines a dimensionality reduction matrix for use as the first stage in converting color camera native space values to XYZ values, under the second calibration illuminant. This tag may only be used if ColorPlanes is greater than 3. The matrix is stored in row scan order.
 #   AnalogBalance:                            # Rational Normally the stored raw values are not white balanced, since any digital white balancing will reduce the dynamic range of the final image if the user decides to later adjust the white balance; however, if camera hardware is capable of white balancing the color channels before the signal is digitized, it can improve the dynamic range of the final image. AnalogBalance defines the gain, either analog (recommended) or digital (not recommended) that has been applied the stored raw values.
-#   AsShotNeutral:                            # Short    Specifies the selected white balance at time of capture, encoded as the coordinates of a perfectly neutral color in linear reference space values. The inclusion of this tag precludes the inclusion of the AsShotWhiteXY tag.
-AsShotNeutral: [[1, 1], [1, 1], [1, 1]]
 #   AsShotWhiteXY:                            #	Rational	Specifies the selected white balance at time of capture, encoded as x-y chromaticity coordinates. The inclusion of this tag precludes the inclusion of the AsShotNeutral tag.
-#   BaselineExposure:                         # SRational  Camera models vary in the trade-off they make between highlight headroom and shadow noise. Some leave a significant amount of highlight headroom during a normal exposure. This allows significant negative exposure compensation to be applied during raw conversion, but also means normal exposures will contain more shadow noise. Other models leave less headroom during normal exposures. This allows for less negative exposure compensation, but results in lower shadow noise for normal exposures. Because of these differences, a raw converter needs to vary the zero point of its exposure compensation control from model to model. BaselineExposure specifies by how much (in EV units) to move the zero point. Positive values result in brighter default results, while negative values result in darker default results.
-BaselineExposure: [-150, 100]
 #   BaselineNoise:                            # Rational   Specifies the relative noise level of the camera model at a baseline ISO value of 100, compared to a reference camera model. Since noise levels tend to vary approximately with the square root of the ISO value, a raw converter can use this value, combined with the current ISO, to estimate the relative noise level of the current image.
 #   BaselineSharpness:                        # Rational   Specifies the relative amount of sharpening required for this camera model, compared to a reference camera model. Camera models vary in the strengths of their anti-aliasing filters. Cameras with weak or no filters require less sharpening than cameras with strong anti-aliasing filters.
 #   BayerGreenSplit:                          # Long       Only applies to CFA images using a Bayer pattern filter array. This tag specifies, in arbitrary units, how closely the values of the green pixels in the blue/green rows track the values of the green pixels in the red/green rows. A value of zero means the two kinds of green pixels track closely, while a non-zero value means they sometimes diverge. The useful range for this tag is from 0 (no divergence) to about 5000 (quite large divergence).
@@ -179,7 +192,6 @@ BaselineExposure: [-150, 100]
 #   ShadowScale:                              # SRational  This tag is used by Adobe Camera Raw to control the sensitivity of its 'Shadows' slider.
 #   DNGPrivateData:                           # Byte       Provides a way for camera manufacturers to store private data in the DNG file for use by their own raw converters, and to have that data preserved by programs that edit DNG files.
 #   MakerNoteSafety:                          # Short      MakerNoteSafety lets the DNG reader know whether the EXIF MakerNote tag is safe to preserve along with the rest of the EXIF data. File browsers and other image management software processing an image with a preserved MakerNote should be aware that any thumbnail image embedded in the MakerNote may be stale, and may not reflect the current state of the full size image.
-CalibrationIlluminant1: D65                   # Short      The illuminant used for the first set of color calibration tags (ColorMatrix1, CameraCalibration1, ReductionMatrix1). The legal values for this tag are the same as the legal values for the LightSource EXIF tag. If set to 255 (Other), then the IFD must also include a IlluminantData1 tag to specify the x-y chromaticity or spectral power distribution function for this illuminant.
 #   CalibrationIlluminant2:                   # Short      The illuminant used for an optional second set of color calibration tags (ColorMatrix2, CameraCalibration2, ReductionMatrix2). The legal values for this tag are the same as the legal values for the CalibrationIlluminant1 tag; however, if both are included, neither is allowed to have a value of 0 (unknown). If set to 255 (Other), then the IFD must also include a IlluminantData2 tag to specify the x-y chromaticity or spectral power distribution function for this illuminant.
 #   BestQualityScale:                         # Rational   For some cameras, the best possible image quality is not achieved by preserving the total pixel count during conversion. For example, Fujifilm SuperCCD images have maximum detail when their total pixel count is doubled. This tag specifies the amount by which the values of the DefaultScale tag need to be multiplied to achieve the best quality image size.
 #   RawDataUniqueID:                          # Byte       This tag contains a 16-byte unique identifier for the raw image data in the DNG file. DNG readers can use this tag to recognize a particular raw image, even if the file's name or the metadata contained in the file has been changed. If a DNG writer creates such an identifier, it should do so using an algorithm that will ensure that it is very unlikely two different images will end up having the same identifier.
@@ -210,7 +222,6 @@ CalibrationIlluminant1: D65                   # Short      The illuminant used f
 #   PreviewApplicationVersion:                # Byte       A UTF-8 encoded string containing the version number of the application that created the preview stored in the IFD.
 #   PreviewSettingsName:                      # Byte       A UTF-8 encoded string containing the name of the conversion settings (for example, snapshot name) used for the preview stored in the IFD.
 #   PreviewSettingsDigest:                    # Byte       A unique ID of the conversion settings (for example, MD5 digest) used to render the preview stored in the IFD.
-PreviewColorSpace: sRGB                      # Long       This tag specifies the color space in which the rendered preview in this IFD is stored. The default value for this tag is sRGB for color previews and Gray Gamma 2.2 for monochrome previews.
 #   PreviewDateTime:                          # Ascii      This tag is an ASCII string containing the name of the date/time at which the preview stored in the IFD was rendered. The date/time is encoded using ISO 8601 format.
 #   RawImageDigest:                           # Undefined  This tag is an MD5 digest of the raw image data. All pixels in the image are processed in row-scan order. Each pixel is zero padded to 16 or 32 bits deep (16-bit for data less than or equal to 16 bits deep, 32-bit otherwise). The data for each pixel is processed in little-endian byte order.
 #   OriginalRawFileDigest:                    #	Undefined	This tag is an MD5 digest of the data stored in the OriginalRawFileData tag.
@@ -269,7 +280,6 @@ PreviewColorSpace: sRGB                      # Long       This tag specifies the
 # OffsetTime*: -04:00
 # Photo:
 #   ExposureTime:                             #	Rational	Exposure time, given in seconds (sec).
-FNumber: 13                                 #	Rational	The F number.
 #   ExposureProgram:                          #	Short	The class of the program used by the camera to set exposure when the picture is taken.
 #   SpectralSensitivity:                      #	Ascii	Indicates the spectral sensitivity of each channel of the camera used. The tag value is an ASCII string compatible with the standard developed by the ASTM Technical Committee.
 #   ISOSpeedRatings:                          #	Short	Indicates the ISO Speed and ISO Latitude of the camera or input device as specified in ISO 12232.
@@ -331,9 +341,6 @@ FNumber: 13                                 #	Rational	The F number.
 #   ExposureMode:                             #	Short	This tag indicates the exposure mode set when the image was shot. In auto-bracketing mode, the camera shoots a series of frames of the same scene at different exposure settings.
 #   WhiteBalance:                             #	Short	This tag indicates the white balance mode set when the image was shot.
 #   DigitalZoomRatio:                         #	Rational	This tag indicates the digital zoom ratio when the image was shot. If the numerator of the recorded value is 0, this indicates that digital zoom was not used.
-FocalLengthIn35mmFormat: 46                 #	Short	This tag indicates the equivalent focal length assuming a 35mm film camera, in mm. A value of 0 means the focal length is unknown. Note that this tag differs from the <FocalLength> tag.
-FocalLengthIn35mmFilm: 46  # Rounded from 45.78 
-
 #   SceneCaptureType:                         #	Short	This tag indicates the type of scene that was shot. It can also be used to record the mode in which the image was shot. Note that this differs from the <SceneType> tag.
 #   GainControl:                              #	Short	This tag indicates the degree of overall image gain adjustment.
 #   Contrast:                                 #	Short	This tag indicates the direction of contrast processing applied by the camera when the image was shot.
@@ -346,7 +353,6 @@ FocalLengthIn35mmFilm: 46  # Rounded from 45.78
 #   BodySerialNumber:                         #	Ascii	This tag records the serial number of the body of the camera that was used in photography as an ASCII string.
 #   LensSpecification:                        #	Rational	This tag notes minimum focal length, maximum focal length, minimum F number in the minimum focal length, and minimum F number in the maximum focal length, which are specification information for the lens that was used in photography. When the minimum F number is unknown, the notation is 0/0
 #   LensMake:                                 #	Ascii	This tag records the lens manufactor as an ASCII string.
-LensModel: Linos Inspect XL 60mm            #	Ascii	This tag records the lens's model name and model number as an ASCII string.
 #   LensSerialNumber:                         #	Ascii	This tag records the serial number of the interchangeable lens that was used in photography as an ASCII string.
 #   ImageTitle:                               #	Ascii	This tag records the title of the image.
 #   Photographer:                             #	Ascii	This tag records the name of the photographer.
