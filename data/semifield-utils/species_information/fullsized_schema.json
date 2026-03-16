@@ -1,0 +1,250 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "season": { "type": "string" },
+        "datetime": { "type": "string" },
+        "bbot_version": { "type": "string" },
+        "batch_id": { "type": "string" },
+        "image_id": { "type": "string" },
+        "validated": { "type": "boolean" },
+        "version": { "type": "string" },
+        "Exif_meta": {
+            "type": "object",
+            "properties": {
+                "ImageWidth": { "type": "integer" },
+                "ImageLength": { "type": "integer" },
+                "Make": { "type": "string" },
+                "Model": { "type": "string" },
+                "Software": { "type": "string" },
+                "DateTime": { "type": "string", "format": "date-time" },
+                "ExposureTime": { "type": "string" },
+                "FNumber": { "type": "string" },
+                "ExposureProgram": { "type": "integer" },
+                "ISOSpeedRatings": { "type": "integer" },
+                "RecommendedExposureIndex": { "type": "integer" },
+                "ExifVersion": {
+                    "type": "array",
+                    "items": { "type": "integer" }
+                },
+                "BrightnessValue": { "type": "string" },
+                "MaxApertureValue": { "type": "string" },
+                "LightSource": { "type": "integer" },
+                "Flash": { "type": "integer" },
+                "FocalLength": { "type": "string" },
+                "ExposureMode": { "type": "integer" },
+                "WhiteBalance": { "type": "integer" },
+                "FocalLengthIn35mmFilm": { "type": "integer" },
+                "Contrast": { "type": "integer" },
+                "Saturation": { "type": "integer" },
+                "Sharpness": { "type": "integer" },
+                "LensModel": { "type": "string" },
+                "LensSpecification": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                },
+                "BodySerialNumber": { "type": ["string", "null"] }
+            },
+            "required": [
+                "ImageWidth", 
+                "ImageLength", 
+                "Make", 
+                "Model", 
+                "Software", 
+                "DateTime", 
+                "ExposureTime", 
+                "FNumber", 
+                "ExposureProgram", 
+                "ISOSpeedRatings", 
+                "RecommendedExposureIndex", 
+                "ExifVersion", 
+                "BrightnessValue", 
+                "MaxApertureValue", 
+                "LightSource", 
+                "Flash", 
+                "FocalLength", 
+                "ExposureMode", 
+                "WhiteBalance", 
+                "FocalLengthIn35mmFilm", 
+                "Contrast", 
+                "Saturation", 
+                "Sharpness", 
+                "LensModel", 
+                "LensSpecification", 
+                "BodySerialNumber"
+            ]
+        },
+        "camera_info": {
+            "type": "object",
+            "properties": {
+                "aligned": { "type": "boolean" },
+                "estimated_xyz": { "type": "array", "items": { "type": "number" } },
+                "estimated_pitch": { "type": "number" },
+                "estimated_yaw": { "type": "number" },
+                "estimated_roll": { "type": "number" },
+                "pixel_width": { "type": "number" },
+                "pixel_height": { "type": "number" },
+                "camera_coefficients": {
+                    "type": "object",
+                    "properties": {
+                        "f": { "type": "number" },
+                        "cx": { "type": "number" },
+                        "cy": { "type": "number" },
+                        "b1": { "type": "number" },
+                        "b2": { "type": "number" },
+                        "k1": { "type": "number" },
+                        "k2": { "type": "number" },
+                        "k3": { "type": "number" },
+                        "k4": { "type": "number" },
+                        "p1": { "type": "number" },
+                        "p2": { "type": "number" }
+                    },
+                    "required": [
+                        "f",
+                        "cx",
+                        "cy",
+                        "b1",
+                        "b2",
+                        "k1",
+                        "k2",
+                        "k3",
+                        "k4",
+                        "p1",
+                        "p2"
+                    ]
+                
+                },
+                "fov": {
+                    "type": "object",
+                    "properties": {
+                        "height": { "type": "number" },
+                        "width": { "type": "number" },
+                        "top_left_xy": { "type": "array", "items": { "type": "number" } },
+                        "top_right_xy": { "type": "array", "items": { "type": "number" } },
+                        "bottom_left_xy": { "type": "array", "items": { "type": "number" } },
+                        "bottom_right_xy": { "type": "array", "items": { "type": "number" } },
+                        "fov_area_cm2": { "type": "number" }
+                    },
+                    "required": [
+                        "height",
+                        "width",
+                        "top_left_xy",
+                        "top_right_xy",
+                        "bottom_left_xy",
+                        "bottom_right_xy",
+                        "fov_area_cm2"
+                        
+                    ]
+                }
+            },
+            "required": [
+                "aligned",
+                "estimated_xyz",
+                "estimated_pitch",
+                "estimated_yaw",
+                "estimated_roll",
+                "pixel_width",
+                "pixel_height",
+                "fov",
+                "camera_coefficients"
+            ]
+        },
+        "annotations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "is_primary": { "type": "boolean" },
+                    "cutout_exists": { "type": "boolean" },
+                    "bbox_xywh": {
+                        "type": "array",
+                        "items": { "type": "integer" },
+                        "minItems": 4,
+                        "maxItems": 4
+                    },
+                    "category_class_id": { "type": "integer" },
+                    "cutout_id": { "type": "string" },
+                    "overlapping_cutout_ids": {
+                        "type": ["array", "null"],
+                        "items": { "type": "string" }
+                    },
+                    "non_target_weed": { "type": ["boolean", "null"] },
+                    "non_target_weed_pred_conf": { "type": ["number", "null"] }
+                },
+                "required": [
+                    "is_primary", 
+                    "cutout_exists",
+                    "bbox_xywh", 
+                    "category_class_id", 
+                    "cutout_id",
+                    "overlapping_cutout_ids",
+                    "non_target_weed",
+                    "non_target_weed_pred_conf"
+                ]
+            }
+        },
+        "categories": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "class_id": { "type": "integer" },
+                    "USDA_symbol": { "type": "string" },
+                    "EPPO": { "type": "string" },
+                    "group": { "type": "string" },
+                    "class": { "type": "string" },
+                    "subclass": { "type": "string" },
+                    "order": { "type": "string" },
+                    "family": { "type": "string" },
+                    "genus": { "type": "string" },
+                    "species": { "type": "string" },
+                    "common_name": { "type": "string" },
+                    "authority": { "type": "string" },
+                    "growth_habit": { "type": "string" },
+                    "duration": { "type": "string" },
+                    "category": { "type": "string" },
+                    "multi_species_USDA_symbol": { "type": ["array", "null"], "items": { "type": "string" }, "minItems": 0 },
+                    "link": { "type": ["string", "null"] },
+                    "note": { "type": ["string", "null"] },
+                    "rgb": { "type": "array", "items": { "type": "integer" }, "minItems": 3, "maxItems": 3},
+                    "hex": { "type": "string" }
+                },
+                "required": [
+                    "class_id", 
+                    "USDA_symbol", 
+                    "EPPO", 
+                    "group", 
+                    "class", 
+                    "subclass", 
+                    "order", 
+                    "family", 
+                    "genus",
+                    "species", 
+                    "common_name", 
+                    "authority", 
+                    "growth_habit", 
+                    "duration", 
+                    "category", 
+                    "multi_species_USDA_symbol", 
+                    "link", 
+                    "note", 
+                    "rgb",
+                    "hex"
+                ]
+            }
+        }
+    },
+    "required": [
+        "season",
+        "datetime",
+        "bbot_version",
+        "batch_id", 
+        "image_id",
+        "validated",
+        "version",
+        "Exif_meta", 
+        "camera_info", 
+        "annotations", 
+        "categories"
+    ]
+}

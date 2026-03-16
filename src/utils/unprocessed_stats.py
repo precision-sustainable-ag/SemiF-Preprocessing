@@ -12,25 +12,31 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 log = logging.getLogger(__name__)
 
+REQUIRED_DIRS = [
+    "images", 
+    "metadata", 
+    # "meta_masks", 
+    # "reference"
+    ]
 
-
+REQUIRED_COLUMNS = [
+    'has_images', 
+    'has_metadata', 
+    # 'has_meta_masks', 
+    # 'has_reference'
+    ]
 class BatchAnalyzer:
     def __init__(self, df: pd.DataFrame):
         self.df = df.copy()
         self.standardize_columns()
-        self.required_columns = ['has_images', 'has_metadata', 'has_meta_masks', 'has_reference']
+        self.required_columns = REQUIRED_COLUMNS
 
     def standardize_columns(self):
         self.df.columns = self.df.columns.str.strip().str.lower()
 
     def get_unprocessed_batches(self) -> pd.DataFrame:
-        unprocessed = self.df[~self.df['processed']].copy()
-        unprocessed['missing_components'] = (~unprocessed[self.required_columns[1:]]).sum(axis=1)
-        unprocessed['preprocessed'] = unprocessed['has_metadata'] & unprocessed['has_reference']
-        return unprocessed[
-            (unprocessed['has_images']) & 
-            (unprocessed['missing_components'] != 0)
-        ]
+        unprocessed = self.df[self.df['processed'] == False].copy()
+        return unprocessed
 
 
 class BatchStatusChecker:
@@ -39,11 +45,12 @@ class BatchStatusChecker:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
         self.lts_locations: List[str] = cfg.paths.lts_locations
-        self.required_dirs = ["images", "metadata", "meta_masks", "reference"]
+        self.required_dirs = REQUIRED_DIRS
         self.season_config = cfg.date_ranges
         self.cache_path = Path(cfg.paths.cache_path)
-        self.max_age_minutes = cfg.batch_ids.max_age_minutes
-        self.force_reload = cfg.batch_ids.force_reload
+        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        self.max_age_minutes = 1000 #cfg.batch_ids.max_age_minutes
+        self.force_reload = True 
 
     def is_cache_valid(self) -> bool:
         if not self.cache_path.exists():
@@ -79,7 +86,7 @@ class BatchStatusChecker:
 
             developed_batches = self.get_all_batches(developed_path)
             uploads_batches = self.get_all_batches(uploads_path)
-            all_batches = developed_batches.union(uploads_batches)
+            all_batches = set(developed_batches) | set(uploads_batches)
             log.info(f"Found {len(all_batches)} batches in {lts_path.name}")
             for batch_id in tqdm(all_batches, desc="Processing batches", leave=False):
                 if batch_id not in batch_records:
@@ -98,8 +105,8 @@ class BatchStatusChecker:
                         "processed": False,
                         "has_images": False,
                         "has_metadata": False,
-                        "has_meta_masks": False,
-                        "has_reference": False,
+                        # "has_meta_masks": False,
+                        # "has_reference": False,
                     }
 
                 record = batch_records[batch_id]
@@ -115,16 +122,15 @@ class BatchStatusChecker:
                     record.update(status)
                     record["processed"] = all(status.values())
 
+                    record["preprocessed"] = True if record["has_images"] else False
+
                 # Check uploads location
                 upload_folder = uploads_path / batch_id
                 if upload_folder.exists():
                     record["exists_in_uploads"] = True
 
         df = pd.DataFrame(batch_records.values())
-        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(self.cache_path, index=False)
-        log.info(f"Batch status written to cache at {self.cache_path}")
-        return df
+        return df.sort_values(by=["batch_id"])
 
 def preprocess_dataframe(df: pd.DataFrame, season_mapping: Dict[str, list]) -> pd.DataFrame:
     # Create a date column from batch_id
@@ -135,61 +141,25 @@ def preprocess_dataframe(df: pd.DataFrame, season_mapping: Dict[str, list]) -> p
 
     # Clean weird suffixes
     df['season'] = df['season'].str.replace('_MDbbotv3.0', '', regex=False)
-
-    # Create general season category
-    df['general_season'] = df['season'].apply(
-        lambda x: 'cover' if 'cover' in str(x).lower() else 
-                  'weeds' if 'weeds' in str(x).lower() else 
-                  'cash' if 'cash' in str(x).lower() else None
-    )
-
-    # Build alias -> canonical season map
-    alias_to_canonical = {
-        alias: canonical
-        for canonical, aliases in season_mapping.items()
-        for alias in aliases
-    }
-
-    # Map aliases to canonical seasons
-    df['canonical_season'] = df['season'].apply(lambda x: alias_to_canonical.get(x, x))
-
     return df.sort_values(by=["batch_id"], ascending=False)
 
-
-
-def generate_batch_list_yaml(df: pd.DataFrame) -> str:
-    """
-    Generate a YAML-formatted batch_list from a DataFrame.
-
-    Args:
-        df (pd.DataFrame): A DataFrame with at least 'batch_id', 'season', and 'bbot_version' columns.
-
-    Returns:
-        str: YAML-formatted string with batch_list.
-    """
-    required_cols = {"batch_id", "season", "bbot_version"}
-    missing = required_cols - set(df.columns)
-    
-    if missing:
-        raise ValueError(f"DataFrame is missing required columns: {missing}")
-    
-    batch_list = [
+def group_by_state_season_year(df: pd.DataFrame) -> pd.DataFrame:
+    return df.groupby(['state','season','year']).agg(
         {
-            "batch_id": row["batch_id"],
-            "season": str(row["canonical_season"]),
-            "bbot_version": str(row["bbot_version"])
+        'batch_id': 'count'
         }
-        for _, row in df.iterrows()
-    ]
+        ).reset_index().sort_values(['state','year','season'])
 
-    return yaml.dump({"batch_list": batch_list}, sort_keys=False, default_flow_style=False)
-
+def save_df(df: pd.DataFrame, path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=False)
+    log.info(f"DataFrame saved to {path}")
 
 @hydra.main(version_base="1.3", config_path="../../conf", config_name="config.yaml")
 def main(cfg: DictConfig):
     # Instantiate and use the checker
     checker = BatchStatusChecker(cfg)
-    df = checker.check_batches().sort_values(by=["batch_id"])
+    df = checker.check_batches()
 
     # Instantiate and use the analyzer
     analyzer = BatchAnalyzer(df)
@@ -198,25 +168,15 @@ def main(cfg: DictConfig):
     # Preprocess the DataFrame
     cleaned_unprocessed_df = preprocess_dataframe(unprocessed_df, cfg.date_ranges.season_mappings)
     
-    # Group by state, general_season, and year
-    cleaned_unprocessed_df = cleaned_unprocessed_df[cleaned_unprocessed_df['preprocessed'] == False]
-    summary_df = cleaned_unprocessed_df.groupby(['state','canonical_season','year']).agg(
-        {
-        'batch_id': 'count'
-        }
-        ).reset_index().sort_values(['state','year','canonical_season'])
-    
+    # Group by state, season, and year
+    summary_df = group_by_state_season_year(cleaned_unprocessed_df)
+
     # Save unprocessed batches and the grouped by summary
     unprocessed_stats_dir = Path(cfg.paths.unprocessed_stats_dir)
-    unprocessed_stats_dir.mkdir(parents=True, exist_ok=True)
-    cleaned_unprocessed_df.to_csv(unprocessed_stats_dir / "unprocessed_batches.csv", index=False)
-    summary_df.to_csv(unprocessed_stats_dir / "unprocessed_batches_summary.csv", index=False)
-    analyzer.df.to_csv(unprocessed_stats_dir / "all_batches.csv", index=False)
-
-    # cleaned_unprocessed_df = pd.read_csv("data/unprocessed_stats/unprocessed_batches.csv")
-    yaml_output = generate_batch_list_yaml(cleaned_unprocessed_df)
-    with open(unprocessed_stats_dir / "batch_list.yaml", "w") as f:
-        f.write(yaml_output)
+    suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_df(cleaned_unprocessed_df, unprocessed_stats_dir / f"unprocessed_batches_{suffix}.csv")
+    save_df(summary_df, unprocessed_stats_dir / f"unprocessed_batches_summary_{suffix}.csv")
+    save_df(analyzer.df, unprocessed_stats_dir / f"all_batches_{suffix}.csv")
 
 if __name__ == "__main__":
     main()

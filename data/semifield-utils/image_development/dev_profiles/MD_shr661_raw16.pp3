@@ -764,7 +764,7 @@ PreExposure=1
 
 [RAW Bayer]
 Method=amaze
-Border=0
+Border=4
 ImageNum=1
 CcSteps=0
 PreBlack0=0

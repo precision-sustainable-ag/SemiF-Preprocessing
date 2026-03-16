@@ -1,0 +1,107 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "season": { "type": "string" },
+      "datetime": { "type": "string", "format": "date-time" },
+      "bbot_version": { "type": "string" },
+      "batch_id": { "type": "string" },
+      "image_id": { "type": "string" },
+      "cutout_id": { "type": "string" },
+      "cutout_num": { "type": "integer" },
+      "cutout_height": { "type": "integer" },
+      "cutout_width": { "type": "integer" },
+      "lens_model": { "type": "string" },
+      "validated": { "type": "boolean" },
+      "cutout_version": { "type": "string" },
+      "cutout_props": {
+        "type": "object",
+        "properties": {
+          "bbox_area_cm2": { "type": "number" },
+          "blur_effect": { "type": "number" },
+          "num_components": { "type": "integer" },
+          "cropout_rgb_mean": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "cropout_rgb_std": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "is_primary": { "type": "boolean" },
+          "extends_border": { "type": "boolean" },
+          "non_target_weed": { "type": "boolean" },
+          "non_target_weed_pred_conf": { "type": "number" }
+        },
+        "required": [
+          "is_primary",
+          "extends_border",
+          "bbox_area_cm2", 
+          "blur_effect", 
+          "num_components", 
+          "cropout_rgb_mean", 
+          "cropout_rgb_std",
+          "non_target_weed",
+          "non_target_weed_pred_conf"
+        ]
+      },
+      "category": {
+        "type": "object",
+        "properties": {
+          "class_id": { "type": "integer" },
+          "USDA_symbol": { "type": "string" },
+          "EPPO": { "type": "string" },
+          "group": { "type": "string" },
+          "class": { "type": "string" },
+          "subclass": { "type": "string" },
+          "order": { "type": "string" },
+          "family": { "type": "string" },
+          "genus": { "type": "string" },
+          "species": { "type": "string" },
+          "common_name": { "type": "string" },
+          "authority": { "type": "string" },
+          "growth_habit": { "type": "string" },
+          "duration": { "type": "string" },
+          "category": { "type": "string" },
+          "multi_species_USDA_symbol": { "type": ["array", "null"], "items": { "type": "string" }, "minItems": 0 },
+          "link": { "type": ["string", "null"] },
+          "note": { "type": ["string", "null"] },
+          "rgb": { "type": "array", "items": { "type": "integer" }, "minItems": 3, "maxItems": 3 },
+          "hex": { "type": "string" }
+        },
+        "required": [
+          "class_id",
+          "USDA_symbol",
+          "EPPO",
+          "group",
+          "class",
+          "subclass",
+          "order",
+          "family",
+          "genus",
+          "species",
+          "common_name",
+          "authority",
+          "growth_habit",
+          "duration",
+          "category",
+          "multi_species_USDA_symbol",
+          "link",
+          "note",
+          "rgb",
+          "hex"
+        ]
+      }
+    },
+    "required": [
+      "season", 
+      "datetime",
+      "bbot_version",
+      "batch_id", 
+      "image_id", 
+      "cutout_id", 
+      "cutout_num", 
+      "cutout_height", 
+      "cutout_width", 
+      "lens_model",
+      "validated",
+      "cutout_version",
+      "cutout_props", 
+      "category"
+    ]
+  }
+  
