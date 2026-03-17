@@ -49,7 +49,6 @@ tasks: # task for each mode
     - autosfm
   label:
     - detect_plants
-    - merge_overlapping_bboxes
     - remap_labels
     - assign_species
     # - no_remap_label # used for no remapping label task
@@ -95,3 +94,24 @@ max_workers: 16
 report:
   save2lts: true
   sample_size: 96 # best if this is a multiple of 12
+
+detect:
+  base_imgsz: 4000
+  scales: [0.15, 0.25, 0.5, 1.0, 1.25, 1.5]
+
+  per_scale_conf: 0.0
+  per_scale_iou: 1.0
+  per_scale_max_det: 2000
+
+  wbf_iou: 0.55
+  wbf_score_thr: 0.001
+
+  conf: 0.7
+  iou: 0.60
+  final_max_det: 2000
+
+  post_fusion_nms:
+    enabled: true
+    iou: 0.60
+
+  device: 0

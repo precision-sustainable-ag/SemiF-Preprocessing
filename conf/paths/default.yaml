@@ -1,7 +1,7 @@
 # workdir: ${hydra:runtime.cwd}  # where the code is executed
 workdir: /home/mkutuga/SemiF-Preprocessing
 
-log_dir: ${paths.workdir}/.logs/
+log_dir: ${paths.workdir}/.logs/ 
 data_dir: ${paths.workdir}/data/
 developed_dir: ${paths.data_dir}/longterm_images2/semifield-developed-images
 batch_dir: ${paths.developed_dir}/${batch_id}
