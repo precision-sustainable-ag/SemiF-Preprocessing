@@ -7,6 +7,7 @@ from pathlib import Path
 
 import cv2
 import hydra
+import random
 import numpy as np
 import torch
 from omegaconf import DictConfig
@@ -29,6 +30,9 @@ def save_csv_predictions(preds, save_path: str, class_names: dict):
     with open(save_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["bounding_box_id", "xmin", "ymin", "xmax", "ymax", "conf", "class", "classname"])
+
+        if preds is None or len(preds) == 0:
+            return
 
         for i, det in enumerate(preds):
             xmin, ymin, xmax, ymax, conf, cls_id = det.tolist()
@@ -54,7 +58,13 @@ def export_predictions(results_raw_xyxy_abs: torch.Tensor, save_dir, filename, n
 
     if results_raw_xyxy_abs is None or results_raw_xyxy_abs.numel() == 0:
         out_path.touch()
-        csv_path.touch()
+
+        empty_preds = torch.empty((0, 6), dtype=torch.float32)
+        save_csv_predictions(
+            preds=empty_preds,
+            save_path=str(csv_path),
+            class_names=names,
+        )
         return
 
     boxes = results_raw_xyxy_abs.detach().cpu().float()
@@ -88,6 +98,131 @@ def export_predictions(results_raw_xyxy_abs: torch.Tensor, save_dir, filename, n
     csv_preds = torch.cat([xyxy_norm, conf[:, None], cls[:, None].float()], dim=1)
     save_csv_predictions(preds=csv_preds, save_path=str(csv_path), class_names=names)
 
+def save_detection_overlay(
+    image_bgr: np.ndarray,
+    detections_xyxy_abs: torch.Tensor | None,
+    save_path: str | Path,
+    class_names: dict,
+    cfg_detect: dict | None = None
+) -> None:
+    """
+    Save a simple inspection image with detections overlaid.
+
+    Args:
+        image_bgr: Original image in BGR format.
+        detections_xyxy_abs: Tensor Nx6 [x1, y1, x2, y2, conf, cls] in absolute pixel coords.
+        save_path: Path to output visualization image.
+        class_names: Mapping from class id -> class name.
+        line_thickness: Rectangle thickness.
+        font_scale: Label font scale.
+        show_conf: Whether to include confidence in label text.
+        draw_label_bg: Whether to draw filled background behind label text.
+    """
+    
+    show_conf = cfg_detect.get("show_conf", True)
+    draw_label_bg = cfg_detect.get("draw_label_bg", True)
+
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    vis = image_bgr.copy()
+
+    scale = float(cfg_detect.get("viz_scale", 1.0))
+
+    if scale != 1.0:
+        h, w = vis.shape[:2]
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        vis = cv2.resize(vis, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    if detections_xyxy_abs is None or detections_xyxy_abs.numel() == 0:
+        cv2.imwrite(str(save_path), vis)
+        return
+
+    dets = detections_xyxy_abs.detach().cpu().numpy()
+
+    for det in dets:
+        x1, y1, x2, y2, conf, cls_id = det.tolist()
+    
+        if scale != 1.0:
+            x1, y1, x2, y2 = x1 * scale, y1 * scale, x2 * scale, y2 * scale
+        x1, y1, x2, y2 = map(lambda v: int(round(v)), [x1, y1, x2, y2])
+            
+        cls_id = int(cls_id)
+
+        cls_name = class_names.get(cls_id, str(cls_id))
+        label = f"{cls_name} {conf:.2f}" if show_conf else cls_name
+
+        color = _get_class_color(cls_id)
+
+        # cv2.rectangle(vis, (x1, y1), (x2, y2), color, line_thickness)
+        # --- dynamic thickness based on bbox size ---
+        bw = max(1, x2 - x1)
+        bh = max(1, y2 - y1)
+        box_scale = np.sqrt(bw * bh)  # geometric mean (more stable than width/height alone)
+
+        min_thick = cfg_detect.get("min_line_thickness", 2)
+        max_thick = cfg_detect.get("max_line_thickness", 20)
+        scale_factor = cfg_detect.get("line_thickness_scale", 0.01)  # tune this
+        
+        scale_boost = cfg_detect.get("viz_thickness_boost", 1.0 / scale if scale < 1.0 else 1.0)
+        
+        dynamic_thickness = int(np.clip(box_scale * scale_factor * scale_boost, min_thick, max_thick))
+
+        cv2.rectangle(vis, (x1, y1), (x2, y2), color, dynamic_thickness)
+
+        base_font_scale = cfg_detect.get("font_scale", 0.6)
+        font_scale_factor = cfg_detect.get("font_scale_factor", 0.0008)
+
+        font_scale_dynamic = float(
+            np.clip(box_scale * font_scale_factor, 0.4, 1.2)
+        )
+        font_scale = max(base_font_scale, font_scale_dynamic)
+
+        (text_w, text_h), baseline = cv2.getTextSize(
+            label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1
+        )
+
+        text_x = x1
+        text_y = max(y1 - 6, text_h + 4)
+
+        if draw_label_bg:
+            cv2.rectangle(
+                vis,
+                (text_x, text_y - text_h - 4),
+                (text_x + text_w + 4, text_y + baseline - 2),
+                color,
+                thickness=-1,
+            )
+            text_color = (255, 255, 255)
+        else:
+            text_color = color
+
+        cv2.putText(
+            vis,
+            label,
+            (text_x + 2, text_y - 2),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            text_color,
+            1,
+            lineType=cv2.LINE_AA,
+        )
+
+    cv2.imwrite(str(save_path), vis)
+
+def _get_class_color(class_id: int) -> tuple[int, int, int]:
+    """
+    Deterministic per-class BGR color.
+    """
+    palette = [
+        (0, 0, 255),      # red
+        (255, 255, 0),    # cyan
+        (255, 0, 255),    # magenta
+        (0, 255, 255),    # yellow
+    ]
+    return palette[class_id % len(palette)]
+    
 def iou_xyxy(a: np.ndarray, b: np.ndarray) -> float:
     x1 = max(float(a[0]), float(b[0]))
     y1 = max(float(a[1]), float(b[1]))
@@ -439,8 +574,15 @@ def predict(opt, cfg: DictConfig):
     model = YOLO(model_path)
     names = model.names if isinstance(model.names, dict) else {i: n for i, n in enumerate(model.names)}
 
-    out_det_dir = save_dir / "detections" / batch_name
+    out_det_dir = Path(cfg.paths.plant_detection_dir)
     out_det_dir.mkdir(parents=True, exist_ok=True)
+
+    save_vis = bool(getattr(cfg.detect, "save_visualizations", False))
+    out_vis_dir = Path(cfg.paths.inspection_dir) / "detection_examples"
+    viz_sample_rate = float(getattr(cfg.detect, "viz_sample_rate", 1.0))
+
+    if save_vis:
+        out_vis_dir.mkdir(parents=True, exist_ok=True)
 
     device = cfg.detect.device if "detect" in cfg and "device" in cfg.detect else None
 
@@ -470,6 +612,15 @@ def predict(opt, cfg: DictConfig):
             im0=im0,
         )
 
+        if save_vis and random.random() < viz_sample_rate:
+            vis_path = out_vis_dir / f"{Path(img_path).stem}.jpg"
+            save_detection_overlay(
+                image_bgr=im0,
+                detections_xyxy_abs=det_abs,
+                save_path=vis_path,
+                class_names=names,
+                cfg_detect=cfg.detect
+            )
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):

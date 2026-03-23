@@ -178,16 +178,25 @@ class BBoxFilter:
                     b.is_primary = False
 
                 try:
-                    # Find the best bounding box
-                    centers = np.array([self.image_map["_".join(b.cutout_id.split("_")[:2])].camera_info.estimated_xyz for b in all_boxes])
-                    centroids = np.array([b.global_coordinates.global_centroid for b in all_boxes])
+                    # Skip boxes that failed mapping (centroid is the [0,0] fallback)
+                    valid_boxes = [
+                        b for b in all_boxes
+                        if b.global_coordinates is not None
+                        and b.global_coordinates.global_centroid != [0, 0]
+                    ]
+                    if not valid_boxes:
+                        log.warning(f"No valid global coordinates in group for box {box.cutout_id}. Skipping.")
+                        continue
+
+                    centers  = np.array([self.image_map["_".join(b.cutout_id.split("_")[:2])].camera_info.estimated_xyz for b in valid_boxes])
+                    centroids = np.array([b.global_coordinates.global_centroid for b in valid_boxes])
                     distances = ((centroids - centers[:, :2]) ** 2).sum(axis=-1)
                 except Exception as e:
                     log.exception("Error calculating distances for primary selection.")
                     continue
 
                 best_idx = np.argmin(distances)
-                best_box = all_boxes[best_idx]
+                best_box = valid_boxes[best_idx]
                 best_box.is_primary = True
 
                 if best_box.cutout_id not in self.primary_box_ids:

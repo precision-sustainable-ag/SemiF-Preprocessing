@@ -77,6 +77,7 @@ class ExifMeta:
 class BoundingBox:
     cutout_id: str
     category_class_id: int
+    detection_class: Optional[str] = None 
     is_primary: bool = None
     cutout_exists: bool = None
     bbox_xywh: List[int] = None

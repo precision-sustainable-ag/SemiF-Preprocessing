@@ -155,15 +155,18 @@ class BBoxMapper:
             log.debug(f"Processing image_id={img.image_id} with {len(img.annotations)} bounding boxes")
 
             for bbox in img.annotations:
-                try:
-                    coords = self._map_bbox(bbox, img.image_id, chunk, surface, img.downscaled_height, img.downscaled_width)
-                    bbox.global_coordinates = self._construct_global_coords(coords)
-                    log.debug(f"Mapped cutout_id={bbox.cutout_id} in image_id={img.image_id}")
+                coords = self._map_bbox(
+                    bbox, img.image_id, chunk, surface,
+                    img.downscaled_height, img.downscaled_width
+                )
 
-                except Exception as e:
+                if coords is None:
+                    log.warning(f"Mapping failed for image_id={img.image_id}, cutout_id={bbox.cutout_id}")
                     bbox.global_coordinates = self._default_global_coords()
-                    log.warning(f"Mapping failed for image_id={img.image_id}, cutout_id={getattr(bbox, 'cutout_id', 'unknown')}")
-                    log.exception(e)
+                    continue
+
+                bbox.global_coordinates = self._construct_global_coords(coords)
+
                 updated.append(bbox)
 
             img.bboxes = updated
@@ -191,48 +194,43 @@ class BBoxMapper:
         log.warning("Falling back to last chunk — heuristic may not be optimal.")
         return chunk
     
-    def _map_bbox(
-        self,
-        bbox: BoundingBox,
-        image_id: str,
-        chunk: Metashape.Chunk,
-        surface: Metashape.Model,
-        height: int,
-        width: int
-    ) -> List[List[float]]:
-        """
-        Projects 2D bounding box corner coordinates to global (geographic) coordinates.
-
-        Args:
-            bbox (BoundingBox): The bounding box object.
-            image_id (str): ID of the associated image.
-            chunk (Metashape.Chunk): The Metashape chunk.
-            surface (Metashape.Model): The surface model to project onto.
-            height (int): Downscaled image height.
-            width (int): Downscaled image width.
-
-        Returns:
-            List[List[float]]: List of [x, y] global coordinates for each corner.
-        """
+    def _map_bbox(self, bbox, image_id, chunk, surface, height, width):
         cam = self.camera_lookup.get(image_id)
-        
         if not cam:
-            log.warning(f"Camera not found for image ID: {image_id}")
-            return [[0,0], [0,0], [0,0], [0,0]]  # Default to zero coordinates
+            log.warning(f"Camera not found for image_id={image_id}")
+            return None
 
         mapped = []
         corners = ["top_left", "bottom_left", "top_right", "bottom_right"]
         coords = [getattr(bbox.local_coordinates,c) for c in corners]
-        
+
+        # Inward nudge steps to try if the first pickPoint misses the surface
+        NUDGE_PX = [1, 3, 5, 10]
+
         for x, y in coords:
-            px = max(x * width, 0)
-            py = max(y * height, 0)
-            ray_target = cam.unproject(Metashape.Vector([px, py]))
-            point = surface.pickPoint(cam.center, ray_target)
+            px = float(np.clip(x * width,  1, width  - 1))
+            py = float(np.clip(y * height, 1, height - 1))
+
+            point = None
+            # Try the original pixel, then nudge inward toward image center
+            cx, cy = width / 2, height / 2
+            dx = np.sign(cx - px)
+            dy = np.sign(cy - py)
+
+            for nudge in [0] + NUDGE_PX:
+                nx = px + dx * nudge
+                ny = py + dy * nudge
+                ray_target = cam.unproject(Metashape.Vector([nx, ny]))
+                point = surface.pickPoint(cam.center, ray_target)
+                if point is not None:
+                    break
 
             if point is None:
-                log.error(f"pickPoint failed for image_id={image_id}, x={px}, y={py}")
-                raise ValueError(f"pickPoint failed for image_id={image_id}, x={px}, y={py}")
+                log.warning(
+                    f"pickPoint failed after nudging for image_id={image_id}, "
+                    f"x={px:.2f}, y={py:.2f} — skipping bbox"
+                )
+                return None  # Signal failure cleanly, no exception
 
             world_coord = chunk.transform.matrix.mulp(point)
             geo_coord = chunk.crs.project(world_coord)
@@ -294,18 +292,15 @@ class BBoxMapper:
             area_sqm=area
         )
 
-    def _default_global_coords(self) -> Dict:
-        """
-        Return a default fallback value for unmapped bounding boxes.
-        """
-        return {
-            "top_left": [0, 0],
-            "top_right": [0, 0],
-            "bottom_left": [0, 0],
-            "bottom_right": [0, 0],
-            "global_centroid": [0, 0],
-            "area_sqm": 0.0
-        }
+    def _default_global_coords(self) -> GlobalCoordinates:
+        return GlobalCoordinates(
+            top_left=[0, 0],
+            top_right=[0, 0],
+            bottom_left=[0, 0],
+            bottom_right=[0, 0],
+            global_centroid=[0, 0],
+            area_sqm=0.0
+        )
 
 
 class RemapLabels:
@@ -363,6 +358,10 @@ class RemapLabels:
         w = round((row["xmax"] * self.fullres_w)) - x 
         h = round((row["ymax"] * self.fullres_h)) - y
         return [x, y, w, h]
+
+    def _normalize_class_name(self, name: str) -> str:
+        """Normalize detection class names for consistent lookup."""
+        return str(name).strip().lower()
 
     def _build_metadata(self, image_id: str, h: int, w: int) -> ImageMetadata:
         """
@@ -427,13 +426,25 @@ class RemapLabels:
                     local_centroid=[(row["xmin"] + row["xmax"]) / 2, (row["ymin"] + row["ymax"]) / 2],
                     is_normalized=row["is_normalized"],
                 )
-                category_class_id = self.species_info["species"].get(row["name"], {}).get("class_id", None)
+                
+                detection_name = self._normalize_class_name(row.get("name", ""))
+                species_entry = next(
+                    (v for k, v in self.species_info["species"].items()
+                    if self._normalize_class_name(k) == detection_name
+                    or detection_name in [self._normalize_class_name(a) for a in v.get("alias", [])]),
+                    {}
+                )
+                category_class_id = species_entry.get("class_id", None)
+                if category_class_id is None:
+                    log.warning(f"Unknown detection class '{row.get('name')}' for {image_id}")
+
                 bbox = BoundingBox(
                     is_primary=None,
                     cutout_exists=None,
                     bbox_xywh=self._bbox_xywh(row),
                     # image_id=image_id,
                     category_class_id=category_class_id,
+                    detection_class=detection_name, 
                     cutout_id=f"{image_id}_{row['bounding_box_id']}",
                     # overlapping_cutout_ids=None,
                     local_coordinates=local_coords,

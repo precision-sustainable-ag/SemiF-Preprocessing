@@ -60,15 +60,23 @@ class SpeciesAssigner :
         gdf.to_file(self.output_shp_path)
         log.info(f"Saved bbox polygons shapefile: {self.output_shp_path}")
 
-    def _process_file(self, filepath: Path)  -> None:
-        """Load and process a single image metadata file."""
+    def _process_file(self, filepath: Path) -> None:
         metadata = self.read_json(filepath)
         image_id = metadata.get("image_id", "")
         batch_id = metadata.get("batch_id", "")
-        
+
         for bbox in metadata.get("annotations", []):
-            species_info = self._determine_species(bbox, batch_id)
-            self._assign_species(bbox, species_info)
+            if self._is_colorchecker(bbox):
+                colorchecker_info = self.spec_dict["species"].get("colorchecker")
+                species_info = colorchecker_info
+                if colorchecker_info:
+                    self._assign_species(bbox, colorchecker_info)
+                else:
+                    log.warning(f"'colorchecker' not found in species_info, skipping: {bbox.get('cutout_id')}")
+
+            else:
+                species_info = self._determine_species(bbox, batch_id)
+                self._assign_species(bbox, species_info)
 
             # Collect bbox polygon info for shapefile
             if "global_coordinates" in bbox:
@@ -109,18 +117,30 @@ class SpeciesAssigner :
         ]
         return Polygon(corners)
     
+    def _is_colorchecker(self, bbox: Dict) -> bool:
+        if bbox.get("category_class_id") == 28:
+            return True
+        raw = str(bbox.get("detection_class", "")).strip().lower().replace("_", "").replace(" ", "")
+        return raw == "colorchecker"
+    
     def _determine_species(self, bbox: Dict, batch_id: str) -> Dict:
         """
-        Determine species based on spatial location or fallback rules.
+        Determine species — only called for non-colorchecker bboxes now.
+        Centroid access is moved below the early-exit guards.
         """
-        x, y = bbox["global_coordinates"]["global_centroid"]
         bbox_cls = bbox.get("category_class_id")
-        if bbox_cls == 28:
-            return self.spec_dict["species"].get("colorchecker", None)
 
-        if "cash" in self.season and bbox_cls != 28:
+        if "cash" in self.season:
             return self._get_cash_crop_species()
 
+        # Only unpack centroid when we actually need it for polygon lookup
+        global_coords = bbox.get("global_coordinates", {})
+        centroid = global_coords.get("global_centroid", [0, 0])
+        if centroid == [0, 0]:
+            log.warning(f"Zero centroid for bbox {bbox.get('cutout_id')} — using fallback species.")
+            return self.spec_dict["species"]["plant"]
+
+        x, y = centroid
         point = Point(x, y)
         return self._lookup_species_from_point(point, bbox, batch_id)
 

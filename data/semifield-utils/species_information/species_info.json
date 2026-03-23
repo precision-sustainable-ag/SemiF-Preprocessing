@@ -849,7 +849,7 @@
         59,
         88
       ],
-      "alias": []
+      "alias": ["color_checker"]
     },
     "VIVI": {
       "class_id": 29,
@@ -2124,6 +2124,99 @@
       ],
       "alias": [
         "tall fescue grass"
+      ]
+    },
+    "FERU2": {
+      "class_id": 72,
+      "USDA_symbol": "FERU2",
+      "EPPO": "FESRU",
+      "group": "monocot",
+      "class": "Liliopsida",
+      "subclass": "Commelinidae",
+      "order": "Cyperales",
+      "family": "Poaceae",
+      "genus": "Festuca",
+      "species": "rubra",
+      "common_name": "creeping red fescue",
+      "authority": "Linnaeus",
+      "growth_habit": "graminoid",
+      "duration": "perennial",
+      "collection_location": null,
+      "category": "cover crop",
+      "collection_timing": null,
+      "multi_species_USDA_symbol": null,
+      "link": "https://plants.sc.egov.usda.gov/plant-profile/FERU2",
+      "note": null,
+      "hex": "#44a7d9",
+      "rgb": [
+        68,
+        167,
+        217
+      ],
+      "alias": [
+        "red fescue"
+      ]
+    },
+    "PHPR3": {
+      "class_id": 73,
+      "USDA_symbol": "PHPR3",
+      "EPPO": "PHLPR",
+      "group": "monocot",
+      "class": "Liliopsida",
+      "subclass": "Commelinidae",
+      "order": "Cyperales",
+      "family": "Poaceae",
+      "genus": "Phleum",
+      "species": "pratense",
+      "common_name": "timothy grass",
+      "authority": "Linnaeus",
+      "growth_habit": "graminoid",
+      "duration": "perennial",
+      "collection_location": null,
+      "category": "cover crop",
+      "collection_timing": null,
+      "multi_species_USDA_symbol": null,
+      "link": "https://plants.sc.egov.usda.gov/plant-profile/PHPR3",
+      "note": null,
+      "hex": "#a15921",
+      "rgb": [
+        161,
+        89,
+        33
+      ],
+      "alias": [
+        "timothy"
+      ]
+    },
+    "DAGL": {
+      "class_id": 74,
+      "USDA_symbol": "DAGL",
+      "EPPO": " DACGL",
+      "group": "monocot",
+      "class": "Liliopsida",
+      "subclass": "Commelinidae",
+      "order": "Cyperales",
+      "family": "Poaceae",
+      "genus": "Dactylis",
+      "species": "glomerata",
+      "common_name": "orchard grass",
+      "authority": "Linnaeus",
+      "growth_habit": "graminoid",
+      "duration": "perennial",
+      "collection_location": null,
+      "category": "cover crop",
+      "collection_timing": null,
+      "multi_species_USDA_symbol": null,
+      "link": "https://plants.sc.egov.usda.gov/plant-profile/DAGL",
+      "note": null,
+      "hex": "#9ac6ed",
+      "rgb": [
+        154,
+        198,
+        237
+      ],
+      "alias": [
+        "orchardgrass"
       ]
     }
 
