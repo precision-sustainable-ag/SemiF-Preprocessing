@@ -80,9 +80,16 @@ def _update_exif_worker(args):
 
     cmd = ["exiftool", "-overwrite_original"]
     for key, value in tags.items():
-        if isinstance(value, list):
-            value = ",".join(map(str, value))
-        cmd.append(f"-{key}={value}")
+        if key == "Orientation":
+            cmd.append("-Orientation#=1")
+        
+        else:
+            if isinstance(value, list):
+                value = ",".join(map(str, value))
+            cmd.append(f"-{key}={value}")
+    
+    
+    
     cmd.append(str(file_path))
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)

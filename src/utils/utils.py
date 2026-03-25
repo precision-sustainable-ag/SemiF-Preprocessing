@@ -23,6 +23,10 @@ from omegaconf import DictConfig
 
 log = logging.getLogger(__name__)
 
+def sanitize_time_for_path(time_str: str) -> str:
+    """Replace characters illegal in filesystem paths."""
+    return str(time_str).replace(":", "-").replace(" ", "_")
+
 def check_z_axis(z_axis_str: str) -> str:
     """
     Check and normalize the Z-axis string.

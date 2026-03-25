@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 import pandas as pd
 import yaml
-from omegaconf import DictConfig
+from omegaconf import DictConfig, ListConfig
 
 from src.utils.utils import find_lts_dir
 
@@ -235,7 +235,18 @@ def extract_module_timings(log_lines: List[str]) -> pd.DataFrame:
 
 def flatten_tasks(cfg: DictConfig) -> List[str]:
     """Return a flat list of all task names from all groups."""
-    return [task for group in cfg.tasks.values() for task in group]
+    tasks = []
+
+    for group_name, group in cfg.tasks.items():
+        if group is None:
+            continue
+
+        if not isinstance(group, (list, ListConfig)):
+            raise TypeError(f"Task group '{group_name}' must be a list, got {type(group)}")
+
+        tasks.extend(group)
+
+    return tasks
 
 def read_log_file(log_path: Path) -> List[str]:
         if not log_path.exists():

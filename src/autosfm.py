@@ -74,24 +74,7 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
             log.exception(f"Failed to add photos. Exiting.")
             raise
 
-    # Detect markers
-    if cfg.asfm.detect_markers:
-        try:
-            log.info(f"Detecting markers")
-            pipeline.detect_markers()
-        except Exception as e:
-            log.exception(f"Failed to detect markers. Exiting")
-            raise
-
-    # Import marker locations
-    if cfg.asfm.import_references:
-        try:
-            log.info(f"Importing references")
-            pipeline.import_reference()
-        except Exception as e:
-            log.exception(f"Failed to import reference. Exiting")
-            raise
-
+    
     # Match photos
     if cfg.asfm.match:
         try:
@@ -110,6 +93,26 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
         except Exception as e:
             log.exception(f"Failed to align photos. Exiting")
             raise
+
+    # Detect markers
+    if cfg.asfm.detect_markers:
+        try:
+            log.info(f"Detecting markers")
+            pipeline.detect_markers()
+            pipeline.remove_low_id_markers()
+        except Exception as e:
+            log.exception(f"Failed to detect markers. Exiting")
+            raise
+
+    # Import marker locations
+    if cfg.asfm.import_references:
+        try:
+            log.info(f"Importing references")
+            pipeline.import_reference()
+        except Exception as e:
+            log.exception(f"Failed to import reference. Exiting")
+            raise
+
 
     # Optimize cameras
     if cfg.asfm.optimize_cameras:

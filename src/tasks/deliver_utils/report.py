@@ -15,7 +15,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 
-from src.utils.utils import find_lts_dir, is_reconstructed, get_files
+from src.utils.utils import find_lts_dir, is_reconstructed, get_files, sanitize_time_for_path
 from src.utils.artifact_utils import read_artifact
 
 log = logging.getLogger(__name__)
@@ -32,9 +32,12 @@ class ImageReport:
         self.upload_directory = Path(self.lts_dir) / "semifield-upload" / self.batch_id
         self.developed_directory = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
         self.output_report_dir = Path(cfg.paths.inspection_dir)
+        self.sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+        # Build the inspection dir with the sanitized time directly
+        self.output_report_dir = Path(cfg.paths.batch_dir) / "inspection" / self.sanitized_time if self.sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
         self.output_report_dir.mkdir(parents=True, exist_ok=True)
 
-        self.pdf_output_path = self.output_report_dir / f"{self.batch_id}_{self.start_time}_report.pdf"
+        self.pdf_output_path = self.output_report_dir / f"{self.batch_id}_{self.sanitized_time}_report.pdf"
 
         self.plot_file_base = self.output_report_dir / "plots"
         self.plot_file_base.mkdir(parents=True, exist_ok=True)
@@ -568,10 +571,7 @@ def main(cfg: DictConfig):
             # Copy report to LTS developed inspection directory
             report_src_dir = image_report.pdf_output_path.parent
 
-            if report_src_dir.name != "inspection":
-                report_dst = image_report.developed_directory / "inspection" / report_src_dir.name
-            else:
-                report_dst = image_report.developed_directory / "inspection"
+            report_dst = image_report.developed_directory / "inspection" / image_report.sanitized_time
 
             shutil.copy(str(image_report.pdf_output_path), report_dst)
             log.info(f"Report copied to LTS directory: {report_dst}")

@@ -16,7 +16,7 @@ import seaborn as sns
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from src.utils.utils import find_lts_dir, is_reconstructed, get_files
+from src.utils.utils import find_lts_dir, is_reconstructed, get_files, sanitize_time_for_path
 log = logging.getLogger(__name__)
 
 random.seed(42)  # For reproducibility
@@ -214,8 +214,13 @@ class ImageReviewer:
         self.metadata_dir = Path(cfg.paths.batch_dir, "metadata") if Path(cfg.paths.batch_dir, "metadata").exists() else self.lts_batch_dir / "metadata"
         self.species_info = self.read_species_info(Path(cfg.paths.species_info))
         
-        # Outputs        
-        self.inspection_dir = self.lts_batch_dir / "inspection" if self.use_lts_images else Path(cfg.paths.inspection_dir)
+        # Outputs
+        if cfg.report.save2lts:
+            self.inspection_dir = self.lts_batch_dir / "inspection"
+        else:
+            self.inspection_dir = Path(cfg.paths.inspection_dir)
+        self.sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+        self.inspection_dir = self.inspection_dir / self.sanitized_time if self.sanitized_time else self.inspection_dir
         self.remapped_sample_dir = self.inspection_dir / "remapped_samples"
         if not self.remapped_sample_dir.exists():
             self.remapped_sample_dir.mkdir(parents=True, exist_ok=True)

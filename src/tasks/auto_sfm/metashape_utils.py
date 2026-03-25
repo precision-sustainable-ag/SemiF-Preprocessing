@@ -200,6 +200,35 @@ class SfM:
         )
         self.save_project()
 
+    def remove_low_id_markers(self, chunk: int = 0, threshold: int = 300):
+        """
+        Remove markers with numeric labels below a threshold (e.g. < 300) for NC batches.
+        """
+        if not self.batch_id.startswith("NC"):
+            log.info("Skipping marker filtering (not an NC batch)")
+            return
+
+        chunk_obj = self.doc.chunks[chunk]
+
+        markers_to_remove = []
+
+        for marker in chunk_obj.markers:
+            try:
+                marker_id = int(marker.label)
+            except (ValueError, TypeError):
+                # Skip non-numeric labels safely
+                continue
+
+            if marker_id < threshold:
+                markers_to_remove.append(marker)
+
+        log.info(f"Removing {len(markers_to_remove)} markers with ID < {threshold}")
+
+        if markers_to_remove:
+            chunk_obj.remove(markers_to_remove)
+
+        self.save_project()
+        
     def detect_markers(
         self, chunk: int = 0, progress_callback: Callable = percentage_callback
     ):
@@ -409,8 +438,9 @@ class SfM:
             log.error(f"Photos: {photos}")
             raise
 
-        if self.detect_markers_cfg:
-            self.detect_markers(chunk=len(self.doc.chunks) - 1)
+        # if self.detect_markers_cfg:
+            # self.detect_markers(chunk=len(self.doc.chunks) - 1)
+            # self.remove_low_id_markers(chunk=len(self.doc.chunks) - 1)
         self.import_reference(chunk=len(self.doc.chunks) - 1)
 
         log.debug("Matching and Aligning photos again.")
