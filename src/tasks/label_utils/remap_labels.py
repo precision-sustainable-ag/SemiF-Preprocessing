@@ -221,6 +221,11 @@ class BBoxMapper:
                 nx = px + dx * nudge
                 ny = py + dy * nudge
                 ray_target = cam.unproject(Metashape.Vector([nx, ny]))
+                
+                if cam.center is None or ray_target is None:
+                    log.warning(f"Camera center or ray target is None for image_id={image_id}, "
+                                f"px={nx:.2f}, py={ny:.2f} - skipping this corner")
+                    continue
                 point = surface.pickPoint(cam.center, ray_target)
                 if point is not None:
                     break

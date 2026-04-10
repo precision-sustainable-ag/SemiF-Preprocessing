@@ -78,7 +78,7 @@ def _set_metadata_defaults(cfg: DictConfig, artifact: Dict[str, Any]):
     if artifact["lts_developed_directory"] is None:
         try:
             lts_dir = find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
-            cfg.paths.lts_developed_directory = Path(lts_dir) / "semifield-developed-images"
+            cfg.paths.lts_developed_directory = str(Path(lts_dir) / "semifield-developed-images")
             artifact["lts_developed_directory"] = str(cfg.paths.lts_developed_directory)
             artifact["inspection_dir"] = f"{str(cfg.paths.lts_developed_directory)}/{cfg.batch_id}/inspection"
         except Exception as e:

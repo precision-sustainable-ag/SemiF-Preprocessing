@@ -165,6 +165,7 @@ def get_files(cfg: DictConfig, task: str) -> List[Path]:
         raw_files = _filter_by_time(raw_files)
         log.info(f"Found {len(raw_files)} RAW files (filtered).")
         undeveloped = get_only_undeveloped_raw_files(lts_jpg_dst, raw_files)
+        log.info(f"Found {len(undeveloped)} undeveloped RAW files.")
         sampled = set(random.sample(undeveloped, min(len(undeveloped), cfg.raw2jpg.jpg_samples)))
         sample_org = [(f, f in sampled) for f in raw_files]
         
@@ -240,7 +241,15 @@ def is_reconstructed(cfg: DictConfig) -> bool:
     autosfm_status = task_statuses.get("autosfm", {})
     remap_labels_status = task_statuses.get("remap_labels", {})
     no_remap_label_status = task_statuses.get("no_remap_label", {})
+    
+    lts_dir = find_lts_dir(cfg.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
+    
+    fov_csv = Path(lts_dir) / "semifield-developed-images" / cfg.batch_id / "reference" / "fov.csv"
 
+    if fov_csv.exists():
+        log.info(f"Found fov.csv at {fov_csv}. Assuming batch is reconstructed.")
+        return True
+    
     if no_remap_label_status == "success":
         log.info("No remap label task detected. Using simple labels.")
         return False
