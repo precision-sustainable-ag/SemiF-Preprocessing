@@ -137,8 +137,11 @@ def get_files(cfg: DictConfig, task: str) -> List[Path]:
     date_split = date_str.split("-")
     date_time = date(int(date_split[0]), int(date_split[1]), int(date_split[2]))
     local_data_dir = Path(cfg.paths.data_dir)
-    lts_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations, local=False))
-    raw_dir = find_raw_dir(local_data_dir, batch_id, lts_dir)
+    if "inspect_images" in task or "move_data" in task or "report" in task or "no_remap_label" in task or "detect_plants" in task:
+        lts_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations, local=False, jpgs=True, developed=True))
+    else:
+        lts_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations, local=False))
+    # raw_dir = find_raw_dir(local_data_dir, batch_id, lts_dir)
     lts_jpg_dst = lts_dir / "semifield-developed-images" / batch_id / "images"
 
     start_time_raw = cfg.get("start_time", None)
@@ -160,6 +163,7 @@ def get_files(cfg: DictConfig, task: str) -> List[Path]:
         return files
 
     if task == "raw2jpg":
+        raw_dir = find_raw_dir(local_data_dir, batch_id, lts_dir)
         raw_files = sorted([f for mask in cfg.file_masks.raw_files for f in raw_dir.glob(f"*{mask}")])
         log.info(f"Found {len(raw_files)} RAW files.")
         raw_files = _filter_by_time(raw_files)
@@ -216,6 +220,7 @@ def get_files(cfg: DictConfig, task: str) -> List[Path]:
         return _filter_by_time(sorted(lts_meta.glob("*.json")))
 
     elif task == "report_uploads":
+        raw_dir = find_raw_dir(local_data_dir, batch_id, lts_dir)
         remote_raw_dir = lts_dir / "semifield-upload" / batch_id
         if "3.1" in str(cfg.bbot_version):
             ext = "*.RAW"
@@ -276,7 +281,8 @@ def extract_season_info(cfg: DictConfig):
                 start = datetime.strptime(v["start"], "%Y-%m-%d")
                 end = datetime.strptime(v["end"], "%Y-%m-%d")
                 if start <= batch_date <= end:
-                    cfg.season = v["pipeline_season"] if cfg.season is None else cfg.season
+                    if cfg.season is None and "pipeline_season" in v:
+                        cfg.season = v["pipeline_season"]
                     cfg.bbot_version = v["bbot_version"] if cfg.bbot_version is None else cfg.bbot_version
                     cfg.crs = v["crs"] if cfg.crs is None else cfg.crs
                     cfg.gh_reviewer = v.get("gh_reviewer", "mkutu")
@@ -403,76 +409,116 @@ def find_raw_dir(local_data_dir: Path, batch_id: str,
 
 
 # Find the batch NFS location from a list of possible parent directories
-def find_lts_dir(batch_id: str, nfs_locations: list[str], local: bool = False,
-                 developed: bool = False, dngs: bool = False, jpgs: bool = False) -> Path | None:
-    """
-    Searches for the specified batch directory within the given NFS locations and checks for the presence and completeness of RAW files.
-    Args:
-        batch_id (str): The identifier of the batch to search for.
-        nfs_locations (list): A list of NFS locations (directories) to search within.
-        local (bool): true - searches for batch data in local directory.
-        developed (bool): true - searches for pngs in semifield-developed-images, false - searches for raws in semifield-upload.
-    Returns:
-        Path: The NFS location where the batch was found with complete RAW
-        files, or None if the batch is not found or the files are incomplete.
-    Logs:
-        - Info: Logs the NFS location and the number of RAW files found if the batch is found and the files are complete.
-        - Error: Logs an error message if the batch is not found, if no RAW files are found, or if the RAW files are not completely uploaded.
-    """
-    dir_found, files_found, upload_complete = False, False, False
-    batch_location = None
-    for nfs_location in nfs_locations:
-        nfs_location = Path(nfs_location)
-        if local:
-            if developed:
-                batch_location = Path(
-                    "data") / nfs_location.name / "semifield-developed-images" / batch_id
-            else:
-                batch_location = Path(
-                    "data") / nfs_location.name / "semifield-upload" / batch_id
-        else:
-            if developed:
-                batch_location = nfs_location / "semifield-developed-images" / batch_id
-            else:
-                batch_location = nfs_location / "semifield-upload" / batch_id
-        # Check if the batch directory exists
-        if batch_location.exists():
-            dir_found = True
-            if developed:
-                if dngs:
-                    dng_location = batch_location / "dngs"
-                    if dng_location.exists():
-                        return nfs_location
-                elif jpgs:
-                    files = list(Path(batch_location, "images").glob("*.jpg")) + list(
-                        Path(batch_location, "images").glob("*.JPG"))
-                else:
-                    files = list(Path(batch_location, "pngs").glob("*.png")) + list(
-                        Path(batch_location, "pngs").glob("*.PNG"))
-            else:
-                files = list(batch_location.glob("*.RAW")) + list(
-                    batch_location.glob("*.raw"))
-            # Check if any RAW files are present
-            if files:
-                files_found = True
-                # todo: md5 checksum for data verification?
-                log.info(
-                    f"Batch {batch_id} found in {batch_location} with {len(files)} {'RAW' if not developed else ('JPG' if jpgs else 'PNG')} files")
-                return nfs_location
-    if not dir_found:
-        errorMessage = f"Batch {batch_id} not found in NFS locations: {nfs_locations}"
-        log.error(errorMessage)
-        raise FileNotFoundError(errorMessage)
-    elif not files_found:
-        errorMessage = f"Batch {batch_id} found in {batch_location} but no RAW files found"
-        log.error(errorMessage)
-        raise FileNotFoundError(errorMessage)
-    elif not upload_complete:
-        errorMessage = f"Batch {batch_id} found in {batch_location} but RAW files are not completely uploaded"
-        log.error(errorMessage)
-        raise FileNotFoundError(errorMessage)
-    return None
+from pathlib import Path
 
+
+def find_lts_dir(
+    batch_id: str,
+    nfs_locations: list[str],
+    local: bool = False,
+    developed: bool = False,
+    dngs: bool = False,
+    jpgs: bool = False,
+) -> Path:
+    """
+    Find the parent NFS location containing a given batch.
+
+    The function searches each candidate NFS location for the batch directory and
+    verifies that the expected files exist before returning the matching parent
+    NFS location.
+
+    Search behavior:
+    - `developed=False`: looks in `semifield-upload/<batch_id>` for RAW files
+    - `developed=True, dngs=True`: checks for `dngs/`
+    - `developed=True, jpgs=True`: looks in `images/` for JPG files
+    - `developed=True` with neither `dngs` nor `jpgs`: looks in `pngs/` for PNG files
+
+    Args:
+        batch_id: Batch identifier to search for.
+        nfs_locations: Candidate parent directories to search.
+        local: If True, search under `data/<nfs_name>/...` instead of the full NFS path.
+        developed: If True, search in `semifield-developed-images`; otherwise search
+            in `semifield-upload`.
+        dngs: When `developed=True`, check for a `dngs/` directory.
+        jpgs: When `developed=True`, check for JPG files in `images/`.
+
+    Returns:
+        The matching parent NFS location as a Path.
+
+    Raises:
+        FileNotFoundError: If the batch directory is not found, or if it is found
+            but does not contain the expected files.
+        ValueError: If incompatible flag combinations are provided.
+    """
+    if dngs and jpgs:
+        raise ValueError("`dngs` and `jpgs` cannot both be True.")
+
+    searched_batch_dirs: list[Path] = []
+    found_batch_dirs: list[Path] = []
+
+    for root in map(Path, nfs_locations):
+        base_root = Path("data") / root.name if local else root
+        dataset_dir = "semifield-developed-images" if developed else "semifield-upload"
+        batch_dir = base_root / dataset_dir / batch_id
+        searched_batch_dirs.append(batch_dir)
+
+        if not batch_dir.exists():
+            log.error(f"Batch directory not found: {batch_dir}")
+            continue
+
+        found_batch_dirs.append(batch_dir)
+
+        if developed:
+            if dngs:
+                dng_dir = batch_dir / "dngs"
+                if dng_dir.exists():
+                    log.info(f"Batch {batch_id} found in {batch_dir} with dngs directory present")
+                    return root
+                continue
+
+            if jpgs:
+                files = list((batch_dir / "images").glob("*.jpg"))
+                files += list((batch_dir / "images").glob("*.JPG"))
+                file_label = "JPG"
+            else:
+                files = list((batch_dir / "pngs").glob("*.png"))
+                files += list((batch_dir / "pngs").glob("*.PNG"))
+                file_label = "PNG"
+        else:
+            files = list(batch_dir.glob("*.RAW"))
+            files += list(batch_dir.glob("*.raw"))
+            file_label = "RAW"
+
+        if files:
+            log.info(
+                f"Batch {batch_id} found in {batch_dir} with {len(files)} {file_label} files"
+            )
+            return root
+
+    if not found_batch_dirs:
+        error_message = (
+            f"Batch {batch_id} not found in any candidate location: "
+            f"{[str(p) for p in searched_batch_dirs]}"
+        )
+        log.error(error_message)
+        raise FileNotFoundError(error_message)
+
+    expected = (
+        "dngs directory"
+        if developed and dngs
+        else "JPG files"
+        if developed and jpgs
+        else "PNG files"
+        if developed
+        else "RAW files"
+    )
+
+    error_message = (
+        f"Batch {batch_id} was found, but no expected {expected} were present in: "
+        f"{[str(p) for p in found_batch_dirs]}"
+    )
+    log.error(error_message)
+    raise FileNotFoundError(error_message)
 
 def log_image_stats(image: np.ndarray, label: str = "Image"):
     log.debug(

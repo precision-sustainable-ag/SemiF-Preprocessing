@@ -16,6 +16,10 @@ from src.utils.datasets import (
     BBoxCoordinates,
     GlobalCoordinates,
 )
+from src.tasks.label_utils.bbox_area_estimation import (
+    estimate_bbox_area_sqm,
+    sensor_pixel_pitch_mm,
+)
 
 log = logging.getLogger(__name__)
 
@@ -119,6 +123,14 @@ class RemapLabelsPipeline:
         self.species_info_remapped = self._remap_species_info(cfg.paths.species_info)
         
         self.fullres_width, self.fullres_height = self._determine_fullres_dims(cfg, self.bbot_version)
+        self.sensor_width_mm, self.sensor_height_mm = self._determine_sensor_dims(cfg)
+        self.focal_length_mm = float(cfg.exif.FocalLength)
+        self.pixel_width_mm, self.pixel_height_mm = sensor_pixel_pitch_mm(
+            self.sensor_width_mm,
+            self.sensor_height_mm,
+            self.fullres_width,
+            self.fullres_height,
+        )
         
         self.species_class = cfg.assign_species.assign_all_bboxes.label.lower()
         self.df = self._load_detections()
@@ -150,6 +162,10 @@ class RemapLabelsPipeline:
             return cfg.exif.SVCamImageWidth, cfg.exif.SVCamImageHeight
         else:
             return cfg.exif.SonyImageWidth, cfg.exif.SonyImageHeight
+
+    @staticmethod
+    def _determine_sensor_dims(cfg: DictConfig) -> Tuple[float, float]:
+        return float(cfg.exif.SensorWidth), float(cfg.exif.SensorHeight)
 
     @staticmethod
     def _check_assign_species(cfg: DictConfig) -> None:
@@ -209,6 +225,16 @@ class RemapLabelsPipeline:
         w = round((row["xmax"] * fullres_width)) - x
         h = round((row["ymax"] * fullres_height)) - y
         return [x, y, w, h]
+
+    def _estimate_bbox_area_sqm(self, bbox_xywh: Optional[List[int]]) -> Optional[float]:
+        return estimate_bbox_area_sqm(
+            bbox_xywh=bbox_xywh,
+            pixel_width_mm=self.pixel_width_mm,
+            pixel_height_mm=self.pixel_height_mm,
+            focal_length_mm=self.focal_length_mm,
+            z_axis_cm=self.z_axis,
+            cam_angle_deg=self.cam_angle,
+        )
     
     def process(self):
 
@@ -232,7 +258,12 @@ class RemapLabelsPipeline:
                         fov=FOV(),
                         cam_angle=self.cam_angle,
                         z_axis=self.z_axis,
-                        camera_coefficients=CameraCoefficients()
+                        pixel_width=self.pixel_width_mm,
+                        pixel_height=self.pixel_height_mm,
+                        focal_length=self.focal_length_mm,
+                        camera_coefficients=CameraCoefficients(
+                            f=self.focal_length_mm,
+                        )
                         )
                 )
             except Exception as e:
@@ -243,12 +274,15 @@ class RemapLabelsPipeline:
             for _, row in group.iterrows():
                 try:
                     class_id = self._class_id(row.get("classname"))
+                    bbox_xywh = self._bbox_xywh(row, self.fullres_width, self.fullres_height)
                     annotation = BoundingBox(
-                        bbox_xywh=self._bbox_xywh(row, self.fullres_width, self.fullres_height),
+                        bbox_xywh=bbox_xywh,
                         category_class_id=class_id,
                         cutout_id=f"{image_id}_{cutout_id_counter}",
                         local_coordinates=BBoxCoordinates(),
-                        global_coordinates=GlobalCoordinates(),
+                        global_coordinates=GlobalCoordinates(
+                            area_sqm=self._estimate_bbox_area_sqm(bbox_xywh),
+                        ),
                     )
                     cutout_id_counter += 1
                     

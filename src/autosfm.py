@@ -63,6 +63,16 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
     log.info(f"Initializing SfM")
     pipeline = SfM(cfg)
 
+    if cfg.asfm.recover_unaligned_only:
+        try:
+            log.info("Recovering unaligned cameras in existing chunk only")
+            pipeline.recover_unaligned_only(chunk=0, rematch=cfg.asfm.recover_rematch)
+            log.info("Recovery-only mode complete")
+            return
+        except Exception as e:
+            log.exception("Failed recovery-only mode. Exiting")
+            raise
+
     # Add photos to ms project
     if cfg.asfm.add_photos_and_masks:
         try:
@@ -75,6 +85,16 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
             raise
 
     
+    # Detect markers
+    if cfg.asfm.detect_markers:
+        try:
+            log.info(f"Detecting markers")
+            pipeline.detect_markers()
+            pipeline.remove_low_id_markers()
+        except Exception as e:
+            log.exception(f"Failed to detect markers. Exiting")
+            raise
+        
     # Match photos
     if cfg.asfm.match:
         try:
@@ -94,15 +114,7 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
             log.exception(f"Failed to align photos. Exiting")
             raise
 
-    # Detect markers
-    if cfg.asfm.detect_markers:
-        try:
-            log.info(f"Detecting markers")
-            pipeline.detect_markers()
-            pipeline.remove_low_id_markers()
-        except Exception as e:
-            log.exception(f"Failed to detect markers. Exiting")
-            raise
+    
 
     # Import marker locations
     if cfg.asfm.import_references:

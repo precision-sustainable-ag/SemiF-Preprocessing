@@ -35,7 +35,14 @@ class AnnotationPlotter:
         
         # Inputs
         self.metadata_dir = Path(cfg.paths.batch_dir, "metadata") if Path(cfg.paths.batch_dir, "metadata").exists() else self.lts_batch_dir / "metadata"
-        self.save_dir = Path(cfg.paths.inspection_dir) / "plots"
+        
+        # Outputs
+        if cfg.inspect_images.save2lts:
+            self.inspection_dir = self.lts_batch_dir / "inspection"
+        else:
+            self.inspection_dir = Path(cfg.paths.inspection_dir)
+        self.sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+        self.save_dir = self.inspection_dir / self.sanitized_time / "plots" if self.sanitized_time else self.inspection_dir / "plots"
         self.save_dir.mkdir(parents=True, exist_ok=True)
         
         with open(cfg.paths.species_info, 'r') as f:
@@ -140,8 +147,9 @@ class AnnotationPlotter:
         g = sns.FacetGrid(df, col=col, col_wrap=3, sharey=False, height=3.5)
         g.map_dataframe(sns.histplot, x="area_sqcm", bins=bins, log_scale=(True, False))
         g.set_titles("{col_name}")
-        g.set_axis_labels("Area (cm², log scale)", "Count")
-        g.figure.suptitle(f"Log-Scaled Histograms of Area per Species")
+        area_label = "Area" if self.is_reconstructed else "Estimated Area"
+        g.set_axis_labels(f"{area_label} (cm², log scale)", "Count")
+        g.figure.suptitle(f"Log-Scaled Histograms of {area_label} per Species")
         plt.tight_layout()
         plot_path = self.save_dir / "area_log_scaled_histograms.png"
         plt.savefig(plot_path, dpi=300)
@@ -186,9 +194,13 @@ class AnnotationPlotter:
             return
 
         self.species_count(df)
-        
-        if self.is_reconstructed:
+
+        has_area_data = "area_sqcm" in df.columns and df["area_sqcm"].notna().any()
+
+        if has_area_data:
             self.log_scale_histogram(df)
+
+        if self.is_reconstructed:
             self.plot_species_centroid_density(df)
 
 class ImageReviewer:
@@ -215,7 +227,7 @@ class ImageReviewer:
         self.species_info = self.read_species_info(Path(cfg.paths.species_info))
         
         # Outputs
-        if cfg.report.save2lts:
+        if cfg.inspect_images.save2lts:
             self.inspection_dir = self.lts_batch_dir / "inspection"
         else:
             self.inspection_dir = Path(cfg.paths.inspection_dir)
@@ -284,14 +296,17 @@ class ImageReviewer:
         return data_paths
 
     def _label_text(self, bbox: dict, reconstructed: bool = True) -> str:
-        
-        if reconstructed:
-            area_sqm = bbox.get("global_coordinates", {}).get("area_sqm", 0)
-            # Convert squared meters to squared centimeters
+        species_name = self.species_info.get(str(bbox["category_class_id"]), "Unknown")
+        area_sqm = bbox.get("global_coordinates", {}).get("area_sqm", None)
+        has_area = area_sqm is not None
+
+        if has_area:
             area_sqcm = area_sqm * 10000
-            label_text = f"{self.species_info.get(str(bbox['category_class_id']), 'Unknown')} ({area_sqcm:.2f} cm2) {'P' if bbox['is_primary'] else ''}"
+            area_prefix = "" if reconstructed else "est. "
+            primary_suffix = f" {'P' if bbox.get('is_primary') else ''}" if reconstructed else ""
+            label_text = f"{species_name} ({area_prefix}{area_sqcm:.2f} cm2){primary_suffix}"
         else:
-            label_text = f"{self.species_info.get(str(bbox['category_class_id']), 'Unknown')}"
+            label_text = species_name
 
         return label_text
 
@@ -447,8 +462,16 @@ class PDFReviewer:
         self.lts_batch_dir = Path(self.lts_dir) / "semifield-developed-images" / cfg.batch_id
 
         self.start = cfg.start_time
-        self.ms_pdf_report = self.lts_batch_dir / "inspection" / self.start / Path(cfg.paths.pdf_report).name if self.use_lts_images else Path(cfg.paths.pdf_report)
-        self.inspection_dir = self.lts_batch_dir / "inspection" / self.start if self.use_lts_images else Path(cfg.paths.inspection_dir)
+        if self.start:
+            self.start = sanitize_time_for_path(self.start)
+            pdf_report_path = self.lts_batch_dir / "inspection" / self.start / Path(cfg.paths.pdf_report).name if self.use_lts_images else Path(cfg.paths.pdf_report)
+            inspection_dir = self.lts_batch_dir / "inspection" / self.start if self.use_lts_images else Path(cfg.paths.inspection_dir)
+        else:
+            pdf_report_path = self.lts_batch_dir / "inspection" / Path(cfg.paths.pdf_report).name if self.use_lts_images else Path(cfg.paths.pdf_report)
+            inspection_dir = self.lts_batch_dir / "inspection" if self.use_lts_images else Path(cfg.paths.inspection_dir)
+        
+        self.ms_pdf_report = pdf_report_path
+        self.inspection_dir = inspection_dir
 
         self.output_dir = self.inspection_dir / "metashape_report_pages"
         if not self.output_dir.exists():

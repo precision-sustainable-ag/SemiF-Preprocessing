@@ -31,10 +31,18 @@ class ImageReport:
         self.lts_dir = find_lts_dir(self.batch_id, cfg.paths.lts_locations, developed=True, jpgs=True)
         self.upload_directory = Path(self.lts_dir) / "semifield-upload" / self.batch_id
         self.developed_directory = Path(self.lts_dir) / "semifield-developed-images" / self.batch_id
-        self.output_report_dir = Path(cfg.paths.inspection_dir)
         self.sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
-        # Build the inspection dir with the sanitized time directly
-        self.output_report_dir = Path(cfg.paths.batch_dir) / "inspection" / self.sanitized_time if self.sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+        self.local_inspection_dir = (
+            Path(cfg.paths.batch_dir) / "inspection" / self.sanitized_time
+            if self.sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+        )
+        self.lts_inspection_dir = (
+            self.developed_directory / "inspection" / self.sanitized_time
+            if self.sanitized_time else self.developed_directory / "inspection"
+        )
+        # Keep writing the new report into the current batch workspace, but resolve
+        # existing report assets from LTS-developed inspection outputs first.
+        self.output_report_dir = self.local_inspection_dir
         self.output_report_dir.mkdir(parents=True, exist_ok=True)
 
         self.pdf_output_path = self.output_report_dir / f"{self.batch_id}_{self.sanitized_time}_report.pdf"
@@ -46,13 +54,27 @@ class ImageReport:
         self.developed_image_files = list(get_files(cfg, task="report"))
         self.image_data = []
 
-        self.local_sample_dir = self.output_report_dir / "remapped_samples"
+        self.asset_inspection_dirs = [
+            path for path in [self.lts_inspection_dir, self.local_inspection_dir]
+            if path.exists()
+        ]
+        if not self.asset_inspection_dirs:
+            self.asset_inspection_dirs = [self.lts_inspection_dir, self.local_inspection_dir]
+
+        self.sample_dirs = [path / "remapped_samples" for path in self.asset_inspection_dirs]
 
         self.log_parser = LogParser(cfg, self.output_report_dir)
 
         self.sample_size = cfg.report.sample_size
 
         self.is_reconstructed = is_batch_reconstructed
+
+    def _existing_asset_path(self, relative_path: Path) -> Path | None:
+        for inspection_dir in self.asset_inspection_dirs:
+            candidate = inspection_dir / relative_path
+            if candidate.exists():
+                return candidate
+        return None
 
     def find_raw_image_files(self) -> List[Path]:
         if "3.1" in str(self.bbot_version):
@@ -65,12 +87,16 @@ class ImageReport:
                 # If 'SONY' directory does not exist, use the default extension
                 extension = "*.ARW"
         # raw_image_files = sorted(self.upload_directory.glob(extension))
-        raw_image_files = get_files(self.cfg, task="report_uploads")
+        try:
+            raw_image_files = get_files(self.cfg, task="report_uploads")
+        except Exception as e:
+            log.error(f"Error finding raw image files with pattern {extension} in {self.upload_directory}: {e}. Raws may have already been moved to JUNO.")
+            raw_image_files = []
         log.debug(f"Found {len(raw_image_files)} raw image files in {self.upload_directory}")
         if not raw_image_files:
             extension = "*.jpg"
             # jpg_image_files = sorted(Path(self.developed_directory, "images").glob(extension))
-            jpg_image_files = get_files(self.cfg, task="report_developed")
+            jpg_image_files = get_files(self.cfg, task="inspect_images")
             if jpg_image_files:
                 log.info(f"Using developed JPGs from {self.developed_directory} instead of raw images.")
                 raw_image_files = jpg_image_files
@@ -336,8 +362,8 @@ class ImageReport:
 
     def _add_metashape_page(self, c: canvas.Canvas, file_name: str, x: int, y: int, width: int, height: int) -> None:
         # Metashape report page
-        metashape_page_1 = self.output_report_dir / f"metashape_report_pages/{file_name}"
-        if metashape_page_1.exists():
+        metashape_page_1 = self._existing_asset_path(Path("metashape_report_pages") / file_name)
+        if metashape_page_1:
             c.showPage()  # Start a new page
             c.drawImage(metashape_page_1, x, y, width=width, height=height, preserveAspectRatio=True)
     
@@ -349,10 +375,20 @@ class ImageReport:
             c (canvas.Canvas): The PDF canvas object.
         """
         # Set heading for sample images
-        if self.local_sample_dir.exists() and list(self.local_sample_dir.glob("*.jpg")):
-            sample_images = list(self.local_sample_dir.glob("*.jpg"))
+        sample_images = []
+        sample_dir = None
+        for candidate_dir in self.sample_dirs:
+            if candidate_dir.exists():
+                candidate_images = list(candidate_dir.glob("*.jpg"))
+                if candidate_images:
+                    sample_dir = candidate_dir
+                    sample_images = candidate_images
+                    break
+
+        if sample_images:
             num_samples = min(self.sample_size, len(sample_images))  # Or change to len(sample_images) for all
             selected_images = sorted(random.sample(sample_images, num_samples))
+            log.info(f"Using sample images from {sample_dir}")
 
             images_per_page = 12
             images_per_row = 3
@@ -390,12 +426,13 @@ class ImageReport:
                                 preserveAspectRatio=True,
                                 anchor='c')
         else:
-            log.warning("Sample images not available")
+            searched_dirs = ", ".join(str(path) for path in self.sample_dirs)
+            log.warning(f"Sample images not available. Checked: {searched_dirs}")
             c.drawString(50, 350, "Sample images not available")
         
     def _add_plot(self, c: canvas.Canvas, plot_file_name: str, x: int, y: int, width: int= 250, height: int = 200, title: str = None, newpage: bool = True) -> None:
-        count_plot_path = self.plot_file_base / plot_file_name
-        if Path(count_plot_path).exists():
+        count_plot_path = self._existing_asset_path(Path("plots") / plot_file_name)
+        if count_plot_path:
             if newpage:
                 c.showPage()  # Start a new page for the three analytical plots
             if title:
@@ -462,7 +499,12 @@ class ImageReport:
         # -----------------------------------------
         # Section 6: Add Area and Density
         # -----------------------------------------
-        self._add_plot(c, "species_counts.png", 50, 350, 250, 200, title="Analysis Plots: Species Counts and Area Distribution", newpage=True)
+        area_title = (
+            "Analysis Plots: Species Counts and Area Distribution"
+            if self.is_reconstructed
+            else "Analysis Plots: Species Counts and Estimated Area Distribution"
+        )
+        self._add_plot(c, "species_counts.png", 50, 350, 250, 200, title=area_title, newpage=True)
         self._add_plot(c, "area_log_scaled_histograms.png", 50, 0, 250, 200, newpage=False)
         self._add_plot(c, "species_centroid_density.png", 50, 350, 250, 200, title="Analysis Plots: Spatial Density", newpage=True)
         

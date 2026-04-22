@@ -80,23 +80,39 @@ class SfM:
         with open(path, 'r') as file:
             return yaml.safe_load(file)
         
-    def _remove_duplicate_and_unaligned_cameras(self):
-        """Removes duplicate aligned cameras and unaligned cameras from the chunk."""
-        unique_aligned_cameras = set()
+    def _remove_duplicate_cameras(self, chunk: int) -> None:
+        chunk_obj = self.doc.chunks[chunk]
+        seen_aligned = set()
         cameras_to_remove = []
 
-        for camera in self.doc.chunk.cameras:
+        for camera in chunk_obj.cameras:
             if camera.transform is None:
-                cameras_to_remove.append(camera)
-            elif camera.label in unique_aligned_cameras:
+                continue
+            if camera.label in seen_aligned:
                 cameras_to_remove.append(camera)
             else:
-                unique_aligned_cameras.add(camera.label)
+                seen_aligned.add(camera.label)
 
-        self.doc.chunk.remove(cameras_to_remove)
+        if cameras_to_remove:
+            chunk_obj.remove(cameras_to_remove)
 
-        log.info(f"Unaligned cameras in current chunk: {len(self.get_unaligned_cameras())}")
-        log.info(f"Final number of cameras in current chunk after alignment: {len(self.doc.chunk.cameras)}")
+        log.info(
+            f"Chunk {chunk} ({chunk_obj.label}) after duplicate cleanup: "
+            f"total={len(chunk_obj.cameras)}, "
+            f"unaligned={len(self.get_unaligned_cameras(chunk))}"
+        )
+
+    def remove_unaligned_cameras(self, chunk: int) -> None:
+        chunk_obj = self.doc.chunks[chunk]
+        unaligned = [camera for camera in chunk_obj.cameras if camera.transform is None]
+
+        if unaligned:
+            chunk_obj.remove(unaligned)
+
+        log.info(
+            f"Removed {len(unaligned)} unaligned cameras from chunk {chunk} ({chunk_obj.label}). "
+            f"Remaining cameras: {len(chunk_obj.cameras)}"
+        )
 
     def get_camera_stats(self, show=True):
         """Get the number of aligned, unaligned, and duplicate cameras for each chunk."""
@@ -345,17 +361,24 @@ class SfM:
         return True
 
     def match_photos(
-            self,
-            progress_callback: Callable = percentage_callback,
-            chunk: int = 0,
-            reference_preselection=ms.ReferencePreselectionSource):
-        """Matches photos in the specified chunk using the provided settings."""
-        log.debug("Matching photos")
+        self,
+        progress_callback: Callable = percentage_callback,
+        chunk: int = 0,
+        reference_preselection=ms.ReferencePreselectionSource,
+        reset_matches: bool = True,
+        cameras=None,
+    ):
+        """Match photos in the specified chunk."""
+        log.info(f"Matching photos in chunk {chunk}")
 
         ms.app.cpu_enable = False
         ms.app.gpu_mask = self.num_gpus
 
-        self.doc.chunks[chunk].matchPhotos(
+        chunk_obj = self.doc.chunks[chunk]
+        if cameras is None:
+            cameras = chunk_obj.cameras
+
+        chunk_obj.matchPhotos(
             downscale=self.align_photos_cfg.downscale,
             generic_preselection=self.align_photos_cfg.generic_preselection,
             reference_preselection=self.align_photos_cfg.reference_preselection,
@@ -367,9 +390,9 @@ class SfM:
             keypoint_limit_per_mpx=10000,
             tiepoint_limit=200000,
             keep_keypoints=False,
-            cameras=self.doc.chunks[chunk].cameras,
+            cameras=cameras,
             guided_matching=False,
-            reset_matches=True,
+            reset_matches=reset_matches,
             subdivide_task=True,
             workitem_size_cameras=20,
             workitem_size_pairs=80,
@@ -382,74 +405,200 @@ class SfM:
 
         
     def align_photos(
-            self,
-            progress_callback: Callable = percentage_callback,
-            chunk: int = 0,
-            correct: bool = False,
-            ):
-        
-        
-        """Aligns photos in the specified chunk and optionally corrects unaligned cameras."""
+        self,
+        progress_callback: Callable = percentage_callback,
+        chunk: int = 0,
+        correct: bool = False,
+    ):
+        """
+        Align photos in the specified chunk.
+
+        If correct=True, iteratively try to recover only the currently unaligned
+        cameras in the same chunk without resetting the existing aligned solution.
+        """
         log.debug(f"[{self.batch_id}] Aligning photos in chunk {chunk}")
+
+        chunk_obj = self.doc.chunks[chunk]
+        self.doc.chunk = chunk_obj
+
         ms.app.cpu_enable = False
         ms.app.gpu_mask = self.num_gpus
 
-        self.doc.chunks[chunk].alignCameras(
-            cameras=self.doc.chunks[chunk].cameras,
+        # Initial full alignment pass
+        chunk_obj.alignCameras(
+            cameras=chunk_obj.cameras,
             min_image=2,
             adaptive_fitting=self.align_photos_cfg.adaptive_fitting,
             reset_alignment=True,
             subdivide_task=True,
             progress=progress_callback,
         )
-        
 
         ms.app.cpu_enable = True if ms.app.gpu_mask else False
         self.save_project()
 
         if correct:
-            prev_unaligned_count = float('inf')
-            cur_unaligned = self.get_unaligned_cameras(chunk)
-            counter = 0
-            while len(cur_unaligned) > 2 and len(cur_unaligned) < prev_unaligned_count:
-                prev_unaligned_count = len(cur_unaligned)
-                log.warning(f"Found {prev_unaligned_count} unaligned cameras. Attempting correction...")
-                self._correct_unaligned_cameras(unaligned_cameras=cur_unaligned, progress_callback=progress_callback, chunk=len(self.doc.chunks) - 1)
-                cur_unaligned = self.get_unaligned_cameras(chunk=len(self.doc.chunks) - 1)
-                counter += 1
-                log.info(f"Iteration {counter}: Found {len(cur_unaligned)} unaligned cameras.")
-            if len(cur_unaligned) > 2:
-                log.warning(f"Stopped correcting unaligned cameras after no further progress. {len(cur_unaligned)} still unaligned.")
+            prev_unaligned_count = float("inf")
+            iteration = 0
 
-        self._remove_duplicate_and_unaligned_cameras()
+            while True:
+                cur_unaligned_count = len(self.get_unaligned_cameras(chunk))
+                log.info(
+                    f"Recovery iteration {iteration}: "
+                    f"chunk={chunk}, unaligned={cur_unaligned_count}"
+                )
+
+                if cur_unaligned_count <= 2:
+                    log.info("Stopping recovery because unaligned camera count is <= 2.")
+                    break
+
+                if cur_unaligned_count >= prev_unaligned_count:
+                    log.warning(
+                        "Stopping recovery because no further improvement was made. "
+                        f"previous={prev_unaligned_count}, current={cur_unaligned_count}"
+                    )
+                    break
+
+                prev_unaligned_count = cur_unaligned_count
+
+                self._recover_unaligned_cameras_in_place(
+                    chunk=chunk,
+                    progress_callback=progress_callback,
+                    rematch=True,
+                )
+                iteration += 1
+
+        self._remove_duplicate_cameras(chunk)
+        self.remove_unaligned_cameras(chunk)
+        self.doc.chunk = self.doc.chunks[chunk]
         self.reset_region()
         self.save_project()
 
-    def _correct_unaligned_cameras(self, unaligned_cameras, chunk, progress_callback):
-        """Attempts to correct unaligned cameras by reprocessing them."""        
-        log.info(f"Attempting to align {len(unaligned_cameras)} unaligned cameras.")
-        new_chunk = self.doc.addChunk()
-        photos = [camera.photo.path for camera in unaligned_cameras]
+    def recover_unaligned_only(
+        self,
+        chunk: int = 0,
+        rematch: bool = True,
+        progress_callback: Callable = percentage_callback,
+    ) -> None:
+        """
+        Recovery-only mode for an already aligned project.
 
-        try:
-            new_chunk.addPhotos(photos)
-        except Exception as e:
-            log.error(f"Failed to add photos to new chunk: {e}")
-            log.error(f"Photos: {photos}")
-            raise
+        This does not perform a full realignment. It starts from the current
+        chunk state and tries to recover only the currently unaligned cameras.
+        """
+        chunk_obj = self.doc.chunks[chunk]
+        self.doc.chunk = chunk_obj
 
-        # if self.detect_markers_cfg:
-            # self.detect_markers(chunk=len(self.doc.chunks) - 1)
-            # self.remove_low_id_markers(chunk=len(self.doc.chunks) - 1)
-        self.import_reference(chunk=len(self.doc.chunks) - 1)
+        before = len(self.get_unaligned_cameras(chunk))
+        log.info(
+            f"Starting recovery-only mode on chunk {chunk} ({chunk_obj.label}). "
+            f"Initial unaligned cameras: {before}"
+        )
 
-        log.debug("Matching and Aligning photos again.")
-        self.match_photos(chunk=len(self.doc.chunks) - 1)
-        self.align_photos(chunk=len(self.doc.chunks) - 1, correct=False)
-        log.debug("Merging Chunks.")
-        self.doc.mergeChunks(chunks=[chunk, len(self.doc.chunks) - 1], merge_markers=True, progress=progress_callback)
-        log.debug("Setting active chunk.")
-        self.doc.chunk = self.doc.chunks[-1]
+        prev_unaligned_count = float("inf")
+        iteration = 0
+
+        while True:
+            cur_unaligned_count = len(self.get_unaligned_cameras(chunk))
+            log.info(
+                f"Recovery iteration {iteration}: "
+                f"chunk={chunk}, unaligned={cur_unaligned_count}"
+            )
+
+            if cur_unaligned_count == 0:
+                log.info("Stopping recovery because all cameras are aligned.")
+                break
+
+            if cur_unaligned_count <= 2:
+                log.info("Stopping recovery because unaligned camera count is <= 2.")
+                break
+
+            if cur_unaligned_count >= prev_unaligned_count:
+                log.warning(
+                    "Stopping recovery because no further improvement was made. "
+                    f"previous={prev_unaligned_count}, current={cur_unaligned_count}"
+                )
+                break
+
+            prev_unaligned_count = cur_unaligned_count
+
+            self._recover_unaligned_cameras_in_place(
+                chunk=chunk,
+                progress_callback=progress_callback,
+                rematch=rematch,
+            )
+            iteration += 1
+
+        after = len(self.get_unaligned_cameras(chunk))
+        log.info(
+            f"Recovery-only mode finished on chunk {chunk} ({chunk_obj.label}). "
+            f"Final unaligned cameras: {after}"
+        )
+
+        self._remove_duplicate_and_unaligned_cameras(chunk)
+        self.doc.chunk = self.doc.chunks[chunk]
+        self.reset_region()
+        self.save_project()
+
+    def _recover_unaligned_cameras_in_place(
+        self,
+        chunk: int,
+        progress_callback: Callable = percentage_callback,
+        rematch: bool = True,
+    ) -> int:
+        """
+        Attempt to recover unaligned cameras inside the same chunk, without creating
+        rescue chunks and without resetting already aligned cameras.
+
+        Returns:
+            int: number of currently unaligned cameras after the recovery attempt.
+        """
+        chunk_obj = self.doc.chunks[chunk]
+        self.doc.chunk = chunk_obj
+
+        unaligned = self.get_unaligned_cameras(chunk)
+        if not unaligned:
+            log.info(f"No unaligned cameras found in chunk {chunk} ({chunk_obj.label}).")
+            return 0
+
+        log.info(
+            f"Attempting in-place recovery for {len(unaligned)} unaligned cameras "
+            f"in chunk {chunk} ({chunk_obj.label})"
+        )
+        for cam in unaligned:
+            log.info(f"Unaligned camera: {cam.label}")
+
+        if rematch:
+            log.info("Running matchPhotos on full chunk with reset_matches=False")
+            self.match_photos(
+                chunk=chunk,
+                progress_callback=progress_callback,
+                reset_matches=False,
+                cameras=chunk_obj.cameras,
+            )
+
+        ms.app.cpu_enable = False
+        ms.app.gpu_mask = self.num_gpus
+
+        log.info("Running alignCameras on unaligned cameras with reset_alignment=False")
+        chunk_obj.alignCameras(
+            cameras=unaligned,
+            min_image=2,
+            adaptive_fitting=self.align_photos_cfg.adaptive_fitting,
+            reset_alignment=False,
+            subdivide_task=True,
+            progress=progress_callback,
+        )
+
+        ms.app.cpu_enable = True if ms.app.gpu_mask else False
+        self.save_project()
+
+        remaining = len(self.get_unaligned_cameras(chunk))
+        log.info(
+            f"After in-place recovery attempt, chunk {chunk} ({chunk_obj.label}) "
+            f"has {remaining} unaligned cameras remaining."
+        )
+        return remaining
 
 
 
@@ -516,7 +665,7 @@ class SfM:
 
     def build_model(self, progress_callback: Callable = percentage_callback):
         self.doc.chunk.buildModel(
-            surface_type=ms.Arbitrary,
+            surface_type=ms.HeightField,
             interpolation=ms.Extrapolated,
             face_count=ms.LowFaceCount,
             source_data=ms.PointCloudData,

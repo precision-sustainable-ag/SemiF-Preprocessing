@@ -22,6 +22,19 @@ yaml.add_representer(OrderedDict, represent_ordereddict)
 yaml.add_representer(OrderedDict, represent_ordereddict, Dumper=yaml.SafeDumper)
 
 
+def _to_yaml_safe(value: Any) -> Any:
+    """Recursively convert non-serializable path-like values before YAML dump."""
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, OrderedDict):
+        return OrderedDict((k, _to_yaml_safe(v)) for k, v in value.items())
+    if isinstance(value, dict):
+        return {k: _to_yaml_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_to_yaml_safe(v) for v in value]
+    return value
+
+
 def artifact_updater(task_name: str):
     def decorator(func):
         def wrapper(cfg: DictConfig, *args, **kwargs):
@@ -73,6 +86,8 @@ def _set_metadata_defaults(cfg: DictConfig, artifact: Dict[str, Any]):
     artifact.setdefault("batch_id", cfg.batch_id)
     artifact.setdefault("bbot_version", getattr(cfg, "bbot_version", ""))
     artifact.setdefault("season", getattr(cfg, "season", ""))
+    artifact.setdefault("lts_developed_directory", None)
+    artifact.setdefault("lts_upload_directory", None)
 
 
     if artifact["lts_developed_directory"] is None:
@@ -87,8 +102,8 @@ def _set_metadata_defaults(cfg: DictConfig, artifact: Dict[str, Any]):
     if artifact["lts_upload_directory"] is None:
         try:
             lts_dir = find_lts_dir(cfg.batch_id, cfg.paths.lts_locations)
-            cfg.paths.lts_upload_directory = Path(lts_dir) / "semifield-upload"
-            artifact.setdefault("lts_upload_directory", cfg.paths.lts_upload_directory)
+            cfg.paths.lts_upload_directory = str(Path(lts_dir) / "semifield-upload")
+            artifact["lts_upload_directory"] = str(cfg.paths.lts_upload_directory)
         except Exception as e:
             log.error(f"Error finding LTS upload directory: {e}")
 
@@ -270,8 +285,9 @@ def save_artifacts(artifact_path: str, data: Dict[str, Any]) -> None:
     """
     artifact_path = Path(artifact_path)
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    yaml_safe_data = _to_yaml_safe(data)
     
     with open(artifact_path, "w") as file:
-        yaml.dump(data, file, sort_keys=False, Dumper=yaml.SafeDumper)
+        yaml.dump(yaml_safe_data, file, sort_keys=False, Dumper=yaml.SafeDumper)
     
     log.info(f"Artifacts saved to {artifact_path}")
