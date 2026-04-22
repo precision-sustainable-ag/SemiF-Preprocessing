@@ -91,27 +91,51 @@ raw2jpg:
 max_workers: 16
 
 
+inspect_images:
+  save2lts: false
+
 report:
   save2lts: true
   sample_size: 96 # best if this is a multiple of 12
 
 detect:
-  base_imgsz: 4000
-  scales: [0.15, 0.25, 0.5, 1.0, 1.25, 1.5]
+  base_imgsz: 3072
+  scales: [0.25, 0.5, 0.75, 1.0, 1.5]
 
   per_scale_conf: 0.0
   per_scale_iou: 1.0
-  per_scale_max_det: 2000
+  per_scale_max_det: 500
 
   wbf_iou: 0.55
   wbf_score_thr: 0.001
 
-  conf: 0.7
+  edge_aware:
+    enabled: true
+    edge_band_rel: 0.08
+    min_factor: 0.60
+    taper_rel: 0.20
+
+  conf: 0.3
   iou: 0.60
-  final_max_det: 2000
+  final_max_det: 100
 
   post_fusion_nms:
     enabled: true
-    iou: 0.60
+    iou: 0.40
 
-  device: 0
+  device: 3,4,5
+
+  # Visualization settings (only for visualizations, not actual detection parameters)
+  save_visualizations: true
+  viz_sample_rate: 0.1   # 0.05 5% of images
+
+  line_thickness_scale: 0.012
+  min_line_thickness: 2
+  max_line_thickness: 10
+  font_scale: 0.8
+  font_scale_factor: 0.0012
+
+  viz_scale: 0.25          # 9000x13000 → ~2250x3250 (VERY manageable)
+  viz_thickness_boost: 1.0 # optional (helps readability when downscaled)
+
+

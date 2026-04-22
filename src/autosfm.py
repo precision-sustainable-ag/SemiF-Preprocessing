@@ -218,6 +218,16 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
             log.exception(f"Failed to export camera FOV information. Exiting")
             raise
 
+        # Export pixel-world grid
+    if cfg.asfm.export_pixel_grid:
+        try:
+            if cfg.asfm.pixel_grid.enabled:
+                log.info(f"Exporting pixel-world grids")
+                pipeline.export_pixel_world_grid(step=cfg.asfm.pixel_grid.step)
+        except Exception as e:
+            log.exception(f"Failed to export pixel-world grids. Exiting")
+            raise
+
     # Export preview view of ortho
     if cfg.asfm.export_report:
         try:

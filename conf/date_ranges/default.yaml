@@ -34,11 +34,13 @@ MD:
     end: "2024-11-18"
     bbot_version: 3.0
     crs: 4326
+    pipeline_season: cool_season_covers_2024_2025_bbotv30
   cover crops 2024/2025:
     start: "2025-04-16"
     end: "2025-05-16"
     bbot_version: 3.1
     crs: 4326
+    pipeline_season: cool_season_covers_2024_2025
   weeds_2025:
     start: "2025-06-06"
     end: "2025-07-28"
@@ -55,7 +57,7 @@ MD:
     gh_reviewer: nnotaba
   cover crops 2025/2026:
     start: "2025-10-07"
-    end: "2026-04-01"
+    end: "2026-04-30"
     bbot_version: 3.1
     crs: 32618
     pipeline_season: cover_crops_2025_2026
@@ -97,6 +99,7 @@ NC:
     end: "2025-04-15"
     bbot_version: 3.1
     crs: 4326
+    pipeline_season: cool_season_covers_2024_2025_NCpos2
   # cash crops 2025:
   #   start: "2025-06-01"
   #   end: "2025-07-01"
@@ -127,7 +130,7 @@ NC:
     gh_reviewer: map0425
   cover crops 2025/2026:
     start: "2025-11-10"
-    end: "2026-04-01"
+    end: "2026-04-30"
     bbot_version: 3.1
     crs: 32617
     pipeline_season: cover_crops_2025_2026
@@ -194,6 +197,17 @@ season_mappings:
     - "cover crops 2025 2026"
     - "cool season covers 2025 2026"
     - "cool_season_covers_2025_2026"
+  cool_season_covers_2024_2025_bbotv30:
+    - "cover crops 2024/2025_MDbbotv3.0"
+    - "cool_season_covers_2024_2025_bbotv30"
+    - "cool season covers 2024 2025 bbotv30"
+  cool_season_covers_2024_2025:
+    - "cover crops 2024/2025"
+    - "cool_season_covers_2024_2025"
+    - "cool season covers 2024 2025"
+  cool_season_covers_2024_2025_NCpos2:
+    - "cool_season_covers_2024_2025_NCpos2"
+    - "cool season covers 2024 2025 ncpos2"
   zoysia_2025:
     - "zoysia_2025"
   beets_2025:

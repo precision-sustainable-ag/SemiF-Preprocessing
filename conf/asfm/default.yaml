@@ -4,6 +4,8 @@ num_gpus: 1 # 8=255, 7=127, 6=63, 5=31, 4=15, 3=7, 2=3, 1=1; or use 'all' to use
 use_masking: False
 
 # Pipeline settings
+recover_unaligned_only: False # If True, only recover unaligned cameras in existing chunk without rematching. Faster but less robust. By default False
+recover_rematch: False # If True, rematch photos during recovery of unaligned cameras. More robust but slower. By default True
 check_for_asfm: True
 resize_photos: True
 add_photos_and_masks: True
@@ -19,6 +21,7 @@ build_model: True
 build_dem: True
 build_ortho: True
 export_fov: True
+export_pixel_grid: True
 export_report: True
 
 ## Main processing settings
@@ -88,3 +91,7 @@ orthomosaic:
 
 camera_fov:
     enabled: True
+
+pixel_grid:
+    enabled: True
+    step: 100  # pixels between grid sample points (default 100)

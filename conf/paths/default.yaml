@@ -5,7 +5,7 @@ log_dir: ${paths.workdir}/.logs/
 data_dir: ${paths.workdir}/data/
 developed_dir: ${paths.data_dir}/longterm_images2/semifield-developed-images
 batch_dir: ${paths.developed_dir}/${batch_id}
-plant_detection_dir: ${paths.batch_dir}/plant-detections/merged
+plant_detection_dir: ${paths.batch_dir}/plant-detections
 semif_util_dir: ${paths.data_dir}/semifield-utils
 marker_dir: ${paths.semif_util_dir}/autosfm/GroundControlPoints
 image_development: ${paths.data_dir}/semifield-utils/image_development/
@@ -35,6 +35,7 @@ gcp_ref: ${paths.autosfm}/reference/gcp_reference.csv
 cam_ref: ${paths.autosfm}/reference/camera_reference.csv
 err_ref: ${paths.autosfm}/reference/error_statistics.csv
 fov_ref: ${paths.autosfm}/reference/fov.csv
+grid_dir: ${paths.autosfm}/reference/pixel_world_grids
 # Orthomosaic output
 orthodir: ${paths.autosfm}/ortho
 ortho_path: ${paths.orthodir}/orthomosaic.tif
@@ -61,8 +62,7 @@ species_info: ${paths.semif_util_dir}/species_information/species_info.json
 
 marker_file:
 
-# Main batch inspection directory
-inspection_dir: ${paths.batch_dir}/inspection/${start_time}
+inspection_dir: ${paths.batch_dir}/inspection
 
 # Temp stats directories
 season_stats_dir: ${paths.data_dir}/season_stats

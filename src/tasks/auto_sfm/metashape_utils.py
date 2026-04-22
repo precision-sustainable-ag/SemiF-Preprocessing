@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Callable, Tuple
 from tqdm import tqdm
 import yaml
+import numpy as np
 
 import Metashape as ms
 
@@ -30,6 +31,7 @@ class SfM:
         self.cam_ref = Path(self.cfg.paths.cam_ref)
         self.err_ref = Path(self.cfg.paths.err_ref)
         self.fov_ref = Path(self.cfg.paths.fov_ref)
+        self.grid_dir = Path(cfg.paths.grid_dir)
         self.dem_path = Path(self.cfg.paths.dem_path)
         self.ortho_path = Path(self.cfg.paths.ortho_path)
         self.pdf_report = Path(self.cfg.paths.pdf_report)
@@ -895,6 +897,85 @@ class SfM:
         # Create a DataFrame and save to CSV
         df = DataFrame(rows, "label")
         df.to_csv(self.fov_ref, index=False, header=True)
+
+    def export_pixel_world_grid(self, step: int = 100) -> None:
+        """Export per-camera pixel→world coordinate grids as compressed NPZ files.
+
+        Samples a regular pixel grid across each aligned camera and computes
+        world CRS coordinates via unproject + surface pickPoint — the same
+        pipeline used by camera_fov(). NPZ files are self-contained: no
+        Metashape needed to consume them downstream.
+        """
+        surface = self.doc.chunk.model
+        if surface is None:
+            log.warning("No model found. Cannot export pixel-world grids.")
+            return
+
+        transform = self.doc.chunk.transform.matrix
+        crs = self.doc.chunk.crs
+
+        self.grid_dir.mkdir(parents=True, exist_ok=True)
+
+        cameras = [
+            c for c in self.doc.chunk.cameras
+            if c.type == ms.Camera.Type.Regular and c.transform is not None
+        ]
+
+        log.info(f"Exporting pixel-world grids for {len(cameras)} cameras (step={step}px)")
+
+        for camera in tqdm(cameras, desc="Exporting pixel-world grids", unit="camera"):
+            w = camera.sensor.width
+            h = camera.sensor.height
+
+            # Always include sensor boundaries so interpolation covers the full frame
+            u_vals = np.unique(np.concatenate([np.arange(0, w, step), [w - 1]])).astype(np.float32)
+            v_vals = np.unique(np.concatenate([np.arange(0, h, step), [h - 1]])).astype(np.float32)
+
+            world_x = np.full((len(v_vals), len(u_vals)), np.nan, dtype=np.float64)
+            world_y = np.full((len(v_vals), len(u_vals)), np.nan, dtype=np.float64)
+            world_z = np.full((len(v_vals), len(u_vals)), np.nan, dtype=np.float64)
+
+            nan_count = 0
+            log.info(f"Processing camera {camera.label}: sampling {len(u_vals)}x{len(v_vals)} pixels")
+            for vi, v in enumerate(v_vals):
+                for ui, u in enumerate(u_vals):
+                    ray_origin = camera.unproject(ms.Vector([float(u), float(v), 0]))
+                    ray_target = camera.unproject(ms.Vector([float(u), float(v), 1]))
+
+                    point = surface.pickPoint(ray_origin, ray_target)
+                    if point is None and self.doc.chunk.tie_points is not None:
+                        point = self.doc.chunk.tie_points.pickPoint(ray_origin, ray_target)
+
+                    if point is not None:
+                        projected = crs.project(transform.mulp(point))
+                        world_x[vi, ui] = projected.x
+                        world_y[vi, ui] = projected.y
+                        world_z[vi, ui] = projected.z
+                    else:
+                        nan_count += 1
+
+            if nan_count > 0:
+                log.warning(
+                    f"{camera.label}: {nan_count}/{len(u_vals) * len(v_vals)} "
+                    f"grid points had no surface intersection"
+                )
+
+            out_path = self.grid_dir / f"{camera.label}.npz"
+            np.savez_compressed(
+                str(out_path),
+                u_pixels=u_vals,
+                v_pixels=v_vals,
+                world_x=world_x,
+                world_y=world_y,
+                world_z=world_z,
+                sensor_width=np.array([w], dtype=np.int32),
+                sensor_height=np.array([h], dtype=np.int32),
+                crs=np.array([str(crs)], dtype=object),
+            )
+            log.debug(f"Saved grid: {out_path.name} ({len(u_vals)}x{len(v_vals)} points)")
+
+        log.info(f"Pixel-world grid export complete: {len(cameras)} files -> {self.grid_dir}")
+
 
     def export_report(self, progress_callback: Callable = percentage_callback):
         self.doc.chunk.exportReport(

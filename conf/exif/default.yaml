@@ -5,8 +5,8 @@ DNG_ImageWidth: 13376     # DNG_* only used for processing SVCam images
 DNG_ImageLength: 9528
 SonyImageWidth: 9592     # image width in pixels
 SonyImageHeight: 6368     # image length in pixels ImageLength for DNG 
-SVCamImageWidth: 13368                           # Long    The number of columns of image data, equal to the number of pixels per row. In JPEG compressed data a JPEG marker is used instead of this tag.
-SVCamImageHeight: 9520                         # Long    The number of rows of image data. In JPEG compressed data a JPEG marker is used instead of this tag.
+SVCamImageWidth: 13376                           # Long    The number of columns of image data, equal to the number of pixels per row. In JPEG compressed data a JPEG marker is used instead of this tag.
+SVCamImageHeight: 9528                         # Long    The number of rows of image data. In JPEG compressed data a JPEG marker is used instead of this tag.
 BitsPerSample: 16                         # Short   The number of bits per image component. In this standard each component of the image is 8 bits, so the value for this tag is 8. See also <SamplesPerPixel>. In JPEG compressed data a JPEG marker is used instead of this tag.
 PhotometricInterpretation: 32803          # Short   The pixel composition. In JPEG compressed data a JPEG marker is used instead of this tag.  
 Orientation: 1 # string for DNG part else 1                            # Short   The image orientation viewed in terms of rows and columns.
@@ -35,7 +35,7 @@ DNGBackwardVersion: [1, 2, 0, 0]                      # Byte     This tag specif
 BlackLevel: 368                               # Rational Specifies the zero light (a.k.a. thermal black or black current) encoding level, as a repeating pattern. The origin of this pattern is the top-left corner of the ActiveArea rectangle. The values are stored in row-column-sample scan order.
 BlackLevel_12bit: 23
 WhiteLevel: 65535                              # Long     This tag specifies the fully saturated encoding level for the raw sample values. Saturation is caused either by the sensor itself becoming highly non-linear in response, or by the camera's analog to digital converter clipping.
-AsShotNeutral:                             # Short    Specifies the selected white balance at time of capture, encoded as the coordinates of a perfectly neutral color in linear reference space values. The inclusion of this tag precludes the inclusion of the AsShotWhiteXY tag.
+AsShotNeutral: [1, 1, 1]                           # Short    Specifies the selected white balance at time of capture, encoded as the coordinates of a perfectly neutral color in linear reference space values. The inclusion of this tag precludes the inclusion of the AsShotWhiteXY tag.
 BaselineExposure: [-150, 100]
 CalibrationIlluminant1: 21                   # Short      The illuminant used for the first set of color calibration tags (ColorMatrix1, CameraCalibration1, ReductionMatrix1). The legal values for this tag are the same as the legal values for the LightSource EXIF tag. If set to 255 (Other), then the IFD must also include a IlluminantData1 tag to specify the x-y chromaticity or spectral power distribution function for this illuminant.
 PreviewColorSpace: 2                      # Long       This tag specifies the color space in which the rendered preview in this IFD is stored. The default value for this tag is sRGB for color previews and Gray Gamma 2.2 for monochrome previews.
