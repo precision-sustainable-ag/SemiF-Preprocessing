@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 import Metashape
 from src.tasks.label_utils.filter_bboxes import BBoxFilter
-from src.utils.utils import safe_save_json, extract_season_info, get_files
+from src.utils.utils import safe_save_json, extract_season_info, get_files, sanitize_time_for_path
 from src.utils.datasets import (
     BBoxCoordinates,
     BoundingBox,
@@ -329,7 +329,12 @@ class RemapLabels:
         self.fullres_h = cfg.exif.SVCamImageHeight if "3.1" in str(self.bbot_version) else cfg.exif.SonyImageHeight
         self.fullres_w = cfg.exif.SVCamImageWidth if "3.1" in str(self.bbot_version) else cfg.exif.SonyImageWidth
 
-        self.shp_dir = Path(cfg.paths.fov_shapefiles)
+        self.sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+        self.local_inspection_dir = (
+            Path(cfg.paths.batch_dir) / "inspection" / self.sanitized_time
+            if self.sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+        )
+        self.shp_dir = self.local_inspection_dir / "fov_shapefiles"
         self.shp_dir.mkdir(exist_ok=True, parents=True)
 
         with open(cfg.paths.species_info) as f:

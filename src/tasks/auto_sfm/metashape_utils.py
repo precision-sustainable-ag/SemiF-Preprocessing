@@ -12,7 +12,7 @@ from .callbacks import percentage_callback
 from .dataframe import DataFrame
 from .estimation import CameraStats, MarkerStats
 
-from src.utils.utils import get_files
+from src.utils.utils import get_files, sanitize_time_for_path
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +34,14 @@ class SfM:
         self.grid_dir = Path(cfg.paths.grid_dir)
         self.dem_path = Path(self.cfg.paths.dem_path)
         self.ortho_path = Path(self.cfg.paths.ortho_path)
-        self.pdf_report = Path(self.cfg.paths.pdf_report)
+
+        self.sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+        self.local_inspection_dir = (
+            Path(cfg.paths.batch_dir) / "inspection" / self.sanitized_time
+            if self.sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+        )
+        self.pdf_report = self.local_inspection_dir / f"{self.batch_id}_{self.sanitized_time}_asfm_report.pdf"
+        
         self.marker_file = Path(self.cfg.paths.marker_file)
         log.info(f"Using marker file: {self.marker_file.parent.name}/{self.marker_file.name} for batch {self.batch_id}")
 
@@ -537,7 +544,7 @@ class SfM:
             f"Final unaligned cameras: {after}"
         )
 
-        self._remove_duplicate_and_unaligned_cameras(chunk)
+        # self._remove_duplicate_and_unaligned_cameras(chunk)
         self.doc.chunk = self.doc.chunks[chunk]
         self.reset_region()
         self.save_project()

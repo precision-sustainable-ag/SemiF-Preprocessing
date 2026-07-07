@@ -14,7 +14,7 @@ from omegaconf import DictConfig
 from torchvision.ops import batched_nms
 from ultralytics import YOLO
 
-from src.utils.utils import find_lts_dir, get_files
+from src.utils.utils import find_lts_dir, get_files, sanitize_time_for_path
 
 log = logging.getLogger(__name__)
 
@@ -24,8 +24,8 @@ def save_csv_predictions(preds, save_path: str, class_names: dict):
     save_path: file path (.csv)
     class_names: model.names mapping {cls_id: name}
     """
-    save_path = Path(save_path)
-    save_path.parent.mkdir(parents=True, exist_ok=True)
+    save_path_p = Path(save_path)
+    save_path_p.parent.mkdir(parents=True, exist_ok=True)
 
     with open(save_path, "w", newline="") as f:
         writer = csv.writer(f)
@@ -555,6 +555,22 @@ def run_multiscale(model: YOLO, im0_bgr, cfg_detect, device=None) -> torch.Tenso
     fused_abs = fused_abs[fused_abs[:, 4] >= final_conf]
     fused_abs = nms_xyxy_abs(fused_abs, iou_thr=final_iou, max_det=final_max_det)
 
+    if bool(getattr(cfg_detect, "remove_enclosed_boxes", False)):
+        before_enclosed = int(fused_abs.shape[0])
+
+        fused_abs = remove_enclosed_boxes(
+            fused_abs,
+            containment_thr=float(getattr(cfg_detect, "enclosed_containment_thr", 0.98)),
+            same_class_only=bool(getattr(cfg_detect, "enclosed_same_class_only", True)),
+        )
+
+        log.info(
+            f"[remove_enclosed_boxes] {before_enclosed} -> {int(fused_abs.shape[0])} "
+            f"(containment_thr={float(getattr(cfg_detect, 'enclosed_containment_thr', 0.98))}, "
+            f"same_class_only={bool(getattr(cfg_detect, 'enclosed_same_class_only', True))})"
+        )
+
+
     return fused_abs
 
 def predict(opt, cfg: DictConfig):
@@ -578,7 +594,14 @@ def predict(opt, cfg: DictConfig):
     out_det_dir.mkdir(parents=True, exist_ok=True)
 
     save_vis = bool(getattr(cfg.detect, "save_visualizations", False))
-    out_vis_dir = Path(cfg.paths.inspection_dir) / "detection_examples"
+
+    sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+    local_inspection_dir = (
+        Path(cfg.paths.batch_dir) / "inspection" / sanitized_time
+        if sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+    )
+    out_vis_dir = local_inspection_dir / "detection_examples"
+    
     viz_sample_rate = float(getattr(cfg.detect, "viz_sample_rate", 1.0))
 
     if save_vis:
@@ -621,6 +644,81 @@ def predict(opt, cfg: DictConfig):
                 class_names=names,
                 cfg_detect=cfg.detect
             )
+
+def remove_enclosed_boxes(
+    dets_xyxy_conf_cls: torch.Tensor,
+    containment_thr: float = 0.98,
+    same_class_only: bool = True,
+) -> torch.Tensor:
+    """
+    Remove boxes that are fully or almost fully contained inside another box.
+
+    Args:
+        dets_xyxy_conf_cls:
+            Tensor Nx6 [x1, y1, x2, y2, conf, cls] in absolute pixel coords.
+        containment_thr:
+            Fraction of the smaller box area that must be inside the larger box
+            to count as enclosed. Use 1.0 for strictly fully enclosed, or 0.98
+            to tolerate tiny coordinate differences.
+        same_class_only:
+            If True, only remove enclosed boxes when both boxes have the same class.
+
+    Returns:
+        Filtered tensor with enclosed boxes removed.
+    """
+    if dets_xyxy_conf_cls is None or dets_xyxy_conf_cls.numel() == 0:
+        return torch.zeros((0, 6), dtype=torch.float32)
+
+    dets = dets_xyxy_conf_cls.float()
+
+    boxes = dets[:, :4]
+    scores = dets[:, 4]
+    classes = dets[:, 5].to(torch.int64)
+
+    n = boxes.shape[0]
+    if n <= 1:
+        return dets
+
+    areas = torch.clamp(boxes[:, 2] - boxes[:, 0], min=0) * torch.clamp(boxes[:, 3] - boxes[:, 1], min=0)
+
+    keep = torch.ones(n, dtype=torch.bool, device=dets.device)
+
+    # Prefer keeping higher-confidence boxes.
+    order = torch.argsort(scores, descending=True)
+
+    for idx_i in range(n):
+        i = order[idx_i]
+
+        if not keep[i]:
+            continue
+
+        for idx_j in range(idx_i + 1, n):
+            j = order[idx_j]
+
+            if not keep[j]:
+                continue
+
+            if same_class_only and classes[i] != classes[j]:
+                continue
+
+            # Check whether lower-confidence box j is enclosed by higher-confidence box i.
+            x1 = torch.maximum(boxes[i, 0], boxes[j, 0])
+            y1 = torch.maximum(boxes[i, 1], boxes[j, 1])
+            x2 = torch.minimum(boxes[i, 2], boxes[j, 2])
+            y2 = torch.minimum(boxes[i, 3], boxes[j, 3])
+
+            inter_w = torch.clamp(x2 - x1, min=0)
+            inter_h = torch.clamp(y2 - y1, min=0)
+            inter_area = inter_w * inter_h
+
+            smaller_area = torch.minimum(areas[i], areas[j])
+            containment = inter_area / torch.clamp(smaller_area, min=1e-9)
+
+            if containment >= containment_thr:
+                # Remove the lower-confidence box.
+                keep[j] = False
+
+    return dets[keep]
 
 @hydra.main(version_base="1.3", config_path="../conf", config_name="config")
 def main(cfg: DictConfig):

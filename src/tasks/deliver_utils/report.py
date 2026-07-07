@@ -4,9 +4,11 @@ import re
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import hydra
+import matplotlib
+import matplotlib.dates
 import matplotlib.pyplot as plt
 import pandas as pd
 from omegaconf import DictConfig
@@ -143,7 +145,7 @@ class ImageReport:
                 if not self.matches_stem_pattern(stem):
                     stem_match_flag = False
                     if not stem_match_flag:
-                        log.warning(f"Filename {stem} does not match the expected regex pattern ('^(.*)_(\d+)$').")
+                        log.warning(f"Filename {stem} does not match the expected regex pattern ('^(.*)_(\\d+)$').")
                 
                 state, epoch = stem.split("_")[0], stem.split("_")[1]
 
@@ -199,7 +201,7 @@ class ImageReport:
         plt.xlabel('Capture Time (EDT)')
         plt.ylabel('Image Index')
         plt.grid(True)
-        plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%H:%M:%S'))
+        plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter('%H:%M:%S'))
         plt.gcf().autofmt_xdate()
         plt.title('Capture Time Plot (based on epoch in the filename)')
 
@@ -223,7 +225,7 @@ class ImageReport:
         plt.xlabel('Upload Time (EDT)')
         plt.ylabel('Image Index')
         plt.grid(True)
-        plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%H:%M:%S'))
+        plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter('%H:%M:%S'))
         plt.gcf().autofmt_xdate()
         plt.title('Upload Time Plot (based on file modified time)')
         file_path = self.plot_file_base / f"upload_time_plot_{self.batch_id}.png"
@@ -430,7 +432,7 @@ class ImageReport:
             log.warning(f"Sample images not available. Checked: {searched_dirs}")
             c.drawString(50, 350, "Sample images not available")
         
-    def _add_plot(self, c: canvas.Canvas, plot_file_name: str, x: int, y: int, width: int= 250, height: int = 200, title: str = None, newpage: bool = True) -> None:
+    def _add_plot(self, c: canvas.Canvas, plot_file_name: str, x: int, y: int, width: int= 250, height: int = 200, title: Optional[str] = None, newpage: bool = True) -> None:
         count_plot_path = self._existing_asset_path(Path("plots") / plot_file_name)
         if count_plot_path:
             if newpage:
@@ -530,13 +532,19 @@ class ImageReport:
         log.info(f"Completed report for batch: {self.batch_id}")
 
 class LogParser:
-    def __init__(self, cfg: DictConfig, output_report_dir: Path = None):
-        self.artifact_yaml_path = Path(cfg.paths.artifact_path)
+    def __init__(self, cfg: DictConfig, output_report_dir: Optional[Path] = None):
+        self.sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+        self.local_inspection_dir = (
+            Path(cfg.paths.batch_dir) / "inspection" / self.sanitized_time
+            if self.sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+        )
+        self.batch_id = cfg.batch_id
+        self.artifact_yaml_path = Path(self.local_inspection_dir) / f"{self.batch_id}_{self.sanitized_time}.yaml"
         
         if not self.artifact_yaml_path.exists():
             raise FileNotFoundError(f"Artifact YAML file not found: {self.artifact_yaml_path}")
     
-        self.artifact = read_artifact(self.artifact_yaml_path)
+        self.artifact = read_artifact(str(self.artifact_yaml_path))
         
         self.output_report_dir = output_report_dir
 

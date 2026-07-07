@@ -24,9 +24,9 @@ NOTES = {
     "Brassicas class contains 4 species - Brassica napus, Brassica rapa, Brassica juncea, Brassica hirta"
 }
 
-with open("species_info.json", "r") as outfile:
-    data = json.load(outfile)
-spec = data["species"]
+# with open("species_info.json", "r") as outfile:
+#     data = json.load(outfile)
+# spec = data["species"]
 class_ids = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
     21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
@@ -81,7 +81,9 @@ hex = [
     "#44a7d9", # creeping red fescue
     "#a15921", # timothy grass
     "#9ac6ed", # orchard grass
-    "#a5482f", "#3e98a4", "#e07179",
+    "#a5482f", # peanut
+    "#3e98a4", #horsenettle
+    "#e07179", #ladysthumb
     "#306b51", "#b16fa0", "#8f6a21", "#8080c0", "#b8965b", "#4481ab",
     "#db8e6b", "#336b85", "#dab28e", "#586188", "#8c895d", "#c3b5e9",
     "#605e32", "#e6adc2", "#33675e", "#9c4d5f", "#58937e", "#7d5371",
@@ -127,8 +129,10 @@ rgb = [[0, 0, 0], [29, 104, 110], [228, 82, 241], [96, 229, 78],
        [68, 167, 217], # creeping red fescue
        [161, 89, 33], # timothy grass
        [154, 198, 237], # orchard grass
-       [165, 72, 47],
-       [62, 152, 164], [224, 113, 121], [48, 107, 81], [177, 111, 160],
+       [165, 72, 47], # peanut
+       [62, 152, 164], # horsenettle
+       [224, 113, 121], # ladysthumb
+       [48, 107, 81], [177, 111, 160],
        [143, 106, 33], [128, 128, 192], [184, 150, 91], [68, 129, 171],
        [219, 142, 107], [51, 107, 133], [218, 178, 142], [88, 97, 136],
        [140, 137, 93], [195, 181, 233], [96, 94, 50], [230, 173, 194],

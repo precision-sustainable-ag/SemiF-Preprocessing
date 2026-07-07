@@ -644,7 +644,7 @@
         234,
         124
       ],
-      "alias": []
+      "alias": ["jimsonweed"]
     },
     "ABTH": {
       "class_id": 22,
@@ -2217,6 +2217,103 @@
       ],
       "alias": [
         "orchardgrass"
+      ]
+    },
+    "ARHY": {
+      "class_id": 75,
+      "USDA_symbol": "ARHY",
+      "EPPO": "ARHHY",
+      "group": "dicot",
+      "class": "Magnoliopsida",
+      "subclass": "Rosidae",
+      "order": "Fabales",
+      "family": "Fabaceae",
+      "genus": "Arachis",
+      "species": "hypogaea",
+      "common_name": "peanut",
+      "authority": "Linnaeus",
+      "growth_habit": "forb/herb",
+      "duration": "perennial",
+      "collection_location": null,
+      "category": "cash crop",
+      "collection_timing": null,
+      "multi_species_USDA_symbol": null,
+      "link": "https://plants.sc.egov.usda.gov/plant-profile/ARHY",
+      "note": null,
+      "hex": "#a5482f",
+      "rgb": [
+        165,
+        72,
+        47
+      ],
+      "alias": [
+        "groundnut"
+      ]
+    },
+    "SOCA3": {
+      "class_id": 76,
+      "USDA_symbol": "SOCA3",
+      "EPPO": " SOLCA",
+      "group": "dicot",
+      "class": "Magnoliopsida",
+      "subclass": "Asteridae",
+      "order": "Solanales",
+      "family": "Solanaceae",
+      "genus": "Solanum",
+      "species": "carolinense",
+      "common_name": "horsenettle",
+      "authority": "Linnaeus",
+      "growth_habit": "forb/herb/subshrub",
+      "duration": "perennial",
+      "collection_location": null,
+      "category": "summer weed",
+      "collection_timing": null,
+      "multi_species_USDA_symbol": null,
+      "link": "https://plants.sc.egov.usda.gov/plant-profile/SOCA3",
+      "note": null,
+      "hex": "#3e98a4",
+      "rgb": [
+        62,
+        152,
+        164
+      ],
+      "alias": [
+        "horse nettle",
+        "carolina horsenettle",
+        "carolina horse nettle"
+      ]
+    },
+    "POPE3": {
+      "class_id": 77,
+      "USDA_symbol": "POPE3",
+      "EPPO": "  POLPE",
+      "group": "dicot",
+      "class": "Magnoliopsida",
+      "subclass": "Caryophyllidae",
+      "order": "Polygonales",
+      "family": "Polygonaceae",
+      "genus": "Polygonum",
+      "species": "persicaria",
+      "common_name": "ladysthumb",
+      "authority": "Linnaeus",
+      "growth_habit": "forb/herb",
+      "duration": "annual perennial",
+      "collection_location": null,
+      "category": "summer weed",
+      "collection_timing": null,
+      "multi_species_USDA_symbol": null,
+      "link": "https://plants.sc.egov.usda.gov/plant-profile/POPE3",
+      "note": null,
+      "hex": "#e07179",
+      "rgb": [
+        224,
+        113,
+        121
+      ],
+      "alias": [
+        "spotted ladysthumb",
+        "lady's thumb",
+        "ladys thumb"
       ]
     }
 

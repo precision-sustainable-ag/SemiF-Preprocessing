@@ -13,7 +13,7 @@ Orientation: 1 # string for DNG part else 1                            # Short  
 SamplesPerPixel: 1                        # Short   The number of components per pixel. Since this standard applies to RGB and YCbCr images, the value set for this tag is 3. In JPEG compressed data a JPEG marker is used instead of this tag.
 CFARepeatPatternDim: [2,2]                # Short   Contains two values representing the minimum rows and columns to define the repeating patterns of the color filter array.
 CFAPattern: [0, 1, 1, 2]                  # Byte    Indicates the color filter array (CFA) geometric pattern of the image sensor when a one-chip color area sensor is used. It does not apply to all sensing methods.
-RowsPerStrip: 9528                          # Long    The number of rows per strip. This is the number of rows in the image of one strip when an image is divided into strips. With JPEG compressed data this designation is not needed and is omitted. See also <StripOffsets> and <StripByteCounts>.
+RowsPerStrip: 9520                          # Long    The number of rows per strip. This is the number of rows in the image of one strip when an image is divided into strips. With JPEG compressed data this designation is not needed and is omitted. See also <StripOffsets> and <StripByteCounts>.
 TileWidth:                                # Long    The tile width in pixels. This is the number of columns in each tile.
 TileLength:                                # Long    The tile length (height) in pixels. This is the number of rows in each tile.
 
@@ -27,7 +27,7 @@ FocalLengthIn35mmFilm: 46  # Rounded from 45.78
 FNumber: 13                                 #	Rational	The F number.
 FocalPlaneXResolution: 289.6                     # 13376 / 46.2  # Rational Number of pixels per FocalPlaneResolutionUnit (37392) in ImageWidth direction for main image.
 FocalPlaneYResolution: 289.9                     # 9528 / 32.87  # Rational Number of pixels per FocalPlaneResolutionUnit (37391) in ImageLength direction for main image.
-FocalPlaneResolutionUnit: 3                      # Short   Unit of measurement for FocalPlaneXResolution(37390) and FocalPlaneYResolution(37391). 3 means millimeters.
+FocalPlaneResolutionUnit: 4                      # Short   Unit of measurement for FocalPlaneXResolution(37390) and FocalPlaneYResolution(37391). 4 means millimeters.
 PixelSize: 3.45        # Pixel size in um (h and v are same)
 
 DNGVersion: [1, 4, 0, 0]                               # Byte     This tag encodes the DNG four-tier version number. For files compliant with version 1.1.0.0 of the DNG specification, this tag should contain the bytes: 1, 1, 0, 0.
