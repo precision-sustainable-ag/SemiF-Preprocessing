@@ -9,7 +9,7 @@ import pandas as pd
 import yaml
 from omegaconf import DictConfig, ListConfig
 
-from src.utils.utils import find_lts_dir
+from src.utils.utils import find_lts_dir, sanitize_time_for_path
 
 # Initialize logging
 log = logging.getLogger(__name__)
@@ -147,7 +147,14 @@ def _update_warnings_from_logs(artifact: Dict[str, Any], log_path: Path, task_na
         artifact["warning_and_errors"][task_name] = None
 
 def update_artifact_post_task(cfg: DictConfig, task_name: str, status: str = "success") -> None:
-    artifact_path = Path(cfg.paths.artifact_path)
+    sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+    local_inspection_dir = (
+        Path(cfg.paths.batch_dir) / "inspection" / sanitized_time
+        if sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+        )
+    batch_id = cfg.batch_id
+    artifact_file_name = f"{batch_id}_{sanitized_time}.yaml" if sanitized_time else f"{batch_id}.yaml"
+    artifact_path = Path(local_inspection_dir) / artifact_file_name
     log_path = Path(cfg.paths.log_path)
     all_tasks = flatten_tasks(cfg)
     artifact = get_artifacts(artifact_path, cfg, all_tasks)

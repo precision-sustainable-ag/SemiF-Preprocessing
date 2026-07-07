@@ -9,7 +9,7 @@ import hydra
 from shapely.geometry import Point, Polygon
 from tqdm import tqdm
 
-from src.utils.utils import safe_save_json, get_files
+from src.utils.utils import safe_save_json, get_files, sanitize_time_for_path
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +20,13 @@ class SpeciesAssigner :
         self.season = cfg.season
         self.spec_dict = self.read_json(cfg.paths.species_info)
         self.metadata_path = Path(cfg.paths.batch_dir, "metadata")
-        self.output_shp_dir = Path(cfg.paths.inspection_dir, "fov_shapefiles")
+
+        self.sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+        self.local_inspection_dir = (
+            Path(cfg.paths.batch_dir) / "inspection" / self.sanitized_time
+            if self.sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+        )
+        self.output_shp_dir = self.local_inspection_dir / "fov_shapefiles"
         self.output_shp_dir.mkdir(parents=True, exist_ok=True)
         self.output_shp_path = self.output_shp_dir / f"{self.batch_id}_bboxes_fov.shp"
         
@@ -166,7 +172,7 @@ class SpeciesAssigner :
         class_id = containing["class_id"].values[0]
 
         if all(val in [None, np.nan] for val in [comm_name, class_id]):
-            return self._handle_undefined_species(containing, bbox, batch_id)
+            return self._handle_undefined_species(containing, bbox)
 
         return self.spec_dict["species"].get(poly_cls, self.spec_dict["species"]["plant"])
 
@@ -185,7 +191,7 @@ class SpeciesAssigner :
         log.warning(f"No nearby polygon within {self.closest_distance_thresh}m for bbox '{bbox_id}'. Using fallback species.")
         return self.spec_dict["species"]["plant"]
 
-    def _handle_undefined_species(self, containing: List[Polygon], bbox: Dict) -> Dict:
+    def _handle_undefined_species(self, containing: gpd.GeoDataFrame, bbox: Dict) -> Dict:
         poly_id = containing["id"].values[0]
         bbox_id = bbox.get("cutout_id", "unknown")
         log.warning(f"Polygon {poly_id} has no defined species. Assigning bbox {bbox_id} as non_target_weed.")

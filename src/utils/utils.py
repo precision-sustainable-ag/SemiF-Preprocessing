@@ -137,7 +137,7 @@ def get_files(cfg: DictConfig, task: str) -> List[Path]:
     date_split = date_str.split("-")
     date_time = date(int(date_split[0]), int(date_split[1]), int(date_split[2]))
     local_data_dir = Path(cfg.paths.data_dir)
-    if "inspect_images" in task or "move_data" in task or "report" in task or "no_remap_label" in task or "detect_plants" in task:
+    if "inspect_images" in task or "move_data" in task or "report" in task or "no_remap_label" in task or "detect_plants" in task or "auto_sfm" in task or "remap_labels" in task or "assign_species" in task:
         lts_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations, local=False, jpgs=True, developed=True))
     else:
         lts_dir = Path(find_lts_dir(batch_id, cfg.paths.lts_locations, local=False))
@@ -175,7 +175,7 @@ def get_files(cfg: DictConfig, task: str) -> List[Path]:
         
         return sample_org
 
-    elif task in {"update_exif", "report", "report_developed"}:
+    elif task in {"update_exif", "report", "report_developed", "auto_sfm_resize"}:
         images = _filter_by_time(sorted(lts_jpg_dst.glob("*.jpg")))
         return images
 
@@ -238,7 +238,16 @@ def is_reconstructed(cfg: DictConfig) -> bool:
     Check if the batch is reconstructed based on the presence of 'autosfm' in the artifact YAML.
     Raises an error if reconstruction status cannot be determined.
     """
-    with open(cfg.paths.artifact_path, 'r') as f:
+    sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+    local_inspection_dir = (
+        Path(cfg.paths.batch_dir) / "inspection" / sanitized_time
+        if sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+        )
+    batch_id = cfg.batch_id
+    artifact_file_name = f"{batch_id}_{sanitized_time}.yaml" if sanitized_time else f"{batch_id}.yaml"
+    artifact_yaml_path = Path(local_inspection_dir) / artifact_file_name
+    
+    with open(artifact_yaml_path, 'r') as f:
         artifact_data = yaml.safe_load(f)
     
     task_statuses = artifact_data.get("task_status", {})
@@ -596,8 +605,20 @@ def save_log_to_lts(cfg):
 
 def save_yaml_to_lts(cfg, lts_dev_dir):
     try:
+        sanitized_time = sanitize_time_for_path(cfg.start_time) if cfg.start_time else ""
+        local_inspection_dir = (
+            Path(cfg.paths.batch_dir) / "inspection" / sanitized_time
+            if sanitized_time else Path(cfg.paths.batch_dir) / "inspection"
+            )
+        batch_id = cfg.batch_id
+        artifact_file_name = f"{batch_id}_{sanitized_time}.yaml" if sanitized_time else f"{batch_id}.yaml"
+        artifact_yaml_path = Path(local_inspection_dir) / artifact_file_name
         yaml_path = Path(cfg.paths.artifact_path)
         batch_id = cfg.batch_id
+        lts_inspection_dir = (
+            Path(lts_dev_dir) / batch_id / "inspection" / sanitized_time
+            if sanitized_time else Path(lts_dev_dir) / batch_id / "inspection"
+            )
         yaml_dst_dir = Path(lts_dev_dir) / batch_id / "inspection"
         yaml_dst_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy(yaml_path, yaml_dst_dir)

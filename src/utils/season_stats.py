@@ -487,10 +487,10 @@ class SeasonReportGenerator:
 def main(cfg: DictConfig):
 
     ############# Set these ##############
-    season = "summer_weeds_2024"
-    state = "TX"
-    start = datetime(2024, 3, 26)
-    end = datetime(2024, 9, 8)
+    season = "cover_crops_2025_2026"
+    state = "NC"
+    start = datetime(2025, 11, 24)
+    end = datetime(2026, 5, 1)
     ############################################
     
     # Ensure the root directory exists
