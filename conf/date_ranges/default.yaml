@@ -57,10 +57,17 @@ MD:
     gh_reviewer: nnotaba
   cover crops 2025/2026:
     start: "2025-10-07"
-    end: "2026-04-30"
+    end: "2026-05-10"
     bbot_version: 3.1
     crs: 32618
     pipeline_season: cover_crops_2025_2026
+    gh_reviewer: nnotaba
+  weeds_2026:
+    start: "2026-06-15"
+    end: "2026-07-30"
+    bbot_version: 3.1
+    crs: 32618
+    pipeline_season: summer_weeds_2026
     gh_reviewer: nnotaba
 
 NC:
@@ -130,10 +137,17 @@ NC:
     gh_reviewer: map0425
   cover crops 2025/2026:
     start: "2025-11-10"
-    end: "2026-04-30"
+    end: "2026-05-01"
     bbot_version: 3.1
     crs: 32617
     pipeline_season: cover_crops_2025_2026
+    gh_reviewer: map0425
+  peanuts 2026:
+    start: "2026-06-04"
+    end: "2026-09-01"
+    bbot_version: 3.1
+    crs: 32617
+    pipeline_season: peanuts_2026
     gh_reviewer: map0425
 
 TX:
