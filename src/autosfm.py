@@ -1,6 +1,8 @@
 import logging
+import shutil
 import signal
 import sys
+from pathlib import Path
 import hydra
 from omegaconf import DictConfig
 
@@ -8,8 +10,7 @@ from src.utils.artifact_utils import artifact_updater
 
 from src.tasks.auto_sfm.config_utils import autosfm_present, create_config
 from src.tasks.auto_sfm.metashape_utils import SfM
-from src.tasks.auto_sfm.resize import (resize_masks,
-                                     resize_photo_diretory)
+from src.tasks.auto_sfm.resize import resize_photo_diretory
 
 # Set the logger
 log = logging.getLogger(__name__)
@@ -31,15 +32,27 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
     # Setup config
     cfg = create_config(cfg)
 
+    
     # Check if autosfm has already been run
     if cfg.asfm.check_for_asfm:
         try:
             log.info(f"Checking for autosfm contents")
             if autosfm_present(cfg):
-                log.info(
-                    f"Autosfm has already been run. All contents are available. Moving to next process."
-                )
-                raise
+
+                if cfg.asfm.remove_existing_project:
+                    log.info(f"Removing existing project before processing.")
+                    proj_path = Path(cfg.paths.proj_path)
+                    proj_dir = Path(cfg.paths.proj_dir)
+                    if proj_path.exists() and proj_dir.exists():
+                        shutil.rmtree(proj_dir)
+                        
+                
+                else:
+                    log.info(f"AutoSfM contents detected. Skipping AutoSfM pipeline and remove existing project is set to False. If you want to rerun AutoSfM, set remove_existing_project to True in the config.")
+                    raise
+            else:
+                log.info(f"No AutoSfM contents detected. Running AutoSfM pipeline.")
+                
 
         except Exception as e:
             log.exception(f"Failed to check asfm contents. Exiting")
@@ -51,9 +64,6 @@ def run_asfm_pipeline(cfg: DictConfig) -> None:
             if cfg.asfm.downscale.enabled:
                 log.info(f"Resizing images")
                 resize_photo_diretory(cfg)
-                if cfg.asfm.use_masking:
-                    log.info(f"Resizing masks")
-                    resize_masks(cfg)
         except Exception as e:
             log.exception(f"Failed to downsize images. Exiting.")
             raise
